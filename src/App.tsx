@@ -60,7 +60,7 @@ function AppContent() {
 
     // Initial log
     console.log('Initial hash:', window.location.hash.replace('#', '') || 'dashboard');
-    
+
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
@@ -262,7 +262,7 @@ function AppContent() {
             </div>
           </div>
         );
-        
+
       case 'customer-details':
         return (
           <div className="space-y-6">
@@ -284,7 +284,7 @@ function AppContent() {
             </div>
           </div>
         );
-        
+
       case 'fuel':
         return (
           <div className="space-y-6">
@@ -402,7 +402,7 @@ function AppContent() {
 
       case 'user-management':
         return <UserManagement />;
-        
+
       case 'jcb-operations':
         return (
           <div className="space-y-6">
@@ -413,7 +413,7 @@ function AppContent() {
             <JCBOperationsForm onSuccess={() => window.location.hash = 'jcb-operations-list'} />
           </div>
         );
-        
+
       case 'jcb-operations-list':
         return <JCBOperationsDetails />;
 
