@@ -23,10 +23,29 @@ interface Worker {
 	id: string;
 	name: string;
 	employee_id: string;
+	role?: string;
 }
 
-export function AttendanceForm({ onSuccess }: { onSuccess?: () => void }) {
+export function AttendanceForm({
+	onSuccess,
+	title = 'New Attendance Record',
+	defaultLocation = '',
+	workerRole,
+	allowedLocations,
+	allowedWorkTypes
+}: {
+	onSuccess?: () => void;
+	title?: string;
+	defaultLocation?: string;
+	workerRole?: string;
+	allowedLocations?: string[];
+	allowedWorkTypes?: string[];
+}) {
 	const { user } = useAuth();
+	// Use allowedLocations if provided, otherwise default to all locationTypes
+	const locationsToDisplay = allowedLocations || locationTypes;
+	// Use allowedWorkTypes if provided, otherwise default to all workTypes
+	const workTypesToDisplay = allowedWorkTypes || workTypes;
 	const [loading, setLoading] = useState(false);
 	const [workers, setWorkers] = useState<Worker[]>([]);
 	const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
@@ -37,29 +56,35 @@ export function AttendanceForm({ onSuccess }: { onSuccess?: () => void }) {
 		date: new Date().toISOString().split('T')[0],
 		check_in: new Date().toTimeString().slice(0, 5),
 		check_out: '',
-		location: '',
+		location: defaultLocation,
 		work_type: '',
 		notes: '',
 	});
 
 	useEffect(() => {
+		const loadWorkers = async () => {
+			try {
+				let query = supabase
+					.from('workers')
+					.select('*')
+					.eq('is_active', true)
+					.order('name', { ascending: true });
+
+				if (workerRole) {
+					query = query.eq('role', workerRole);
+				}
+
+				const { data, error } = await query;
+
+				if (error) throw error;
+				setWorkers(data || []);
+			} catch (error) {
+				console.error('Error loading workers:', error);
+			}
+		};
+
 		loadWorkers();
-	}, []);
-
-	const loadWorkers = async () => {
-		try {
-			const { data, error } = await supabase
-				.from('workers')
-				.select('*')
-				.eq('is_active', true)
-				.order('name', { ascending: true });
-
-			if (error) throw error;
-			setWorkers(data || []);
-		} catch (error) {
-			console.error('Error loading workers:', error);
-		}
-	};
+	}, [workerRole]);
 
 	const handleAddWorker = useCallback(async () => {
 		if (!newWorkerName.trim()) return;
@@ -72,6 +97,7 @@ export function AttendanceForm({ onSuccess }: { onSuccess?: () => void }) {
 						name: newWorkerName.trim(),
 						employee_id: newWorkerEmployeeId.trim() || null,
 						is_active: true,
+						role: workerRole || 'general'
 					},
 				])
 				.select()
@@ -88,7 +114,7 @@ export function AttendanceForm({ onSuccess }: { onSuccess?: () => void }) {
 		} catch (error) {
 			alert('Error adding worker: ' + (error instanceof Error ? error.message : 'Unknown error'));
 		}
-	}, [newWorkerName, newWorkerEmployeeId, workers, selectedWorkers]);
+	}, [newWorkerName, newWorkerEmployeeId, workers, selectedWorkers, workerRole]);
 
 	const toggleWorkerSelection = useCallback(
 		(workerId: string) => {
@@ -184,7 +210,7 @@ export function AttendanceForm({ onSuccess }: { onSuccess?: () => void }) {
 				</div>
 				<div>
 					<h3 className="text-lg font-semibold text-slate-900">
-						New Attendance Record
+						{title}
 					</h3>
 					<p className="text-sm text-slate-600">
 						Record daily attendance and work hours
@@ -221,7 +247,7 @@ export function AttendanceForm({ onSuccess }: { onSuccess?: () => void }) {
 						className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 					>
 						<option value="">Select location</option>
-						{locationTypes.map((location) => (
+						{locationsToDisplay.map((location) => (
 							<option key={location} value={location}>
 								{location}
 							</option>
@@ -271,7 +297,7 @@ export function AttendanceForm({ onSuccess }: { onSuccess?: () => void }) {
 						className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 					>
 						<option value="">Select work type</option>
-						{workTypes.map((type) => (
+						{workTypesToDisplay.map((type) => (
 							<option key={type} value={type}>
 								{type}
 							</option>
@@ -358,8 +384,8 @@ export function AttendanceForm({ onSuccess }: { onSuccess?: () => void }) {
 									<label
 										key={worker.id}
 										className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-colors ${selectedWorkers.includes(worker.id)
-												? 'border-blue-500 bg-blue-50'
-												: 'border-slate-200 hover:border-slate-300'
+											? 'border-blue-500 bg-blue-50'
+											: 'border-slate-200 hover:border-slate-300'
 											}`}
 									>
 										<input

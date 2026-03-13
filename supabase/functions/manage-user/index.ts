@@ -7,10 +7,11 @@ const corsHeaders = {
 };
 
 interface CreateUserRequest {
-  email: string;
+  employee_id: string;
   password: string;
   full_name: string;
   role: string;
+  email?: string;
   phone?: string;
 }
 
@@ -58,25 +59,36 @@ Deno.serve(async (req: Request) => {
 
     const requestData: CreateUserRequest = await req.json();
 
-    // Check if user already exists in users table
+    if (!requestData.employee_id) {
+      throw new Error('Employee ID is required');
+    }
+
+    // Check if user already exists with this employee_id in users table
     const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id')
-      .eq('email', requestData.email)
+      .eq('employee_id', requestData.employee_id)
       .maybeSingle();
 
     if (existingUser) {
-      throw new Error('A user with this email already exists in the system');
+      throw new Error('A user with this Employee ID already exists in the system');
     }
 
+    // Use provided email or generate a dummy internal email for Supabase Auth
+    const userEmail = requestData.email && requestData.email.trim() !== ''
+      ? requestData.email.trim()
+      : `${requestData.employee_id.replace(/\s+/g, '').toLowerCase()}@sribaba-internal.com`;
+
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email: requestData.email,
+      email: userEmail,
       password: requestData.password,
       email_confirm: true,
       user_metadata: {
         full_name: requestData.full_name,
         role: requestData.role,
+        email: userEmail,
         phone: requestData.phone || '',
+        employee_id: requestData.employee_id,
       },
     });
 
@@ -92,7 +104,8 @@ Deno.serve(async (req: Request) => {
       .from('users')
       .insert({
         id: newUser.user.id,
-        email: requestData.email,
+        email: userEmail, // Still required for compatibility and uniqueness at DB level occasionally
+        employee_id: requestData.employee_id,
         full_name: requestData.full_name,
         role: requestData.role,
         phone: requestData.phone || null,
@@ -102,7 +115,7 @@ Deno.serve(async (req: Request) => {
     if (insertError) {
       console.error('Failed to insert user record, cleaning up auth user:', insertError);
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-      throw new Error(`Failed to create user record: ${insertError.message}`);
+      throw new Error(`DB Error: ${insertError.message} - Details: ${JSON.stringify(insertError)}`);
     }
 
     return new Response(
@@ -117,7 +130,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('Error in manage-user function:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create user' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : JSON.stringify(error) }),
       {
         status: 400,
         headers: {

@@ -64,18 +64,24 @@ export function ProductionStockDetails() {
     });
 
   const calculateTotals = () => {
-    const materialTotals: { [key: string]: number } = {};
+    const materialTotals: { [key: string]: { [unit: string]: number } } = {};
     filteredStocks.forEach(stock => {
       if (!materialTotals[stock.material_type]) {
-        materialTotals[stock.material_type] = 0;
+        materialTotals[stock.material_type] = {};
       }
-      materialTotals[stock.material_type] += stock.quantity;
+      // Normalize unit if needed, or just use as is
+      const unit = stock.unit || 'units';
+      if (!materialTotals[stock.material_type][unit]) {
+        materialTotals[stock.material_type][unit] = 0;
+      }
+      materialTotals[stock.material_type][unit] += stock.quantity;
     });
     return materialTotals;
   };
 
   const totals = calculateTotals();
   const uniqueMaterials = Array.from(new Set(stocks.map(s => s.material_type)));
+  const uniqueLocations = new Set(filteredStocks.map(s => s.location).filter(Boolean)).size;
 
   if (loading) {
     return (
@@ -115,12 +121,12 @@ export function ProductionStockDetails() {
         <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Package className="w-5 h-5 text-purple-600" />
+              <MapPin className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-xs text-purple-600 font-medium">Total Quantity</p>
+              <p className="text-xs text-purple-600 font-medium">Active Locations</p>
               <p className="text-xl font-bold text-purple-900">
-                {filteredStocks.reduce((sum, s) => sum + s.quantity, 0).toFixed(2)}
+                {uniqueLocations}
               </p>
             </div>
           </div>
@@ -131,10 +137,17 @@ export function ProductionStockDetails() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h4 className="text-sm font-semibold text-slate-700 mb-4">Stock Summary by Material</h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(totals).map(([material, quantity]) => (
+            {Object.entries(totals).map(([material, unitTotals]) => (
               <div key={material} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-xs text-slate-600 mb-1">{formatMaterialType(material)}</p>
-                <p className="text-lg font-bold text-slate-900">{quantity.toFixed(2)}</p>
+                <p className="text-xs text-slate-600 mb-2 font-medium">{formatMaterialType(material)}</p>
+                <div className="space-y-1">
+                  {Object.entries(unitTotals).map(([unit, quantity]) => (
+                    <div key={unit} className="flex items-baseline justify-between">
+                      <span className="text-lg font-bold text-slate-900">{quantity.toFixed(2)}</span>
+                      <span className="text-xs text-slate-500 capitalize">{unit.replace('_', ' ')}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

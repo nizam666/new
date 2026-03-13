@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Factory, Calendar, Loader2 } from 'lucide-react';
+import { Factory, Calendar, Loader2, Clock } from 'lucide-react';
 
 interface CrusherProductionFormProps {
   onSuccess: () => void;
@@ -10,7 +10,23 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
   const [loading, setLoading] = useState(false);
   const [materialSources, setMaterialSources] = useState<{ label: string, value: string }[]>([]);
   const [fetchingSources, setFetchingSources] = useState(true);
-  // Fetch material sources from transport operations and auto-select the one with highest quantity
+
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    shift: 'morning',
+    crusher_type: 'jaw',
+    machine_start_time: '',
+    machine_end_time: '',
+    machine_working_hours: '0.0', // Changed default to 0.0 as it will be calculated
+    machine_downtime: '0.0',
+    maintenance_hours: '0.0',
+    material_source: 'quarry',
+    status: 'operational',
+    maintenance_notes: '',
+    notes: ''
+  });
+
+  // Fetch material sources
   useEffect(() => {
     const fetchMaterialSources = async () => {
       try {
@@ -94,18 +110,35 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
     fetchMaterialSources();
   }, []);
 
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    shift: 'morning',
-    crusher_type: 'jaw',
-    machine_working_hours: '8.0',
-    machine_downtime: '0.0',
-    maintenance_hours: '0.0',
-    material_source: 'quarry',
-    status: 'operational',
-    maintenance_notes: '',
-    notes: ''
-  });
+  // Auto-calculate working hours when start or end time changes
+  useEffect(() => {
+    if (!formData.machine_start_time || !formData.machine_end_time) return;
+
+    const start = new Date(`2000-01-01T${formData.machine_start_time}:00`);
+    const end = new Date(`2000-01-01T${formData.machine_end_time}:00`);
+
+    // Handle overnight shifts (end time < start time)
+    if (end < start) {
+      end.setDate(end.getDate() + 1);
+    }
+
+    const diffMs = end.getTime() - start.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    setFormData(prev => ({
+      ...prev,
+      machine_working_hours: diffHours.toFixed(2)
+    }));
+  }, [formData.machine_start_time, formData.machine_end_time]);
+
+  const handleSetCurrentTime = (field: 'machine_start_time' | 'machine_end_time') => {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    setFormData(prev => ({
+      ...prev,
+      [field]: timeString
+    }));
+  };
 
   const calculateTotalHours = () => {
     const working = parseFloat(formData.machine_working_hours) || 0;
@@ -143,6 +176,8 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
             date: formData.date,
             shift: formData.shift,
             crusher_type: formData.crusher_type,
+            machine_start_time: formData.machine_start_time || null,
+            machine_end_time: formData.machine_end_time || null,
             machine_working_hours: parseFloat(formData.machine_working_hours),
             machine_downtime: parseFloat(formData.machine_downtime),
             maintenance_hours: parseFloat(formData.maintenance_hours),
@@ -160,7 +195,9 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
         date: new Date().toISOString().split('T')[0],
         shift: 'morning',
         crusher_type: 'jaw',
-        machine_working_hours: '8.0',
+        machine_start_time: '',
+        machine_end_time: '',
+        machine_working_hours: '0.0',
         machine_downtime: '0.0',
         maintenance_hours: '0.0',
         material_source: 'quarry',
@@ -274,22 +311,74 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
         </div>
 
         {/* Machine Hours Tracking */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="col-span-1 md:col-span-2 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Machine Working Hours *
+                Machine Start Time *
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="time"
+                    required
+                    value={formData.machine_start_time}
+                    onChange={(e) => setFormData({ ...formData, machine_start_time: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSetCurrentTime('machine_start_time')}
+                  className="px-3 py-2 text-xs font-medium text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 border border-orange-200"
+                >
+                  Set Now
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Machine End Time *
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="time"
+                    required
+                    value={formData.machine_end_time}
+                    onChange={(e) => setFormData({ ...formData, machine_end_time: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSetCurrentTime('machine_end_time')}
+                  className="px-3 py-2 text-xs font-medium text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 border border-orange-200"
+                >
+                  Set Now
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Machine Working Hours (Auto)
               </label>
               <div className="relative">
                 <input
                   type="number"
-                  step="0.1"
+                  step="0.01"
                   min="0"
                   max="24"
                   required
+                  readOnly
                   value={formData.machine_working_hours}
-                  onChange={(e) => setFormData({ ...formData, machine_working_hours: e.target.value })}
-                  className="w-full pl-4 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="w-full pl-4 pr-10 py-2 border border-slate-200 bg-slate-50 text-slate-500 rounded-lg cursor-not-allowed"
                 />
                 <span className="absolute right-3 top-2 text-slate-500">hrs</span>
               </div>

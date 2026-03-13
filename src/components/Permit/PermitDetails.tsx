@@ -8,10 +8,13 @@ interface Permit {
   permit_type: string;
   approval_date: string;
   expiry_date: string;
+  payment_date?: string;
+  royalty_amount?: number;
   issuing_authority: string;
   status: string;
   description: string;
   document_url: string;
+  quantity_in_mt: number;
   created_at: string;
 }
 
@@ -86,83 +89,149 @@ export function PermitDetails() {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {permits.map((permit) => (
-        <div
-          key={permit.id}
-          className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <FileText className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">{permit.permit_number}</h3>
-                <p className="text-sm text-slate-600">{formatPermitType(permit.permit_type)}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {getStatusIcon(permit.status)}
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(permit.status)}`}>
-                {permit.status.replace('_', ' ').toUpperCase()}
-              </span>
-            </div>
-          </div>
+  // Separate permits into active and previous
+  const activePermits = permits.filter(p => p.status === 'active');
+  const previousPermits = permits.filter(p => p.status !== 'active');
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Issuing Authority</p>
-              <p className="text-sm font-medium text-slate-900">{permit.issuing_authority}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Approval Date</p>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-slate-400" />
-                <p className="text-sm font-medium text-slate-900">
-                  {new Date(permit.approval_date).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Expiry Date</p>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-slate-400" />
-                <p className="text-sm font-medium text-slate-900">
-                  {new Date(permit.expiry_date).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Days Until Expiry</p>
+  const renderPermitCard = (permit: Permit) => (
+    <div
+      key={permit.id}
+      className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+            <FileText className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">{permit.permit_number}</h3>
+            <p className="text-sm text-slate-600">{formatPermitType(permit.permit_type)}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {getStatusIcon(permit.status)}
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(permit.status)}`}>
+            {permit.status.replace('_', ' ').toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Issuing Authority</p>
+          <p className="text-sm font-medium text-slate-900">{permit.issuing_authority}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Date of Approval</p>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-slate-400" />
+            <p className="text-sm font-medium text-slate-900">
+              {new Date(permit.approval_date).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        {permit.payment_date && (
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Date of Payment</p>
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-slate-400" />
               <p className="text-sm font-medium text-slate-900">
-                {Math.ceil((new Date(permit.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days
+                {new Date(permit.payment_date).toLocaleDateString()}
               </p>
             </div>
           </div>
-
-          {permit.description && (
-            <div className="mb-4">
-              <p className="text-xs text-slate-500 mb-1">Description</p>
-              <p className="text-sm text-slate-700">{permit.description}</p>
-            </div>
-          )}
-
-          {permit.document_url && (
-            <div className="pt-4 border-t border-slate-200">
-              <a
-                href={permit.document_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                View Document →
-              </a>
-            </div>
-          )}
+        )}
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Expiry Date</p>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-slate-400" />
+            <p className="text-sm font-medium text-slate-900">
+              {new Date(permit.expiry_date).toLocaleDateString()}
+            </p>
+          </div>
         </div>
-      ))}
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Royalty In Rs</p>
+          <p className="text-sm font-medium text-slate-900">
+            {permit.royalty_amount ? `₹${Number(permit.royalty_amount).toLocaleString()}` : '-'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Days Until Expiry</p>
+          <p className="text-sm font-medium text-slate-900">
+            {Math.ceil((new Date(permit.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Total Quantity</p>
+          <p className="text-sm font-medium text-slate-900">
+            {permit.quantity_in_mt ? `${permit.quantity_in_mt} MT` : '-'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Remaining Quantity</p>
+          <p className="text-sm font-medium text-slate-900">
+            {permit.quantity_in_mt ? `${permit.quantity_in_mt} MT` : '-'}
+          </p>
+        </div>
+      </div>
+
+      {permit.description && (
+        <div className="mb-4">
+          <p className="text-xs text-slate-500 mb-1">Description</p>
+          <p className="text-sm text-slate-700">{permit.description}</p>
+        </div>
+      )}
+
+      {permit.document_url && (
+        <div className="pt-4 border-t border-slate-200">
+          <a
+            href={permit.document_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            View Document →
+          </a>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      {/* Active Permits Section */}
+      {activePermits.length > 0 && (
+        <div>
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-slate-900">Active Permits</h2>
+            <p className="text-sm text-slate-600 mt-1">Currently valid permits</p>
+          </div>
+          <div className="space-y-4">
+            {activePermits.map(permit => renderPermitCard(permit))}
+          </div>
+        </div>
+      )}
+
+      {/* Previous History Section */}
+      {previousPermits.length > 0 && (
+        <div>
+          <div className="mb-4 pt-6 border-t-2 border-slate-200">
+            <h2 className="text-xl font-bold text-slate-900">Previous History</h2>
+            <p className="text-sm text-slate-600 mt-1">Expired and historical permits</p>
+          </div>
+          <div className="space-y-4">
+            {previousPermits.map(permit => renderPermitCard(permit))}
+          </div>
+        </div>
+      )}
+
+      {/* If only active or only previous */}
+      {activePermits.length === 0 && previousPermits.length > 0 && (
+        <div className="space-y-4">
+          {previousPermits.map(permit => renderPermitCard(permit))}
+        </div>
+      )}
     </div>
   );
 }

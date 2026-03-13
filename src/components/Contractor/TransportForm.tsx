@@ -48,6 +48,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     fuel_consumed: '',
     material_transported: '',
     quantity: '',
+    number_of_trips: '1',
     notes: ''
   });
 
@@ -101,6 +102,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             fuel_consumed: parseFloat(formData.fuel_consumed) || 0,
             material_transported: formData.material_transported,
             quantity: parseFloat(formData.quantity) || 0,
+            number_of_trips: parseInt(formData.number_of_trips) || 1,
             notes: formData.notes,
             status: 'pending'
           }
@@ -117,6 +119,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         fuel_consumed: '',
         material_transported: '',
         quantity: '',
+        number_of_trips: '1',
         notes: ''
       });
 
@@ -264,6 +267,21 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             min="0"
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             placeholder="0.0"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Number of Trips
+          </label>
+          <input
+            type="number"
+            step="1"
+            value={formData.number_of_trips}
+            onChange={(e) => setFormData({ ...formData, number_of_trips: e.target.value })}
+            min="1"
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            placeholder="1"
           />
         </div>
 

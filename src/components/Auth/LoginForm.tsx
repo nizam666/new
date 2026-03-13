@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 
-export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
+export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
   const auth = useAuth();
-  const [email, setEmail] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -15,19 +15,18 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
     setLoading(true);
 
     try {
-      // If your context exposes a signIn / login method adapt the call below.
-      if (typeof (auth as any).signIn === 'function') {
-        const res = await (auth as any).signIn({ email, password, remember });
-        if (res?.error) throw res.error;
-      } else if (typeof (auth as any).login === 'function') {
-        const res = await (auth as any).login(email, password);
-        if (res?.error) throw res.error;
-      } else {
-        console.warn('No signIn/login method found on auth context');
+      // Auto-format employee ID to dummy email if no @ present
+      let loginEmail = loginId.trim();
+      if (!loginEmail.includes('@')) {
+        loginEmail = `${loginEmail.replace(/\s+/g, '').toLowerCase()}@sribaba-internal.com`;
       }
 
+      const { error } = await auth.signIn(loginEmail, password);
+      // 'remember' is not currently supported by auth context but kept in state for future use
+      if (error) throw error;
+
       if (onSuccess) onSuccess();
-    } catch (err: any) {
+    } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
       setError(err?.message || 'Login failed');
     } finally {
       setLoading(false);
@@ -38,9 +37,7 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-md border border-slate-200 p-8">
         <header className="mb-6 text-center">
-          <img src="/vite.svg" alt="Logo" className="mx-auto h-12 w-12 mb-3" />
-          <h1 className="text-2xl font-semibold text-slate-800">Quarry ERP</h1>
-          <p className="text-sm text-slate-500 mt-1">Mobile Operations - Contractor Portal</p>
+          <h1 className="text-2xl font-semibold text-slate-800">Sri Baba Blue Metals</h1>
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -49,14 +46,14 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Employee ID / Email</label>
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={loginId}
+              onChange={(e) => setLoginId(e.target.value)}
               className="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="you@example.com"
+              placeholder="e.g. EMP001 or you@example.com"
             />
           </div>
 
@@ -86,8 +83,14 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
               type="button"
               onClick={() => {
                 // If you have a forgot-password flow, route or call it here
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if (typeof (auth as any).sendPasswordReset === 'function') {
-                  (auth as any).sendPasswordReset(email);
+                  let resetEmail = loginId.trim();
+                  if (!resetEmail.includes('@')) {
+                    resetEmail = `${resetEmail.replace(/\s+/g, '').toLowerCase()}@sribaba-internal.com`;
+                  }
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (auth as any).sendPasswordReset(resetEmail);
                 } else {
                   // fallback - you can open a modal / route to forgot page
                   console.warn('Forgot password action not implemented');
@@ -117,7 +120,9 @@ export default function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
               type="button"
               onClick={() => {
                 // adapt to your signup route / modal
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if (typeof (auth as any).openSignup === 'function') {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   (auth as any).openSignup();
                 } else {
                   window.location.hash = 'signup';

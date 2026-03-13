@@ -9,6 +9,7 @@ const materialTypes = [
   'KVSS Soil',
   'SBBM Slurry Work',
   'SBBM Stockyard Good Boulders',
+  'Aggregates rehandling/ Aggregate Loading',
   'Others'
 ];
 
@@ -90,7 +91,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
           <Truck className="w-5 h-5 text-green-600" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">New Breaking/Loading Record</h3>
+          <h3 className="text-lg font-semibold text-slate-900">New Breaking/Loading Record for excavator</h3>
           <p className="text-sm text-slate-600">Track material breaking and loading operations</p>
         </div>
       </div>

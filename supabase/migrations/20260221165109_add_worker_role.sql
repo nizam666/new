@@ -1,0 +1,25 @@
+/*
+  # Add worker role to users table
+
+  1. Changes
+    - Drops the existing check constraint on `role`
+    - Adds an updated check constraint that includes 'worker' and 'workers'
+*/
+
+DO $$ 
+DECLARE
+  constraint_name text;
+BEGIN
+  -- get the name of the role check constraint on users table
+  SELECT conname INTO constraint_name
+  FROM pg_constraint
+  WHERE conrelid = 'users'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%role%';
+
+  IF constraint_name IS NOT NULL THEN
+    EXECUTE 'ALTER TABLE users DROP CONSTRAINT ' || constraint_name;
+  END IF;
+
+  -- Add the new constraint with worker role
+  ALTER TABLE users ADD CONSTRAINT users_role_check 
+    CHECK (role IN ('contractor', 'crusher_manager', 'manager', 'sales', 'director', 'worker', 'workers'));
+END $$;

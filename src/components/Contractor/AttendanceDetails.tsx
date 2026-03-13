@@ -35,7 +35,7 @@ interface AttendanceStats {
   averageWorkersPerDay: number;
 }
 
-export function AttendanceDetails() {
+export function AttendanceDetails({ allowedLocations }: { allowedLocations?: string[] }) {
   const { user } = useAuth();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [stats, setStats] = useState<AttendanceStats>({
@@ -54,11 +54,17 @@ export function AttendanceDetails() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Re-write query construction to be cleaner
+      let query = supabase
         .from('attendance_records')
         .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false });
+        .eq('user_id', user.id);
+
+      if (allowedLocations && allowedLocations.length > 0) {
+        query = query.in('location', allowedLocations);
+      }
+
+      const { data, error } = await query.order('date', { ascending: false });
 
       if (error) throw error;
 
@@ -112,7 +118,7 @@ export function AttendanceDetails() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, allowedLocations]);
 
   useEffect(() => {
     loadRecords();

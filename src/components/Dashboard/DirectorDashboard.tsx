@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  TrendingUp,
   Users,
   Drill,
   Factory,
@@ -13,7 +12,10 @@ import {
   XCircle,
   Clock,
   FileText,
-  Zap
+  Zap,
+  ArrowRight,
+  Activity,
+  Layers
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -85,7 +87,6 @@ export function DirectorDashboard() {
 
       const totalRevenue = salesOrdersData.data?.reduce((sum, order) => sum + Number(order.total_amount || 0), 0) || 0;
 
-      // Calculate EB report statistics
       const totalEBReports = ebReportsData.data?.length || 0;
       const totalUnitsConsumed = ebReportsData.data?.reduce((sum, report) => sum + (Number(report.units_consumed) || 0), 0) || 0;
       const totalEBCost = ebReportsData.data?.reduce((sum, report) => sum + (Number(report.total_cost) || 0), 0) || 0;
@@ -154,19 +155,19 @@ export function DirectorDashboard() {
 
       await loadApprovals();
       await loadDashboardData();
-      alert(`Request ${newStatus} successfully!`);
+      // Optional: Add toast notification here
     } catch (error) {
-      alert('Error updating approval: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Error updating approval:', error);
     }
   };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      approved: 'bg-green-100 text-green-700',
-      rejected: 'bg-red-100 text-red-700',
+      pending: 'bg-amber-50 text-amber-700 border-amber-200',
+      approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      rejected: 'bg-rose-50 text-rose-700 border-rose-200',
     };
-    return colors[status] || 'bg-slate-100 text-slate-700';
+    return colors[status] || 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
   const getRecordTypeLabel = (type: string) => {
@@ -181,212 +182,180 @@ export function DirectorDashboard() {
     return labels[type] || type;
   };
 
-  const statCards = [
+  const statGroups = [
     {
-      name: 'Total Revenue',
-      value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`,
-      icon: DollarSign,
-      color: 'bg-green-500',
-      trend: '+12.5%',
-      href: '#sales'
+      title: "Financial Overview",
+      items: [
+        {
+          name: 'Total Revenue',
+          value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`,
+          icon: DollarSign,
+          color: 'from-emerald-500 to-teal-500',
+          lightColor: 'bg-emerald-50 text-emerald-600',
+          href: '#sales'
+        },
+        {
+          name: 'Sales Orders',
+          value: stats.totalSalesOrders,
+          icon: ShoppingCart,
+          color: 'from-blue-500 to-indigo-500',
+          lightColor: 'bg-blue-50 text-blue-600',
+          href: '#sales'
+        }
+      ]
     },
     {
-      name: 'Drilling Records',
-      value: stats.totalDrillingRecords,
-      icon: Drill,
-      color: 'bg-blue-500',
-      trend: '+8.2%',
-      href: '#drilling'
+      title: "Production Metrics",
+      items: [
+        {
+          name: 'Production',
+          value: stats.totalProductionRecords,
+          icon: Factory,
+          color: 'from-orange-500 to-amber-500',
+          lightColor: 'bg-orange-50 text-orange-600',
+          href: '#production'
+        },
+        {
+          name: 'Drilling',
+          value: stats.totalDrillingRecords,
+          icon: Drill,
+          color: 'from-violet-500 to-purple-500',
+          lightColor: 'bg-violet-50 text-violet-600',
+          href: '#drilling'
+        },
+        {
+          name: 'Blasting',
+          value: stats.totalBlastingRecords,
+          icon: Zap,
+          color: 'from-rose-500 to-red-500',
+          lightColor: 'bg-rose-50 text-rose-600',
+          href: '#blasting'
+        }
+      ]
     },
     {
-      name: 'Production Records',
-      value: stats.totalProductionRecords,
-      icon: Factory,
-      color: 'bg-orange-500',
-      trend: '+5.7%',
-      href: '#production'
+      title: "Operational Costs",
+      items: [
+        {
+          name: 'EB Cost',
+          value: `₹${stats.totalEBCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
+          icon: DollarSign,
+          color: 'from-pink-500 to-rose-500',
+          lightColor: 'bg-pink-50 text-pink-600',
+          href: '#eb-reports'
+        },
+        {
+          name: 'Units Consumed',
+          value: stats.totalUnitsConsumed.toFixed(0),
+          icon: Zap,
+          color: 'from-yellow-400 to-amber-500',
+          lightColor: 'bg-yellow-50 text-yellow-600',
+          href: '#eb-reports'
+        }
+      ]
     },
     {
-      name: 'Sales Orders',
-      value: stats.totalSalesOrders,
-      icon: ShoppingCart,
-      color: 'bg-slate-900',
-      trend: '+15.3%',
-      href: '#sales'
-    },
-    {
-      name: 'Pending Approvals',
-      value: stats.pendingApprovals,
-      icon: AlertCircle,
-      color: 'bg-yellow-500',
-      trend: '',
-      href: '#approvals'
-    },
-    {
-      name: 'Active Users',
-      value: stats.activeUsers,
-      icon: Users,
-      color: 'bg-cyan-500',
-      trend: '',
-      href: '#user-management'
-    },
-    {
-      name: 'Today Attendance',
-      value: stats.todayAttendance,
-      icon: CheckCircle,
-      color: 'bg-green-500',
-      trend: '',
-      href: '#attendance'
-    },
-    {
-      name: 'Blasting Records',
-      value: stats.totalBlastingRecords,
-      icon: Factory,
-      color: 'bg-red-500',
-      trend: '+3.1%',
-      href: '#blasting'
-    },
-    {
-      name: 'EB Reports',
-      value: stats.totalEBReports,
-      icon: TrendingUp,
-      color: 'bg-yellow-500',
-      trend: '',
-      href: '#eb-reports'
-    },
-    {
-      name: 'EB Units Consumed',
-      value: stats.totalUnitsConsumed.toFixed(2),
-      icon: Zap,
-      color: 'bg-purple-500',
-      trend: '',
-      href: '#eb-reports'
-    },
-    {
-      name: 'Total EB Cost',
-      value: `₹${stats.totalEBCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      icon: DollarSign,
-      color: 'bg-green-500',
-      trend: '',
-      href: '#eb-reports'
-    },
+      title: "Workforce",
+      items: [
+        {
+          name: 'Active Users',
+          value: stats.activeUsers,
+          icon: Users,
+          color: 'from-cyan-500 to-sky-500',
+          lightColor: 'bg-cyan-50 text-cyan-600',
+          href: '#user-management'
+        },
+        {
+          name: 'Attendance',
+          value: stats.todayAttendance,
+          icon: Clock,
+          color: 'from-lime-500 to-green-500',
+          lightColor: 'bg-lime-50 text-lime-600',
+          href: '#attendance'
+        }
+      ]
+    }
   ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-slate-600">Loading dashboard...</div>
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-4 border-slate-200 animate-spin"></div>
+          <div className="absolute top-0 left-0 w-12 h-12 rounded-full border-4 border-slate-900 border-t-transparent animate-spin"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Director Dashboard</h2>
-        <p className="text-slate-600 mt-1">Overview of all operations and key metrics</p>
+    <div className="space-y-8 max-w-[1600px] mx-auto pb-10">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Director Overview</h1>
+          <p className="text-slate-500 mt-1 flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            Real-time operational metrics
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <div className="px-4 py-2 bg-white rounded-lg border border-slate-200 text-sm font-medium text-slate-600 shadow-sm flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            System Operational
+          </div>
+          <div className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium shadow-lg shadow-slate-900/20">
+            {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat) => (
-          <a
-            key={stat.name}
-            href={stat.href}
-            className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-slate-600">{stat.name}</p>
-                <p className="text-2xl font-bold text-slate-900 mt-2">{stat.value}</p>
-                {stat.trend && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <TrendingUp className="w-4 h-4 text-green-500" />
-                    <span className="text-sm text-green-500 font-medium">{stat.trend}</span>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {statGroups.map((group) => (
+          <div key={group.title} className="space-y-4">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider pl-1">{group.title}</h3>
+            <div className="grid gap-4">
+              {group.items.map((stat) => (
+                <a
+                  key={stat.name}
+                  href={stat.href}
+                  className="group relative bg-white rounded-xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
+                >
+                  <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${stat.color} opacity-5 -mr-10 -mt-10 rounded-full blur-2xl group-hover:opacity-10 transition-opacity`}></div>
+
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-slate-500">{stat.name}</p>
+                      <p className="text-2xl font-bold text-slate-800 mt-1 tracking-tight">{stat.value}</p>
+                    </div>
+                    <div className={`p-3 rounded-lg ${stat.lightColor} group-hover:scale-110 transition-transform duration-300`}>
+                      <stat.icon className="w-5 h-5" />
+                    </div>
                   </div>
-                )}
-              </div>
-              <div className={`${stat.color} w-12 h-12 rounded-lg flex items-center justify-center`}>
-                <stat.icon className="w-6 h-6 text-white" />
-              </div>
+                </a>
+              ))}
             </div>
-          </a>
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Activities</h3>
-          <div className="space-y-4">
-            <div className="flex items-start gap-3 pb-4 border-b border-slate-100">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <Drill className="w-4 h-4 text-blue-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900">New drilling record submitted</p>
-                <p className="text-xs text-slate-500 mt-1">2 hours ago</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 pb-4 border-b border-slate-100">
-              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-                <ShoppingCart className="w-4 h-4 text-green-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900">New sales order created</p>
-                <p className="text-xs text-slate-500 mt-1">4 hours ago</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                <Factory className="w-4 h-4 text-orange-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900">Production report approved</p>
-                <p className="text-xs text-slate-500 mt-1">5 hours ago</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <a href="#approvals" className="p-4 border-2 border-slate-200 rounded-lg hover:border-slate-900 hover:bg-slate-50 transition-all">
-              <AlertCircle className="w-6 h-6 text-slate-900 mb-2" />
-              <p className="text-sm font-medium text-slate-900">Review Approvals</p>
-            </a>
-            <a href="#reports" className="p-4 border-2 border-slate-200 rounded-lg hover:border-slate-900 hover:bg-slate-50 transition-all">
-              <Users className="w-6 h-6 text-slate-900 mb-2" />
-              <p className="text-sm font-medium text-slate-900">View Reports</p>
-            </a>
-            <a href="#sales" className="p-4 border-2 border-slate-200 rounded-lg hover:border-slate-900 hover:bg-slate-50 transition-all">
-              <ShoppingCart className="w-6 h-6 text-slate-900 mb-2" />
-              <p className="text-sm font-medium text-slate-900">Sales Overview</p>
-            </a>
-            <a href="#production" className="p-4 border-2 border-slate-200 rounded-lg hover:border-slate-900 hover:bg-slate-50 transition-all">
-              <Factory className="w-6 h-6 text-slate-900 mb-2" />
-              <p className="text-sm font-medium text-slate-900">Production Stats</p>
-            </a>
-          </div>
-        </div>
-      </div>
-
-      {/* Approvals Section */}
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Approvals</h2>
-          <p className="text-slate-600 mt-1">Review and approve pending requests</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div className="border-b border-slate-200 p-4">
-            <div className="flex gap-2">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Approvals Section - Takes up 2 columns */}
+        <div className="xl:col-span-2 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-slate-400" />
+              Approval Requests
+            </h2>
+            <div className="flex bg-slate-100 p-1 rounded-lg">
               {(['all', 'pending', 'approved', 'rejected'] as const).map((status) => (
                 <button
                   key={status}
                   onClick={() => setFilter(status)}
-                  className={`px-4 py-2 rounded-lg font-medium capitalize transition-colors ${filter === status
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-all duration-200 ${filter === status
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
                     }`}
                 >
                   {status}
@@ -395,50 +364,60 @@ export function DirectorDashboard() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             {approvals.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                <p className="text-slate-600">No approval requests found</p>
+              <div className="text-center py-16">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-medium text-slate-900">No requests found</h3>
+                <p className="text-slate-500">There are no approval requests matching your filter.</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="divide-y divide-slate-100">
                 {approvals.map((approval) => (
-                  <div
-                    key={approval.id}
-                    className="border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-semibold text-slate-900">
-                            {getRecordTypeLabel(approval.record_type)}
-                          </h4>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(approval.status)}`}>
-                            {approval.status}
-                          </span>
+                  <div key={approval.id} className="p-5 hover:bg-slate-50 transition-colors group">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`mt-1 w-10 h-10 rounded-full flex items-center justify-center border ${getStatusColor(approval.status).replace('bg-', 'border-').replace('text-', 'text-')}`}>
+                          {approval.status === 'approved' ? (
+                            <CheckCircle className="w-5 h-5" />
+                          ) : approval.status === 'rejected' ? (
+                            <XCircle className="w-5 h-5" />
+                          ) : (
+                            <Clock className="w-5 h-5" />
+                          )}
                         </div>
-                        <p className="text-sm text-slate-600">
-                          Submitted by {approval.users?.full_name} on{' '}
-                          {new Date(approval.submitted_at).toLocaleDateString()}
-                        </p>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-slate-900">
+                              {getRecordTypeLabel(approval.record_type)}
+                            </h4>
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(approval.status)}`}>
+                              {approval.status}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-500 mt-1">
+                            Submitted by <span className="font-medium text-slate-700">{approval.users?.full_name}</span> • {new Date(approval.submitted_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
                       </div>
 
                       {approval.status === 'pending' && (
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleApproval(approval.id, 'approved')}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="Approve"
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm text-sm font-medium"
                           >
-                            <CheckCircle className="w-5 h-5" />
+                            <CheckCircle className="w-4 h-4" />
+                            Approve
                           </button>
                           <button
                             onClick={() => handleApproval(approval.id, 'rejected')}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Reject"
+                            className="flex items-center gap-2 px-4 py-2 bg-white text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-50 transition-colors text-sm font-medium"
                           >
-                            <XCircle className="w-5 h-5" />
+                            <XCircle className="w-4 h-4" />
+                            Reject
                           </button>
                         </div>
                       )}
@@ -450,29 +429,62 @@ export function DirectorDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl p-6 text-white">
-            <Clock className="w-10 h-10 mb-3 opacity-80" />
-            <p className="text-2xl font-bold">
-              {approvals.filter(a => a.status === 'pending').length}
-            </p>
-            <p className="text-yellow-100 mt-1">Pending Approvals</p>
+        {/* Right Column - Quick Stats & Actions */}
+        <div className="space-y-8">
+          {/* Quick Actions */}
+          <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-xl shadow-slate-900/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+            <h3 className="text-lg font-bold mb-6 relative z-10">Quick Actions</h3>
+            <div className="grid grid-cols-2 gap-3 relative z-10">
+              <a href="#approvals" className="flex flex-col items-center justify-center p-4 rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 hover:border-white/20 group">
+                <AlertCircle className="w-6 h-6 mb-2 text-yellow-400 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-medium text-slate-300">Approvals</span>
+              </a>
+              <a href="#reports" className="flex flex-col items-center justify-center p-4 rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 hover:border-white/20 group">
+                <FileText className="w-6 h-6 mb-2 text-blue-400 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-medium text-slate-300">Reports</span>
+              </a>
+              <a href="#sales" className="flex flex-col items-center justify-center p-4 rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 hover:border-white/20 group">
+                <ShoppingCart className="w-6 h-6 mb-2 text-emerald-400 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-medium text-slate-300">New Sale</span>
+              </a>
+              <a href="#production" className="flex flex-col items-center justify-center p-4 rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 hover:border-white/20 group">
+                <Factory className="w-6 h-6 mb-2 text-orange-400 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-medium text-slate-300">Production</span>
+              </a>
+            </div>
           </div>
 
-          <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl p-6 text-white">
-            <CheckCircle className="w-10 h-10 mb-3 opacity-80" />
-            <p className="text-2xl font-bold">
-              {approvals.filter(a => a.status === 'approved').length}
-            </p>
-            <p className="text-green-100 mt-1">Approved Today</p>
-          </div>
+          {/* Pending Summary */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">Pending Requests</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-700">Pending Review</span>
+                </div>
+                <span className="text-lg font-bold text-amber-700">{stats.pendingApprovals}</span>
+              </div>
 
-          <div className="bg-gradient-to-br from-red-500 to-pink-500 rounded-xl p-6 text-white">
-            <XCircle className="w-10 h-10 mb-3 opacity-80" />
-            <p className="text-2xl font-bold">
-              {approvals.filter(a => a.status === 'rejected').length}
-            </p>
-            <p className="text-red-100 mt-1">Rejected Today</p>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Users className="w-4 h-4 text-slate-600" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-700">Active Users</span>
+                </div>
+                <span className="text-lg font-bold text-slate-900">{stats.activeUsers}</span>
+              </div>
+            </div>
+
+            <a href="#approvals" className="flex items-center justify-center gap-2 w-full mt-6 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors border border-dashed border-slate-300">
+              View All Requests
+              <ArrowRight className="w-4 h-4" />
+            </a>
           </div>
         </div>
       </div>

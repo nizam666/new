@@ -26,6 +26,7 @@ interface TransportRecord {
   fuel_consumed: number;
   material_transported: string;
   quantity: number;
+  number_of_trips: number;
   notes: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
@@ -47,6 +48,7 @@ export function TransportDetails() {
     totalQuantity: 0,
     totalTrips: 0
   });
+
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<TransportRecord | null>(null);
 
@@ -68,7 +70,8 @@ export function TransportDetails() {
       const totalDistance = data?.reduce((sum, r) => sum + r.distance_km, 0) || 0;
       const totalFuel = data?.reduce((sum, r) => sum + r.fuel_consumed, 0) || 0;
       const totalQuantity = data?.reduce((sum, r) => sum + r.quantity, 0) || 0;
-      const totalTrips = data?.length || 0;
+      // Sum the number_of_trips column if available, otherwise just count rows (fallback)
+      const totalTrips = data?.reduce((sum, r) => sum + (r.number_of_trips || 1), 0) || 0;
 
       setStats({
         totalDistance,
@@ -241,6 +244,14 @@ export function TransportDetails() {
                       <span className="text-xs font-medium text-slate-600">Fuel</span>
                     </div>
                     <p className="text-sm font-bold text-slate-900">{record.fuel_consumed} L</p>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <BarChart3 className="w-4 h-4 text-green-600" />
+                      <span className="text-xs font-medium text-slate-600">Trips</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-900">{record.number_of_trips || 1}</p>
                   </div>
                 </div>
 

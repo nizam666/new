@@ -14,6 +14,8 @@ type JCBRecord = {
   end_time: string;
   total_hours: number;
   fuel_consumed: number;
+  diesel_given_hours: number | null;
+  licence_number: string | null;
   work_description: string | null;
   notes: string | null;
   status: string;
@@ -50,6 +52,7 @@ export function JCBOperationsDetails() {
         query = query.or(
           `operator_name.ilike.%${searchTerm}%,
            vehicle_number.ilike.%${searchTerm}%,
+           licence_number.ilike.%${searchTerm}%,
            location.ilike.%${searchTerm}%,
            work_description.ilike.%${searchTerm}%`
         );
@@ -163,13 +166,19 @@ export function JCBOperationsDetails() {
                     Vehicle
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Licence No
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Location
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Hours
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Fuel (L)
+                    Diesel (L)
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Diesel Hours
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Status
@@ -194,6 +203,9 @@ export function JCBOperationsDetails() {
                       <div className="text-sm font-medium text-slate-900">{record.vehicle_number}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-slate-500">{record.licence_number || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <MapPin className="h-4 w-4 text-slate-400 mr-2" />
                         <div className="text-sm text-slate-500">{record.location}</div>
@@ -214,6 +226,11 @@ export function JCBOperationsDetails() {
                         <div className="text-sm text-slate-900">
                           {record.fuel_consumed} L
                         </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-slate-900">
+                        {record.diesel_given_hours ? `${record.diesel_given_hours} h` : '-'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

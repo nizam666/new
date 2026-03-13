@@ -30,42 +30,50 @@ export interface MenuItem {
 export const DIRECTOR_NAV: MenuItem[] = [
     { name: 'Dashboard', icon: Home, href: '#dashboard' },
     {
-        name: 'Operations',
+        name: 'Quarry Work',
         icon: Factory,
         children: [
             { name: 'Drilling', icon: Drill, href: '#drilling' },
             { name: 'Blasting', icon: Factory, href: '#blasting' },
             { name: 'Breaking/Loading', icon: ClipboardCheck, href: '#loading' },
             { name: 'Transport', icon: Truck, href: '#transport' },
+            { name: 'Attendance', icon: Clock, href: '#quarry-attendance' },
+
+        ]
+    },
+    {
+        name: 'Crusher Work',
+        icon: Factory,
+        children: [
+            {
+                name: 'Workforce',
+                icon: Users,
+                children: [
+                    { name: 'Attendance', icon: Clock, href: '#attendance' },
+                    { name: 'Photos/Videos', icon: Camera, href: '#media' },
+                ]
+            },
+            {
+                name: 'Resources',
+                icon: Package,
+                children: [
+                    { name: 'Inventory', icon: Package, href: '#inventory' },
+                    { name: 'Fuel', icon: Fuel, href: '#fuel' },
+                    { name: 'Safety', icon: Shield, href: '#safety' },
+                ]
+            },
+            {
+                name: 'Crusher Production',
+                icon: Factory,
+                href: '#crusher-production'
+            },
+            {
+                name: 'EB Reports',
+                icon: Zap,
+                href: '#eb-reports'
+            },
             { name: 'JCB Operations', icon: Truck, href: '#jcb-operations' },
         ]
-    },
-    {
-        name: 'Workforce',
-        icon: Users,
-        children: [
-            { name: 'Attendance', icon: Clock, href: '#attendance' },
-            { name: 'Photos/Videos', icon: Camera, href: '#media' },
-        ]
-    },
-    {
-        name: 'Resources',
-        icon: Package,
-        children: [
-            { name: 'Inventory', icon: Package, href: '#inventory' },
-            { name: 'Fuel', icon: Fuel, href: '#fuel' },
-            { name: 'Safety', icon: Shield, href: '#safety' },
-        ]
-    },
-    {
-        name: 'Crusher Production',
-        icon: Factory,
-        href: '#crusher-production'
-    },
-    {
-        name: 'EB Reports',
-        icon: Zap,
-        href: '#eb-reports'
     },
     {
         name: 'Sales & Customers',
@@ -78,15 +86,27 @@ export const DIRECTOR_NAV: MenuItem[] = [
     {
         name: 'Permits',
         icon: FileText,
-        children: [
-            { name: 'New Permit', icon: FileText, href: '#new-permit' }
-        ]
+        href: '#new-permit'
     },
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
     { name: 'Dispatch List', icon: List, href: '#dispatch-payment' },
-    { name: 'Stock Management', icon: Package, href: '#stock-management' },
+    {
+        name: 'Stock Management',
+        icon: Package,
+        children: [
+            { name: 'Production Stock', icon: Package, href: '#production-stock' },
+            { name: 'Purchase Requests', icon: ShoppingCart, href: '#purchase-requests' },
+        ]
+    },
     { name: 'User Management', icon: Users, href: '#user-management' },
-    { name: 'Reports', icon: BarChart3, href: '#reports' },
+    {
+        name: 'Reports',
+        icon: BarChart3,
+        children: [
+            { name: 'Dashboard', icon: BarChart3, href: '#reports' },
+            { name: 'Permit Reports', icon: FileText, href: '#permit-report' }
+        ]
+    },
 ];
 
 export const MANAGER_NAV: MenuItem[] = [

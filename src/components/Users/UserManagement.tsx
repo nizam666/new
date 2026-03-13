@@ -4,6 +4,7 @@ import { UserPlus, Trash2, Edit2, CheckCircle, XCircle, Search } from 'lucide-re
 
 interface User {
   id: string;
+  employee_id?: string;
   email: string;
   full_name: string;
   role: string;
@@ -19,10 +20,11 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
-    email: '',
+    employee_id: '',
     password: '',
     full_name: '',
     role: 'contractor',
+    email: '',
     phone: '',
   });
 
@@ -30,7 +32,7 @@ export function UserManagement() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, full_name, role, phone, is_active, created_at')
+        .select('id, employee_id, email, full_name, role, phone, is_active, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -64,10 +66,11 @@ export function UserManagement() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: formData.email,
+          employee_id: formData.employee_id,
           password: formData.password,
           full_name: formData.full_name,
           role: formData.role,
+          email: formData.email,
           phone: formData.phone,
         }),
       });
@@ -81,10 +84,11 @@ export function UserManagement() {
       alert('User created successfully!');
       setShowAddForm(false);
       setFormData({
-        email: '',
+        employee_id: '',
         password: '',
         full_name: '',
         role: 'contractor',
+        email: '',
         phone: '',
       });
       loadUsers();
@@ -104,6 +108,7 @@ export function UserManagement() {
         .update({
           full_name: formData.full_name,
           role: formData.role,
+          email: formData.email,
           phone: formData.phone,
         })
         .eq('id', editingUser.id);
@@ -113,10 +118,11 @@ export function UserManagement() {
       alert('User updated successfully!');
       setEditingUser(null);
       setFormData({
-        email: '',
+        employee_id: '',
         password: '',
         full_name: '',
         role: 'contractor',
+        email: '',
         phone: '',
       });
       loadUsers();
@@ -141,8 +147,8 @@ export function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userEmail: string) => {
-    if (!confirm(`Are you sure you want to delete user ${userEmail}? This action cannot be undone.`)) {
+  const handleDeleteUser = async (userId: string, userIdentifier: string) => {
+    if (!confirm(`Are you sure you want to delete user ${userIdentifier}? This action cannot be undone.`)) {
       return;
     }
 
@@ -165,11 +171,12 @@ export function UserManagement() {
   const startEdit = (user: User) => {
     setEditingUser(user);
     setFormData({
-      email: user.email,
+      employee_id: user.employee_id || user.email,
       password: '',
       full_name: user.full_name,
       role: user.role,
-      phone: user.phone || '',
+      email: user.email || '',
+      phone: user.phone?.startsWith('+91') ? user.phone : (user.phone ? `+91 ${user.phone}` : ''),
     });
     setShowAddForm(true);
   };
@@ -178,10 +185,11 @@ export function UserManagement() {
     setShowAddForm(false);
     setEditingUser(null);
     setFormData({
-      email: '',
+      employee_id: '',
       password: '',
       full_name: '',
       role: 'contractor',
+      email: '',
       phone: '',
     });
   };
@@ -223,6 +231,7 @@ export function UserManagement() {
 
   const filteredUsers = users.filter(user =>
     user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (user.employee_id && user.employee_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -251,7 +260,15 @@ export function UserManagement() {
             Cleanup Orphaned Users
           </button>
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => {
+              if (!showAddForm) {
+                // Auto-generate next employee ID
+                const nextId = users.length + 1;
+                const formattedId = `EMP${nextId.toString().padStart(3, '0')}`;
+                setFormData(prev => ({ ...prev, employee_id: formattedId }));
+              }
+              setShowAddForm(!showAddForm);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
           >
             <UserPlus className="w-5 h-5" />
@@ -269,15 +286,13 @@ export function UserManagement() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Email *
+                  Employee ID (Auto-generated) *
                 </label>
                 <input
-                  type="email"
-                  required
-                  disabled={!!editingUser}
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
+                  type="text"
+                  readOnly
+                  value={formData.employee_id}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed"
                 />
               </div>
 
@@ -323,20 +338,44 @@ export function UserManagement() {
                   <option value="crusher_manager">Crusher Manager</option>
                   <option value="manager">Manager</option>
                   <option value="sales">Sales</option>
-                  <option value="director">Director</option>
+                  <option value="worker">Workers</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"
+                  title="Please enter a valid email address (e.g. name@example.com)"
+                  placeholder="name@example.com"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Phone
                 </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                />
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-slate-300 bg-slate-50 text-slate-500 text-sm">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    value={formData.phone.replace(/^\+91\s*/, '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, phone: val ? `+91 ${val}` : '' });
+                    }}
+                    className="flex-1 w-full px-3 py-2 border border-slate-300 rounded-none rounded-r-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                    placeholder="10-digit number"
+                  />
+                </div>
               </div>
             </div>
 
@@ -357,7 +396,8 @@ export function UserManagement() {
             </div>
           </form>
         </div>
-      )}
+      )
+      }
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="p-4 border-b border-slate-200">
@@ -365,7 +405,7 @@ export function UserManagement() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search users by name, email, or role..."
+              placeholder="Search users by name, employee ID, or role..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
@@ -403,7 +443,7 @@ export function UserManagement() {
                   <td className="px-6 py-4">
                     <div>
                       <div className="text-sm font-medium text-slate-900">{user.full_name}</div>
-                      <div className="text-sm text-slate-500">{user.email}</div>
+                      <div className="text-sm text-slate-500">{user.employee_id || user.email}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -445,7 +485,7 @@ export function UserManagement() {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteUser(user.id, user.email)}
+                        onClick={() => handleDeleteUser(user.id, user.employee_id || user.email)}
                         className="p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete user"
                       >
@@ -473,6 +513,6 @@ export function UserManagement() {
           <strong className="ml-3">Inactive:</strong> {users.filter(u => !u.is_active).length}
         </p>
       </div>
-    </div>
+    </div >
   );
 }

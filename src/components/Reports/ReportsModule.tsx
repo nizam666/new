@@ -3,7 +3,8 @@ import { ProductionReportModule } from './ProductionReportModule';
 import { QuarryProductionReportModule } from './QuarryProductionReportModule';
 import { SalesReportModule } from './SalesReportModule';
 import { AccountingReportModule } from './AccountingReportModule';
-import { Factory, Drill, ShoppingCart, Wallet } from 'lucide-react';
+import { OperationsHistoryModule } from './OperationsHistoryModule';
+import { Factory, Drill, ShoppingCart, Wallet, ClipboardList } from 'lucide-react';
 
 export function ReportsModule() {
   const [activeReport, setActiveReport] = useState<string>('production');
@@ -22,6 +23,13 @@ export function ReportsModule() {
       description: 'Contractor operations summary',
       icon: Drill,
       color: 'orange'
+    },
+    {
+      id: 'history',
+      name: 'Operations History',
+      description: 'Detailed records and logs',
+      icon: ClipboardList,
+      color: 'purple'
     },
     {
       id: 'sales',
@@ -62,6 +70,13 @@ export function ReportsModule() {
         iconText: 'text-orange-600',
         text: isActive ? 'text-orange-900' : 'text-slate-700'
       },
+      purple: {
+        bg: isActive ? 'bg-purple-50' : 'bg-white',
+        border: isActive ? 'border-purple-500' : 'border-slate-200',
+        iconBg: 'bg-purple-100',
+        iconText: 'text-purple-600',
+        text: isActive ? 'text-purple-900' : 'text-slate-700'
+      },
       green: {
         bg: isActive ? 'bg-green-50' : 'bg-white',
         border: isActive ? 'border-green-500' : 'border-slate-200',
@@ -86,6 +101,8 @@ export function ReportsModule() {
         return <ProductionReportModule />;
       case 'quarry':
         return <QuarryProductionReportModule />;
+      case 'history':
+        return <OperationsHistoryModule />;
       case 'sales':
         return <SalesReportModule />;
       case 'accounting':

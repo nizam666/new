@@ -8,7 +8,7 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     operator_name: '',
@@ -17,6 +17,8 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
     end_time: '',
     total_hours: '',
     fuel_consumed: '',
+    diesel_given_hours: '',
+    licence_number: '',
     work_description: '',
     notes: ''
   });
@@ -39,22 +41,22 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
         return hours + minutes / 60;
       }
     }
-    
+
     // Try to parse time in H:MM AM/PM format (12-hour)
     const time12Match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/i);
     if (time12Match) {
       let hours = parseInt(time12Match[1], 10);
       const minutes = parseInt(time12Match[2], 10);
       const period = (time12Match[3] || '').toLowerCase();
-      
+
       if (period === 'pm' && hours < 12) hours += 12;
       if (period === 'am' && hours === 12) hours = 0;
-      
+
       if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
         return hours + minutes / 60;
       }
     }
-    
+
     return null;
   };
 
@@ -62,13 +64,13 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
     if (formData.start_time && formData.end_time) {
       const startHours = parseTime(formData.start_time);
       const endHours = parseTime(formData.end_time);
-      
+
       if (startHours !== null && endHours !== null) {
         let diffHours = endHours - startHours;
         if (diffHours < 0) {
           diffHours += 24; // Add 24 hours if end time is on the next day
         }
-        
+
         setFormData(prev => ({
           ...prev,
           total_hours: diffHours.toFixed(2)
@@ -85,7 +87,7 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const validateForm = () => {
     const errors: string[] = [];
-    
+
     if (!formData.operator_name) {
       errors.push('Operator name is required');
     }
@@ -98,19 +100,19 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
     if (!formData.end_time) {
       errors.push('End time is required');
     }
-    
+
     if (errors.length > 0) {
       setError(errors.join(', '));
       return false;
     }
-    
+
     setError(null);
     return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
       setError('User not authenticated');
       return;
@@ -122,7 +124,7 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
 
     setLoading(true);
     setError(null);
-    
+
     try {
       const jcbData = {
         user_id: user?.id,
@@ -133,6 +135,8 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
         end_time: formData.end_time,
         total_hours: parseFloat(formData.total_hours) || 0,
         fuel_consumed: parseFloat(formData.fuel_consumed) || 0,
+        diesel_given_hours: parseFloat(formData.diesel_given_hours) || null,
+        licence_number: formData.licence_number || null,
         work_description: formData.work_description || null,
         notes: formData.notes || null,
         status: 'pending',
@@ -154,6 +158,8 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
         end_time: '',
         total_hours: '',
         fuel_consumed: '',
+        diesel_given_hours: '',
+        licence_number: '',
         work_description: '',
         notes: ''
       });
@@ -229,55 +235,73 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Driver Name
-          </label>
-          <input
-            type="text"
-            name="driver_name"
-            value={formData.vehicle_number}
-            onChange={handleChange}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            placeholder="Enter driver name"
-          />
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Driver Name
+            </label>
+            <input
+              type="text"
+              name="driver_name"
+              value={formData.vehicle_number}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              placeholder="Enter driver name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Licence Number
+            </label>
+            <input
+              type="text"
+              name="licence_number"
+              value={formData.licence_number}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              placeholder="Enter licence number"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Start Time
-          </label>
-          <input
-            type="text"
-            name="start_time"
-            value={formData.start_time}
-            onChange={handleChange}
-            onBlur={calculateHours}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            placeholder="e.g., 9:00 AM or 14:30"
-          />
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Start Time
+            </label>
+            <input
+              type="text"
+              name="start_time"
+              value={formData.start_time}
+              onChange={handleChange}
+              onBlur={calculateHours}
+              required
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              placeholder="e.g., 9:00 AM or 14:30"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              End Time
+            </label>
+            <input
+              type="text"
+              name="end_time"
+              value={formData.end_time}
+              onChange={handleChange}
+              onBlur={calculateHours}
+              required
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              placeholder="e.g., 5:30 PM or 17:30"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            End Time
-          </label>
-          <input
-            type="text"
-            name="end_time"
-            value={formData.end_time}
-            onChange={handleChange}
-            onBlur={calculateHours}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            placeholder="e.g., 5:30 PM or 17:30"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+        <div className="md:col-span-2">
+          <label className="block text-sm font-bold text-slate-700 mb-2">
             Total Hours
           </label>
           <input
@@ -285,13 +309,13 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
             name="total_hours"
             value={formData.total_hours}
             readOnly
-            className="w-full px-4 py-2 border border-slate-300 bg-slate-50 rounded-lg"
+            className="w-full px-4 py-3 border border-slate-300 bg-slate-50 rounded-lg text-lg font-bold text-slate-900"
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Fuel Consumed (Liters)
+            Diesel (Liters)
           </label>
           <input
             type="number"
@@ -302,6 +326,22 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
             step="0.1"
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
             placeholder="0.0"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Diesel Given Hours
+          </label>
+          <input
+            type="number"
+            name="diesel_given_hours"
+            value={formData.diesel_given_hours}
+            onChange={handleChange}
+            min="0"
+            step="0.1"
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            placeholder="Machine hours"
           />
         </div>
 

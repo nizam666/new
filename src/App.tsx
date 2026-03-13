@@ -6,42 +6,27 @@ import { DashboardLayout } from './components/Layout/DashboardLayout';
 import { DirectorDashboard } from './components/Dashboard/DirectorDashboard';
 import { ContractorDashboard } from './components/Contractor/ContractorDashboard';
 import { DrillingForm } from './components/Contractor/DrillingForm';
-import { DrillingDetails } from './components/Contractor/DrillingDetails';
 import { BlastingForm } from './components/Contractor/BlastingForm';
-import { BlastingDetails } from './components/Contractor/BlastingDetails';
 import { LoadingForm } from './components/Contractor/LoadingForm';
-import { LoadingDetails } from './components/Contractor/LoadingDetails';
 import { TransportForm } from './components/Contractor/TransportForm';
-import { TransportDetails } from './components/Contractor/TransportDetails';
 import { AttendanceForm } from './components/Contractor/AttendanceForm';
-import { AttendanceDetails } from './components/Contractor/AttendanceDetails';
 import { MediaForm } from './components/Contractor/MediaForm';
-import { MediaDetails } from './components/Contractor/MediaDetails';
 import { InventoryForm } from './components/Inventory/InventoryForm';
-import { InventoryDetails } from './components/Inventory/InventoryDetails';
 import { FuelForm } from './components/Fuel/FuelForm';
-import { FuelDetails } from './components/Fuel/FuelDetails';
 import { SafetyForm } from './components/Safety/SafetyForm';
-import { SafetyDetails } from './components/Safety/SafetyDetails';
 import { MobileOperations } from './components/Contractor/MobileOperations';
 import { SalesModule } from './components/Sales/SalesModule';
 import { ApprovalsModule } from './components/Manager/ApprovalsModule';
 import { PermitForm } from './components/Permit/PermitForm';
-import { PermitDetails } from './components/Permit/PermitDetails';
+import { PermitReport } from './components/Permit/PermitReport';
 import { AccountsForm } from './components/Accounts/AccountsForm';
-import { AccountsDetails } from './components/Accounts/AccountsDetails';
 import { DispatchForm } from './components/Dispatch/DispatchForm';
-import { DispatchDetails } from './components/Dispatch/DispatchDetails';
 import { ProductionStockForm } from './components/Stock/ProductionStockForm';
-import { ProductionStockDetails } from './components/Stock/ProductionStockDetails';
 import { PurchaseRequestForm } from './components/Stock/PurchaseRequestForm';
-import { PurchaseRequestDetails } from './components/Stock/PurchaseRequestDetails';
 import { ReportsModule } from './components/Reports/ReportsModule';
 import { UserManagement } from './components/Users/UserManagement';
 import { CrusherProductionForm } from './components/Crusher/CrusherProductionForm';
-import { CrusherProductionDetails } from './components/Crusher/CrusherProductionDetails';
 import { EBReportForm } from './components/Crusher/EBReportForm';
-import { EBReportDetails } from './components/Crusher/EBReportDetails';
 import { JCBOperationsForm } from './components/Operations/JCBOperationsForm';
 import { JCBOperationsDetails } from './components/Operations/JCBOperationsDetails';
 import { CustomerForm } from './components/Customers/CustomerForm';
@@ -119,12 +104,6 @@ function AppContent() {
                 <DrillingForm onSuccess={() => window.location.reload()} />
               </ErrorBoundary>
             </div>
-            <div className="mt-8 bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Drilling Details & History</h3>
-              <ErrorBoundary fallback={<div className="text-red-600">Failed to load Drilling History. Please try again later.</div>}>
-                <DrillingDetails />
-              </ErrorBoundary>
-            </div>
           </div>
         );
 
@@ -150,10 +129,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Record and manage blasting activities</p>
             </div>
             <BlastingForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Blasting Details & History</h3>
-              <BlastingDetails />
-            </div>
           </div>
         );
 
@@ -165,10 +140,23 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track material breaking and loading</p>
             </div>
             <LoadingForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Breaking/Loading Details & History</h3>
-              <LoadingDetails />
+          </div>
+        );
+
+      case 'quarry-attendance':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Quarry Attendance</h2>
+              <p className="text-slate-600 mt-1">Record daily attendance for quarry workers</p>
             </div>
+            <AttendanceForm
+              onSuccess={() => window.location.reload()}
+              title="Quarry Worker Attendance"
+              defaultLocation="Quarry"
+              workerRole="quarry_worker"
+              allowedLocations={['Quarry']}
+            />
           </div>
         );
 
@@ -180,10 +168,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track vehicle and material transport</p>
             </div>
             <TransportForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Transport Details & History</h3>
-              <TransportDetails />
-            </div>
           </div>
         );
 
@@ -194,11 +178,11 @@ function AppContent() {
               <h2 className="text-2xl font-bold text-slate-900">Attendance Management</h2>
               <p className="text-slate-600 mt-1">Record daily attendance and work hours</p>
             </div>
-            <AttendanceForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Attendance Details & History</h3>
-              <AttendanceDetails />
-            </div>
+            <AttendanceForm
+              onSuccess={() => window.location.reload()}
+              allowedLocations={['Crusher', 'Production']}
+              allowedWorkTypes={['Production Work', 'Crusher Work']}
+            />
           </div>
         );
 
@@ -210,10 +194,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Upload and manage site documentation</p>
             </div>
             <MediaForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Media Gallery</h3>
-              <MediaDetails />
-            </div>
           </div>
         );
 
@@ -225,10 +205,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track crusher operations and output</p>
             </div>
             <CrusherProductionForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Production Records</h3>
-              <CrusherProductionDetails />
-            </div>
           </div>
         );
 
@@ -240,10 +216,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Manage Electricity Board reports and records</p>
             </div>
             <EBReportForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">EB Report History</h3>
-              <EBReportDetails />
-            </div>
           </div>
         );
 
@@ -256,10 +228,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Manage customer relationships and information</p>
             </div>
             <CustomerForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Customer Directory</h3>
-              <CustomerDetails />
-            </div>
           </div>
         );
 
@@ -278,10 +246,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track equipment, tools, and supplies</p>
             </div>
             <InventoryForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Current Inventory</h3>
-              <InventoryDetails />
-            </div>
           </div>
         );
 
@@ -293,10 +257,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track fuel consumption and costs</p>
             </div>
             <FuelForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Fuel Records</h3>
-              <FuelDetails />
-            </div>
           </div>
         );
 
@@ -308,10 +268,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Report and track safety incidents</p>
             </div>
             <SafetyForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Incident Reports</h3>
-              <SafetyDetails />
-            </div>
           </div>
         );
 
@@ -334,13 +290,19 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Create and submit new permit applications</p>
             </div>
             <PermitForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Active Permits</h3>
-              <PermitDetails />
-            </div>
           </div>
         );
 
+      case 'permit-report':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Permit Reports</h2>
+              <p className="text-slate-600 mt-1">View and export permit data</p>
+            </div>
+            <PermitReport />
+          </div>
+        );
 
       case 'accounts':
         return (
@@ -350,10 +312,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Manage invoices, payments, and financial transactions</p>
             </div>
             <AccountsForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Transaction History</h3>
-              <AccountsDetails />
-            </div>
           </div>
         );
 
@@ -365,38 +323,28 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track material dispatch, transportation, and balance materials</p>
             </div>
             <DispatchForm onSuccess={() => window.location.reload()} />
-            <div className="mt-8">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Dispatch Records</h3>
-              <DispatchDetails />
-            </div>
           </div>
         );
 
-      case 'stock-management':
+      case 'production-stock':
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Stock Management</h2>
-              <p className="text-slate-600 mt-1">Production stock and purchase requests</p>
+              <h2 className="text-2xl font-bold text-slate-900">Production Stock</h2>
+              <p className="text-slate-600 mt-1">Manage production stock and inventory</p>
             </div>
+            <ProductionStockForm onSuccess={() => window.location.reload()} />
+          </div>
+        );
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-4">Production Stock</h3>
-                  <ProductionStockForm onSuccess={() => window.location.reload()} />
-                </div>
-                <ProductionStockDetails />
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-4">Purchase Requests</h3>
-                  <PurchaseRequestForm onSuccess={() => window.location.reload()} />
-                </div>
-                <PurchaseRequestDetails />
-              </div>
+      case 'purchase-requests':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Purchase Requests</h2>
+              <p className="text-slate-600 mt-1">Manage material purchase requests</p>
             </div>
+            <PurchaseRequestForm onSuccess={() => window.location.reload()} />
           </div>
         );
 
