@@ -336,6 +336,7 @@ export function UserManagement() {
                 >
                   <option value="contractor">Contractor</option>
                   <option value="crusher_manager">Crusher Manager</option>
+                  <option value="director">Director</option>
                   <option value="manager">Manager</option>
                   <option value="sales">Sales</option>
                   <option value="worker">Workers</option>
