@@ -335,7 +335,6 @@ export function UserManagement() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                 >
                   <option value="contractor">Contractor</option>
-                  <option value="director">Director</option>
                   <option value="crusher_manager">Crusher Manager</option>
                   <option value="manager">Manager</option>
                   <option value="sales">Sales</option>
