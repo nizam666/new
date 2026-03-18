@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
   const auth = useAuth();
@@ -15,10 +16,22 @@ export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
     setLoading(true);
 
     try {
-      // Auto-format employee ID to dummy email if no @ present
+      // Auto-format employee ID
       let loginEmail = loginId.trim();
       if (!loginEmail.includes('@')) {
-        loginEmail = `${loginEmail.replace(/\s+/g, '').toLowerCase()}@sribaba-internal.com`;
+        const { data: realEmail, error: rpcError } = await supabase.rpc('get_user_email_by_employee_id', { 
+          emp_id: loginEmail 
+        });
+        
+        console.log("Login Email Resolution ->", { realEmail, rpcError });
+        
+        if (realEmail) {
+          loginEmail = realEmail;
+        } else {
+          loginEmail = `${loginEmail.replace(/\s+/g, '').toLowerCase()}@sribaba-internal.com`;
+        }
+        
+        console.log("Final Login Email Used ->", loginEmail);
       }
 
       const { error } = await auth.signIn(loginEmail, password);

@@ -110,15 +110,15 @@ export function SelfServiceAttendance() {
 
     try {
       // 1. Verify employee exists
-      const { data: workerData, error: workerError } = await supabase
-        .from('workers')
-        .select('id, name')
-        .eq('employee_id', employeeId.trim().toUpperCase())
-        .single();
-        
-      if (workerError || !workerData) {
-        throw new Error(`Employee ID ${employeeId} not found.`);
+      const { data: verifyResult, error: verifyError } = await supabase.rpc('verify_employee_id', {
+        emp_id: employeeId.trim()
+      });
+
+      if (verifyError || !verifyResult || !verifyResult.success) {
+        throw new Error(verifyResult?.error || `Employee ID ${employeeId} not found.`);
       }
+
+      const workerName = verifyResult.name;
 
       // 2. Capture photo
       const photoBlob = capturePhoto();
@@ -151,7 +151,7 @@ export function SelfServiceAttendance() {
         }
 
         setStatus('success');
-        setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerData.name}!`);
+        setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerName}!`);
 
       } else {
         // Punch out: fetch today's record first
@@ -184,7 +184,7 @@ export function SelfServiceAttendance() {
         if (updateError) throw updateError;
         
         setStatus('success');
-        setStatusMessage(`Successfully Punched OUT at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Goodbye, ${workerData.name}!`);
+        setStatusMessage(`Successfully Punched OUT at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Goodbye, ${workerName}!`);
       }
 
       // Reset form after short delay
