@@ -1,0 +1,316 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { supabase } from '../../lib/supabase';
+import { RefreshCw, LogIn, LogOut, CheckCircle, AlertCircle } from 'lucide-react';
+
+type AttendanceStatus = 'idle' | 'loading' | 'success' | 'error';
+type ActionType = 'punch_in' | 'punch_out';
+
+export function SelfServiceAttendance() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  
+  const [hasCameraAccess, setHasCameraAccess] = useState<boolean | null>(null);
+  const [employeeId, setEmployeeId] = useState('');
+  const [status, setStatus] = useState<AttendanceStatus>('idle');
+  const [statusMessage, setStatusMessage] = useState('');
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+
+  const startCamera = useCallback(async () => {
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      const newStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' } 
+      });
+      streamRef.current = newStream;
+      setHasCameraAccess(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      setHasCameraAccess(false);
+      setStatusMessage("Could not access camera. Please check permissions.");
+    }
+  }, []);
+
+  useEffect(() => {
+    startCamera();
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [startCamera]);
+
+  const capturePhoto = useCallback((): Blob | null => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      // Set canvas dimensions to match video dimensions
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Preview
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setCapturedPhoto(dataUrl);
+
+        // For upload
+        const data = dataUrl.split(',')[1];
+        const bytes = atob(data);
+        const array = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) {
+          array[i] = bytes.charCodeAt(i);
+        }
+        return new Blob([array], { type: 'image/jpeg' });
+      }
+    }
+    return null;
+  }, []);
+
+  const uploadPhoto = async (blob: Blob, empId: string, action: ActionType): Promise<string> => {
+    const timestamp = new Date().getTime();
+    const fileName = `${empId}_${action}_${timestamp}.jpg`;
+    
+    const { error } = await supabase.storage
+      .from('attendance-photos')
+      .upload(fileName, blob, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) throw error;
+    
+    // Get public URL
+    const { data: publicData } = supabase.storage
+      .from('attendance-photos')
+      .getPublicUrl(fileName);
+      
+    return publicData.publicUrl;
+  };
+
+  const handleAttendance = async (action: ActionType) => {
+    setCapturedPhoto(null);
+    setStatus('loading');
+    setStatusMessage('');
+
+    if (!employeeId.trim()) {
+      setStatus('error');
+      setStatusMessage('Please enter your Employee ID.');
+      return;
+    }
+
+    try {
+      // 1. Verify employee exists
+      const { data: workerData, error: workerError } = await supabase
+        .from('workers')
+        .select('id, name')
+        .eq('employee_id', employeeId.trim().toUpperCase())
+        .single();
+        
+      if (workerError || !workerData) {
+        throw new Error(`Employee ID ${employeeId} not found.`);
+      }
+
+      // 2. Capture photo
+      const photoBlob = capturePhoto();
+      if (!photoBlob) {
+        throw new Error("Failed to capture photo. Make sure camera is working.");
+      }
+
+      // 3. Upload photo
+      const photoUrl = await uploadPhoto(photoBlob, employeeId.trim().toUpperCase(), action);
+
+      // 4. Record attendance
+      const today = new Date().toISOString().split('T')[0];
+      const now = new Date().toISOString();
+
+      if (action === 'punch_in') {
+        const { error: insertError } = await supabase
+          .from('selfie_attendance')
+          .insert({
+            employee_id: employeeId.trim().toUpperCase(),
+            date: today,
+            check_in: now,
+            check_in_photo: photoUrl
+          });
+
+        if (insertError) {
+          if (insertError.code === '23505') { // Unique constraint violation
+            throw new Error(`You have already punched in for today (${today}). If you want to log out, use Punch Out.`);
+          }
+          throw insertError;
+        }
+
+        setStatus('success');
+        setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerData.name}!`);
+
+      } else {
+        // Punch out: fetch today's record first
+        const { data: existingRecord, error: fetchError } = await supabase
+          .from('selfie_attendance')
+          .select('id, check_out')
+          .eq('employee_id', employeeId.trim().toUpperCase())
+          .eq('date', today)
+          .maybeSingle();
+
+        if (fetchError) throw fetchError;
+        
+        if (!existingRecord) {
+          throw new Error(`No Punch In record found for today. Please Punch In first.`);
+        }
+        
+        if (existingRecord.check_out) {
+          throw new Error(`You have already punched out for today.`);
+        }
+
+        const { error: updateError } = await supabase
+          .from('selfie_attendance')
+          .update({
+             check_out: now,
+             check_out_photo: photoUrl,
+             updated_at: now
+          })
+          .eq('id', existingRecord.id);
+
+        if (updateError) throw updateError;
+        
+        setStatus('success');
+        setStatusMessage(`Successfully Punched OUT at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Goodbye, ${workerData.name}!`);
+      }
+
+      // Reset form after short delay
+      setTimeout(() => {
+        setEmployeeId('');
+        setStatus('idle');
+        setCapturedPhoto(null);
+        startCamera(); // Restart live feed
+      }, 5000);
+
+    } catch (err: unknown) {
+      console.error(err);
+      setStatus('error');
+      setStatusMessage(err instanceof Error ? err.message : "An unexpected error occurred.");
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 lg:p-6 bg-slate-50 min-h-screen">
+       <div className="text-center">
+            <h2 className="text-3xl font-bold text-slate-900">Terminal Attendance</h2>
+            <p className="text-slate-600 mt-2">Position your face in the camera and enter your Employee ID</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Camera View */}
+            <div className="bg-black rounded-2xl overflow-hidden shadow-lg relative aspect-video md:aspect-square flex items-center justify-center">
+                {hasCameraAccess === false ? (
+                     <div className="text-white text-center p-6 text-sm">
+                        <AlertCircle className="w-12 h-12 mx-auto text-red-500 mb-4" />
+                        <p>Camera access denied or device not found.</p>
+                        <p className="mt-2 text-slate-400">Please allow camera permissions and refresh.</p>
+                     </div>
+                ) : (
+                    <>
+                        <video 
+                            ref={videoRef} 
+                            autoPlay 
+                            playsInline 
+                            muted
+                            className={`w-full h-full object-cover transform scale-x-[-1] ${capturedPhoto ? 'hidden' : 'block'}`}
+                        />
+                         {capturedPhoto && (
+                            <img 
+                                src={capturedPhoto} 
+                                alt="Captured selfie" 
+                                className="w-full h-full object-cover transform scale-x-[-1]"
+                            />
+                        )}
+                        <canvas ref={canvasRef} className="hidden" />
+                        
+                        {!capturedPhoto && status === 'idle' && (
+                            <div className="absolute inset-x-0 bottom-4 text-center pointer-events-none">
+                                <span className="text-xs bg-black/50 text-white px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                    Live Feed
+                                </span>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* Controls */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col justify-center">
+                
+                {status === 'success' ? (
+                     <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
+                         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                            <CheckCircle className="w-10 h-10 text-green-600" />
+                         </div>
+                         <h3 className="text-2xl font-bold text-slate-900">Success!</h3>
+                         <p className="text-lg text-slate-600">{statusMessage}</p>
+                         <p className="text-sm text-slate-400 mt-4">Resetting in a few seconds...</p>
+                     </div>
+                ) : (
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">Employee ID</label>
+                            <input 
+                                type="text"
+                                value={employeeId}
+                                onChange={(e) => setEmployeeId(e.target.value)}
+                                placeholder="e.g. EMP001"
+                                className="w-full text-center text-3xl tracking-widest font-mono uppercase px-4 py-4 border-2 border-slate-200 rounded-xl focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition-all outline-none"
+                                disabled={status === 'loading'}
+                                onKeyDown={(e) => {
+                                    if(e.key === 'Enter') handleAttendance('punch_in');
+                                }}
+                            />
+                        </div>
+
+                        {status === 'error' && (
+                            <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm flex gap-3 animate-in slide-in-from-top-2">
+                                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                <p>{statusMessage}</p>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-4 pt-4">
+                            <button
+                                onClick={() => handleAttendance('punch_in')}
+                                disabled={status === 'loading' || !hasCameraAccess}
+                                className="flex flex-col items-center justify-center p-6 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-95"
+                            >
+                                {status === 'loading' ? (
+                                    <RefreshCw className="w-8 h-8 animate-spin mb-3" />
+                                ) : (
+                                    <LogIn className="w-8 h-8 mb-3" />
+                                )}
+                                <span className="font-semibold text-lg">PUNCH IN</span>
+                            </button>
+                            
+                            <button
+                                onClick={() => handleAttendance('punch_out')}
+                                disabled={status === 'loading' || !hasCameraAccess}
+                                className="flex flex-col items-center justify-center p-6 bg-white outline outline-2 outline-slate-200 text-slate-800 rounded-2xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-95 shadow-sm"
+                            >
+                                <LogOut className="w-8 h-8 mb-3 text-slate-600" />
+                                <span className="font-semibold text-lg">PUNCH OUT</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    </div>
+  );
+}

@@ -111,6 +111,17 @@ export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </div>
+          
+          <div className="pt-4 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => window.location.hash = 'selfie'}
+              className="w-full py-2 rounded-md bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-camera"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+              Open Self-Service Terminal
+            </button>
+          </div>
         </form>
 
         <footer className="mt-6 text-center text-sm text-slate-500">

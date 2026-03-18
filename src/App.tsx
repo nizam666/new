@@ -9,7 +9,6 @@ import { DrillingForm } from './components/Contractor/DrillingForm';
 import { BlastingForm } from './components/Contractor/BlastingForm';
 import { LoadingForm } from './components/Contractor/LoadingForm';
 import { TransportForm } from './components/Contractor/TransportForm';
-import { AttendanceForm } from './components/Contractor/AttendanceForm';
 import { MediaForm } from './components/Contractor/MediaForm';
 import { InventoryForm } from './components/Inventory/InventoryForm';
 import { FuelForm } from './components/Fuel/FuelForm';
@@ -31,6 +30,7 @@ import { JCBOperationsForm } from './components/Operations/JCBOperationsForm';
 import { JCBOperationsDetails } from './components/Operations/JCBOperationsDetails';
 import { CustomerForm } from './components/Customers/CustomerForm';
 import { CustomerDetails } from './components/Customers/CustomerDetails';
+import { SelfServiceAttendance } from './components/Attendance/SelfServiceAttendance';
 
 function AppContent() {
   const { session, user, loading } = useAuth();
@@ -61,6 +61,11 @@ function AppContent() {
         <div className="text-white text-xl">Loading...</div>
       </div>
     );
+  }
+
+  // Allow unauthenticated access to the selfie attendance terminal
+  if (currentHash === 'selfie') {
+    return <SelfServiceAttendance />;
   }
 
   if (!session || !user) {
@@ -146,17 +151,7 @@ function AppContent() {
       case 'quarry-attendance':
         return (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Quarry Attendance</h2>
-              <p className="text-slate-600 mt-1">Record daily attendance for quarry workers</p>
-            </div>
-            <AttendanceForm
-              onSuccess={() => window.location.reload()}
-              title="Quarry Worker Attendance"
-              defaultLocation="Quarry"
-              workerRole="quarry_worker"
-              allowedLocations={['Quarry']}
-            />
+            <SelfServiceAttendance />
           </div>
         );
 
@@ -174,15 +169,7 @@ function AppContent() {
       case 'attendance':
         return (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Attendance Management</h2>
-              <p className="text-slate-600 mt-1">Record daily attendance and work hours</p>
-            </div>
-            <AttendanceForm
-              onSuccess={() => window.location.reload()}
-              allowedLocations={['Crusher', 'Production']}
-              allowedWorkTypes={['Production Work', 'Crusher Work']}
-            />
+            <SelfServiceAttendance />
           </div>
         );
 
