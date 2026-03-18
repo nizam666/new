@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Truck, Package, Calendar, MapPin, User, Phone, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { Truck, Package, Calendar, MapPin, User, Phone, AlertCircle, FileText } from 'lucide-react';
 
 interface Dispatch {
   id: string;
@@ -19,11 +20,15 @@ interface Dispatch {
   dispatch_date: string;
   expected_delivery_date: string;
   delivery_status: string;
+  billing_type: string;
   notes: string;
   created_at: string;
 }
 
 export function DispatchDetails() {
+  const { user } = useAuth();
+  const userRole = user?.role;
+
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -31,14 +36,20 @@ export function DispatchDetails() {
 
   useEffect(() => {
     fetchDispatches();
-  }, []);
+  }, [userRole]);
 
   const fetchDispatches = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('dispatch_list')
         .select('*')
         .order('dispatch_date', { ascending: false });
+
+      if (userRole !== 'director') {
+        query = query.eq('billing_type', 'with_gst');
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setDispatches(data || []);
@@ -190,6 +201,12 @@ export function DispatchDetails() {
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(dispatch.delivery_status)}`}>
                         {dispatch.delivery_status.replace('_', ' ').toUpperCase()}
                       </span>
+                      {dispatch.billing_type === 'without_gst' && (
+                        <span className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium border border-slate-200">
+                          <FileText className="w-3 h-3" />
+                          Without GST
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-slate-600">{formatMaterialType(dispatch.material_type)}</p>
                   </div>

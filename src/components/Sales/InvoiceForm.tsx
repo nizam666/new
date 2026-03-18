@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Plus, Trash2 } from 'lucide-react';
+import { FileText, Plus, Trash2, Printer } from 'lucide-react';
+import { printThermalInvoice } from '../../utils/thermalPrinter';
 
 interface InvoiceItem {
   material: string;
@@ -17,6 +18,8 @@ interface InvoiceFormProps {
 export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
   const [loading, setLoading] = useState(false);
   const [generatingInvoiceNumber, setGeneratingInvoiceNumber] = useState(true);
+  const shouldPrintRef = useRef(false);
+  const [invoiceType, setInvoiceType] = useState<'with_gst' | 'without_gst'>('with_gst');
   const [formData, setFormData] = useState({
     invoice_number: '',
     customer_name: '',
@@ -77,13 +80,20 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
     generateInvoiceNumber();
   }, []);
 
+  const computedNetWeight = formData.empty_weight && formData.gross_weight
+    ? (parseFloat(formData.gross_weight) - parseFloat(formData.empty_weight)).toFixed(3)
+    : formData.net_weight;
+
   // Update quantity of first item when net weight changes
   useEffect(() => {
-    if (formData.net_weight) {
-      const netWeightValue = parseFloat(formData.net_weight);
+    if (computedNetWeight) {
+      const netWeightValue = parseFloat(computedNetWeight);
       if (!isNaN(netWeightValue)) {
         setItems(currentItems => {
           if (currentItems.length > 0) {
+            // Only update if it's different to avoid infinite loops/unnecessary renders
+            if (currentItems[0].quantity === netWeightValue) return currentItems;
+            
             const newItems = [...currentItems];
             newItems[0] = { ...newItems[0], quantity: netWeightValue };
             // Recalculate amount for the updated item
@@ -94,7 +104,7 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         });
       }
     }
-  }, [formData.net_weight]);
+  }, [computedNetWeight]);
 
   const generateInvoiceNumber = async () => {
     try {
@@ -157,7 +167,7 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
           invoice_number: formData.invoice_number,
           customer_name: formData.customer_name,
           invoice_date: formData.invoice_date,
-          due_date: formData.due_date,
+          due_date: formData.due_date || formData.invoice_date,
           items: JSON.stringify(items),
           subtotal: subtotal,
           tax_rate: parseFloat(formData.tax_rate),
@@ -172,12 +182,35 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
           terms_conditions: formData.terms_conditions || null
         }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase insert error details:', error);
+        throw error;
+      }
+
+      if (shouldPrintRef.current) {
+        printThermalInvoice({
+          invoice_number: formData.invoice_number,
+          customer_name: formData.customer_name,
+          invoice_date: formData.invoice_date,
+          due_date: formData.due_date || formData.invoice_date,
+          items: items,
+          subtotal: subtotal,
+          tax_rate: parseFloat(formData.tax_rate),
+          tax_amount: taxAmount,
+          total_amount: total,
+          status: status,
+          amount_paid: amountPaid,
+          notes: formData.notes,
+          terms_conditions: formData.terms_conditions
+        });
+      }
 
       alert('Invoice created successfully!');
       onSuccess();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Unknown error');
+      console.error('Invoice creation error:', error);
+      const e = error as { message?: string; details?: string };
+      alert(`Error: ${e?.message || e?.details || 'Unknown error. Check console.'}`);
     } finally {
       setLoading(false);
     }
@@ -407,17 +440,44 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Tax Rate (%)
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.tax_rate}
-            onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Invoice Type
+            </label>
+            <select
+              value={invoiceType}
+              onChange={(e) => {
+                const type = e.target.value as 'with_gst' | 'without_gst';
+                setInvoiceType(type);
+                if (type === 'without_gst') {
+                  setFormData({ ...formData, tax_rate: '0' });
+                } else if (formData.tax_rate === '0' || !formData.tax_rate) {
+                  setFormData({ ...formData, tax_rate: '5' });
+                }
+              }}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="with_gst">With GST</option>
+              <option value="without_gst">Without GST (Tax Free)</option>
+            </select>
+          </div>
+
+          {invoiceType === 'with_gst' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Tax Rate (%)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={formData.tax_rate}
+                onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
 
         <div className="bg-slate-50 rounded-lg p-4 space-y-2">
@@ -425,12 +485,16 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
             <span className="text-slate-600">Base Amount:</span>
             <span className="font-semibold text-slate-900">₹{subtotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-600">GST ({formData.tax_rate}%):</span>
-            <span className="font-semibold text-slate-900">₹{taxAmount.toFixed(2)}</span>
-          </div>
+          {invoiceType === 'with_gst' && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600">GST ({formData.tax_rate}%):</span>
+              <span className="font-semibold text-slate-900">₹{taxAmount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-base pt-2 border-t border-slate-300">
-            <span className="font-semibold text-slate-900">Total (Inc. GST):</span>
+            <span className="font-semibold text-slate-900">
+              {invoiceType === 'with_gst' ? 'Total (Inc. GST):' : 'Total Amount:'}
+            </span>
             <span className="font-bold text-blue-600 text-lg">₹{total.toFixed(2)}</span>
           </div>
         </div>
@@ -538,7 +602,17 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         </button>
         <button
           type="submit"
-          disabled={loading}
+          onClick={() => { shouldPrintRef.current = true; }}
+          disabled={loading || generatingInvoiceNumber}
+          className="flex items-center gap-2 px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 disabled:bg-slate-400 transition-colors"
+        >
+          <Printer className="w-4 h-4" />
+          Create & Print
+        </button>
+        <button
+          type="submit"
+          onClick={() => { shouldPrintRef.current = false; }}
+          disabled={loading || generatingInvoiceNumber}
           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400 transition-colors"
         >
           {loading ? 'Creating...' : 'Create Invoice'}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import { ShoppingCart, TrendingUp, Users, DollarSign } from 'lucide-react';
 
 interface DispatchRecord {
@@ -12,6 +13,9 @@ interface DispatchRecord {
 }
 
 export function SalesReportModule() {
+  const { user } = useAuth();
+  const userRole = user?.role;
+
   const [dispatches, setDispatches] = useState<DispatchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState('');
@@ -30,6 +34,9 @@ export function SalesReportModule() {
       if (endDate) {
         query = query.lte('dispatch_date', endDate);
       }
+      if (userRole !== 'director') {
+        query = query.eq('billing_type', 'with_gst');
+      }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -39,7 +46,7 @@ export function SalesReportModule() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, userRole]);
 
   useEffect(() => {
     fetchSalesData();

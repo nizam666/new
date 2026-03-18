@@ -23,6 +23,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
     dispatch_date: new Date().toISOString().split('T')[0],
     expected_delivery_date: '',
     delivery_status: 'dispatched',
+    billing_type: 'with_gst',
     notes: ''
   });
 
@@ -55,6 +56,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
           dispatch_date: formData.dispatch_date,
           expected_delivery_date: formData.expected_delivery_date || null,
           delivery_status: formData.delivery_status,
+          billing_type: formData.billing_type,
           notes: formData.notes || null,
           created_by: user.id
         }]);
@@ -77,6 +79,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
         dispatch_date: new Date().toISOString().split('T')[0],
         expected_delivery_date: '',
         delivery_status: 'dispatched',
+        billing_type: 'with_gst',
         notes: ''
       });
       onSuccess();
@@ -316,12 +319,27 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
             required
             value={formData.delivery_status}
             onChange={(e) => setFormData({ ...formData, delivery_status: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
           >
             <option value="dispatched">Dispatched</option>
             <option value="in_transit">In Transit</option>
             <option value="delivered">Delivered</option>
             <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Billing Type *
+          </label>
+          <select
+            required
+            value={formData.billing_type}
+            onChange={(e) => setFormData({ ...formData, billing_type: e.target.value })}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+          >
+            <option value="with_gst">With GST</option>
+            <option value="without_gst">Without GST (Tax Free)</option>
           </select>
         </div>
 

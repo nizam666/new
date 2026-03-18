@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import { FileText, Calendar, DollarSign, AlertCircle, CheckCircle, Printer, CreditCard, X, Receipt } from 'lucide-react';
 import { printThermalInvoice, printThermalInvoice58mm } from '../../utils/thermalPrinter';
 
@@ -25,6 +26,9 @@ interface Invoice {
 }
 
 export function InvoiceDetails() {
+  const { user } = useAuth();
+  const userRole = user?.role;
+
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -42,7 +46,7 @@ export function InvoiceDetails() {
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
+  }, [userRole]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -60,10 +64,16 @@ export function InvoiceDetails() {
 
   const fetchInvoices = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('invoices')
         .select('*')
         .order('invoice_date', { ascending: false });
+
+      if (userRole !== 'director') {
+        query = query.gt('tax_rate', 0);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setInvoices(data || []);
