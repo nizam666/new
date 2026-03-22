@@ -1,0 +1,272 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../../lib/supabase';
+import { Clock, Search, Calendar, RefreshCw, Users, AlertCircle } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+
+type WorkAreaFilter = 'all' | 'quarry' | 'crusher' | 'general';
+
+type AttendanceRecord = {
+  id: string;
+  employee_id: string;
+  date: string;
+  check_in: string | null;
+  check_out: string | null;
+  check_in_photo: string | null;
+  check_out_photo: string | null;
+  work_area: string | null;
+  created_at: string;
+};
+
+function formatTime(isoString: string | null): string {
+  if (!isoString) return '—';
+  try {
+    return format(parseISO(isoString), 'hh:mm a');
+  } catch {
+    return '—';
+  }
+}
+
+function calcHours(checkIn: string | null, checkOut: string | null): string {
+  if (!checkIn || !checkOut) return '—';
+  const diff = (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 3600000;
+  if (diff < 0) return '—';
+  const h = Math.floor(diff);
+  const m = Math.round((diff - h) * 60);
+  return `${h}h ${m}m`;
+}
+
+export function AttendanceReportModule() {
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [workAreaFilter, setWorkAreaFilter] = useState<WorkAreaFilter>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  const fetchRecords = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let query = supabase
+        .from('selfie_attendance')
+        .select('*')
+        .order('date', { ascending: false })
+        .order('check_in', { ascending: false });
+
+      if (workAreaFilter !== 'all') {
+        query = query.eq('work_area', workAreaFilter);
+      }
+      if (dateFrom) query = query.gte('date', dateFrom);
+      if (dateTo) query = query.lte('date', dateTo);
+      if (searchTerm) {
+        query = query.ilike('employee_id', `%${searchTerm}%`);
+      }
+
+      const { data, error } = await query.limit(200);
+      if (error) throw error;
+      setRecords(data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch attendance records');
+    } finally {
+      setLoading(false);
+    }
+  }, [workAreaFilter, dateFrom, dateTo, searchTerm]);
+
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
+
+  const workAreaTabs: { key: WorkAreaFilter; label: string; color: string }[] = [
+    { key: 'all', label: 'All', color: 'slate' },
+    { key: 'quarry', label: '⛏ Quarry', color: 'orange' },
+    { key: 'crusher', label: '🏭 Crusher', color: 'blue' },
+    { key: 'general', label: 'General', color: 'gray' },
+  ];
+
+  const getWorkAreaBadge = (area: string | null) => {
+    switch (area) {
+      case 'quarry':
+        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">⛏ Quarry</span>;
+      case 'crusher':
+        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">🏭 Crusher</span>;
+      default:
+        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-600">General</span>;
+    }
+  };
+
+  const presentCount = records.filter(r => r.check_in && !r.check_out).length;
+  const completedCount = records.filter(r => r.check_in && r.check_out).length;
+  const quarryCount = records.filter(r => r.work_area === 'quarry').length;
+  const crusherCount = records.filter(r => r.work_area === 'crusher').length;
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Records', value: records.length, color: 'slate', icon: Users },
+          { label: 'Checked In', value: presentCount, color: 'green', icon: Clock },
+          { label: 'Quarry', value: quarryCount, color: 'orange', icon: Users },
+          { label: 'Crusher', value: crusherCount, color: 'blue', icon: Users },
+        ].map(({ label, value, color, icon: Icon }) => (
+          <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-xl p-4`}>
+            <div className="flex items-center gap-2 mb-1">
+              <Icon className={`w-4 h-4 text-${color}-600`} />
+              <p className={`text-xs font-medium text-${color}-700`}>{label}</p>
+            </div>
+            <p className={`text-2xl font-bold text-${color}-900`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Work Area Tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {workAreaTabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setWorkAreaFilter(tab.key)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
+              workAreaFilter === tab.key
+                ? tab.key === 'quarry'
+                  ? 'bg-orange-600 text-white border-orange-600'
+                  : tab.key === 'crusher'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-slate-800 text-white border-slate-800'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-end">
+        <div className="flex-1 min-w-[180px] relative">
+          <label className="block text-xs font-medium text-slate-600 mb-1">Search Employee ID</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="EMP001..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">From Date</label>
+          <div className="relative flex items-center">
+            <Calendar className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">To Date</label>
+          <div className="relative flex items-center">
+            <Calendar className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+        <button
+          onClick={fetchRecords}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {/* Table */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
+        </div>
+      ) : records.length === 0 ? (
+        <div className="text-center py-16 bg-slate-50 rounded-xl">
+          <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-sm font-medium text-slate-700">No attendance records found</h3>
+          <p className="text-xs text-slate-400 mt-1">Try adjusting the filters above</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
+                <tr>
+                  {['Date', 'Employee ID', 'Work Area', 'Check In', 'Check Out', 'Hours Worked', 'Status'].map(h => (
+                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {records.map(record => {
+                  const isPresent = record.check_in && !record.check_out;
+                  const isComplete = record.check_in && record.check_out;
+                  return (
+                    <tr key={record.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-5 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
+                        {record.date ? format(parseISO(record.date), 'dd MMM yyyy') : '—'}
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap font-mono text-sm text-slate-800 font-semibold">
+                        {record.employee_id}
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        {getWorkAreaBadge(record.work_area)}
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap text-sm text-slate-700">
+                        {formatTime(record.check_in)}
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap text-sm text-slate-700">
+                        {formatTime(record.check_out)}
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
+                        {calcHours(record.check_in, record.check_out)}
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        {isComplete ? (
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">Completed</span>
+                        ) : isPresent ? (
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 animate-pulse">Present</span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-500">Absent</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-400">
+            Showing {records.length} record{records.length !== 1 ? 's' : ''}
+            {completedCount > 0 && ` · ${completedCount} completed`}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

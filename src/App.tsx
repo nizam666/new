@@ -31,6 +31,7 @@ import { JCBOperationsDetails } from './components/Operations/JCBOperationsDetai
 import { CustomerForm } from './components/Customers/CustomerForm';
 import { CustomerDetails } from './components/Customers/CustomerDetails';
 import { SelfServiceAttendance } from './components/Attendance/SelfServiceAttendance';
+import { AttendanceReportModule } from './components/Reports/AttendanceReportModule';
 
 function AppContent() {
   const { session, user, loading } = useAuth();
@@ -151,7 +152,7 @@ function AppContent() {
       case 'quarry-attendance':
         return (
           <div className="space-y-6">
-            <SelfServiceAttendance />
+            <SelfServiceAttendance workArea="quarry" />
           </div>
         );
 
@@ -166,10 +167,17 @@ function AppContent() {
           </div>
         );
 
+      case 'crusher-attendance':
+        return (
+          <div className="space-y-6">
+            <SelfServiceAttendance workArea="crusher" />
+          </div>
+        );
+
       case 'attendance':
         return (
           <div className="space-y-6">
-            <SelfServiceAttendance />
+            <SelfServiceAttendance workArea="crusher" />
           </div>
         );
 
@@ -269,6 +277,17 @@ function AppContent() {
           </div>
         );
 
+      case 'attendance-report':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Attendance Report</h2>
+              <p className="text-slate-600 mt-1">View Quarry & Crusher attendance records</p>
+            </div>
+            <AttendanceReportModule />
+          </div>
+        );
+
       case 'new-permit':
         return (
           <div className="space-y-6">
@@ -338,19 +357,33 @@ function AppContent() {
       case 'user-management':
         return <UserManagement />;
 
-      case 'jcb-operations':
+      case 'quarry-jcb-operations':
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">JCB Operations</h2>
-              <p className="text-slate-600 mt-1">Manage JCB operations and maintenance</p>
+              <h2 className="text-2xl font-bold text-slate-900">Quarry JCB Operations</h2>
+              <p className="text-slate-600 mt-1">Manage Quarry JCB operations and maintenance</p>
             </div>
-            <JCBOperationsForm onSuccess={() => window.location.hash = 'jcb-operations-list'} />
+            <JCBOperationsForm workArea="quarry" onSuccess={() => window.location.hash = 'quarry-jcb-operations-list'} />
           </div>
         );
 
-      case 'jcb-operations-list':
-        return <JCBOperationsDetails />;
+      case 'quarry-jcb-operations-list':
+        return <JCBOperationsDetails workArea="quarry" />;
+
+      case 'crusher-jcb-operations':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Crusher JCB Operations</h2>
+              <p className="text-slate-600 mt-1">Manage Crusher JCB operations and maintenance</p>
+            </div>
+            <JCBOperationsForm workArea="crusher" onSuccess={() => window.location.hash = 'crusher-jcb-operations-list'} />
+          </div>
+        );
+
+      case 'crusher-jcb-operations-list':
+        return <JCBOperationsDetails workArea="crusher" />;
 
       default:
         return (

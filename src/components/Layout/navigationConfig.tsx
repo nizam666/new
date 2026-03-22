@@ -38,6 +38,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
             { name: 'Breaking/Loading', icon: ClipboardCheck, href: '#loading' },
             { name: 'Transport', icon: Truck, href: '#transport' },
             { name: 'Attendance', icon: Clock, href: '#quarry-attendance' },
+            { name: 'JCB Operations', icon: Truck, href: '#quarry-jcb-operations' },
 
         ]
     },
@@ -49,7 +50,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
                 name: 'Workforce',
                 icon: Users,
                 children: [
-                    { name: 'Attendance', icon: Clock, href: '#attendance' },
+                    { name: 'Attendance', icon: Clock, href: '#crusher-attendance' },
                     { name: 'Photos/Videos', icon: Camera, href: '#media' },
                 ]
             },
@@ -72,7 +73,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
                 icon: Zap,
                 href: '#eb-reports'
             },
-            { name: 'JCB Operations', icon: Truck, href: '#jcb-operations' },
+            { name: 'JCB Operations', icon: Truck, href: '#crusher-jcb-operations' },
         ]
     },
     {
@@ -104,7 +105,8 @@ export const DIRECTOR_NAV: MenuItem[] = [
         icon: BarChart3,
         children: [
             { name: 'Dashboard', icon: BarChart3, href: '#reports' },
-            { name: 'Permit Reports', icon: FileText, href: '#permit-report' }
+            { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
+            { name: 'Attendance Report', icon: Clock, href: '#attendance-report' }
         ]
     },
 ];

@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Save, AlertCircle, HardHat } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
+export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => void, workArea?: 'quarry' | 'crusher' }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +140,7 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
         work_description: formData.work_description || null,
         notes: formData.notes || null,
         status: 'pending',
+        work_area: workArea || null,
         created_at: new Date().toISOString()
       };
 
@@ -195,8 +196,10 @@ export function JCBOperationsForm({ onSuccess }: { onSuccess?: () => void }) {
           <HardHat className="w-5 h-5 text-amber-600" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">JCB Operations</h3>
-          <p className="text-sm text-slate-600">Record JCB operations and maintenance</p>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {workArea === 'quarry' ? 'Quarry ' : workArea === 'crusher' ? 'Crusher ' : ''}JCB Operations
+          </h3>
+          <p className="text-sm text-slate-600">Record {workArea ? workArea : ''} JCB operations and maintenance</p>
         </div>
       </div>
 

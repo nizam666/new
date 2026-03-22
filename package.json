@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.4",
+    "@supabase/supabase-js": "^2.99.3",
     "@types/react-toastify": "^4.0.2",
     "baseline-browser-mapping": "^2.9.11",
     "caniuse-lite": "^1.0.30001762",

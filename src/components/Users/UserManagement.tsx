@@ -338,7 +338,9 @@ export function UserManagement() {
                   <option value="crusher_manager">Crusher Manager</option>
                   <option value="manager">Manager</option>
                   <option value="sales">Sales</option>
-                  <option value="worker">Workers</option>
+                  <option value="quarry_worker">Quarry Worker</option>
+                  <option value="crusher_worker">Crusher Worker</option>
+                  <option value="worker">General Worker (Legacy)</option>
                 </select>
               </div>
 
@@ -448,7 +450,7 @@ export function UserManagement() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 capitalize">
-                      {user.role.replace('_', ' ')}
+                      {user.role.replace(/_/g, ' ')}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-500">

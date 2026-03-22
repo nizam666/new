@@ -5,7 +5,13 @@ import { RefreshCw, LogIn, LogOut, CheckCircle, AlertCircle } from 'lucide-react
 type AttendanceStatus = 'idle' | 'loading' | 'success' | 'error';
 type ActionType = 'punch_in' | 'punch_out';
 
-export function SelfServiceAttendance() {
+type WorkArea = 'quarry' | 'crusher' | 'general';
+
+interface SelfServiceAttendanceProps {
+  workArea?: WorkArea;
+}
+
+export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAttendanceProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -140,7 +146,8 @@ export function SelfServiceAttendance() {
             employee_id: employeeId.trim().toUpperCase(),
             date: today,
             check_in: now,
-            check_in_photo: photoUrl
+            check_in_photo: photoUrl,
+            work_area: workArea
           });
 
         if (insertError) {
@@ -205,7 +212,16 @@ export function SelfServiceAttendance() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 lg:p-6 bg-slate-50 min-h-screen">
        <div className="text-center">
-            <h2 className="text-3xl font-bold text-slate-900">Terminal Attendance</h2>
+            <h2 className="text-3xl font-bold text-slate-900">
+              {workArea === 'quarry' ? 'Quarry' : workArea === 'crusher' ? 'Crusher' : ''} Attendance Terminal
+            </h2>
+            {workArea !== 'general' && (
+              <span className={`inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full ${
+                workArea === 'quarry' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+              }`}>
+                {workArea === 'quarry' ? '⛏ Quarry Work' : '🏭 Crusher Work'}
+              </span>
+            )}
             <p className="text-slate-600 mt-2">Position your face in the camera and enter your Employee ID</p>
         </div>
 

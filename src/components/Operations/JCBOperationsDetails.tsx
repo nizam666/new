@@ -22,7 +22,7 @@ type JCBRecord = {
   created_at: string;
 };
 
-export function JCBOperationsDetails() {
+export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crusher' }) {
   const { user } = useAuth();
   const [records, setRecords] = useState<JCBRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +42,10 @@ export function JCBOperationsDetails() {
 
       if (user?.role !== 'director') {
         query = query.eq('contractor_id', user?.id);
+      }
+
+      if (workArea) {
+        query = query.eq('work_area', workArea);
       }
 
       if (dateFilter) {
@@ -94,8 +98,10 @@ export function JCBOperationsDetails() {
             <HardHat className="w-5 h-5 text-amber-600" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">JCB Operations</h2>
-            <p className="text-sm text-slate-500">View and manage JCB operations</p>
+            <h2 className="text-xl font-semibold text-slate-900">
+              {workArea === 'quarry' ? 'Quarry ' : workArea === 'crusher' ? 'Crusher ' : ''}JCB Operations
+            </h2>
+            <p className="text-sm text-slate-500">View and manage {workArea ? workArea : ''} JCB operations</p>
           </div>
         </div>
 
