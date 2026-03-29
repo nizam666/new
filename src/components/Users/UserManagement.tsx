@@ -94,7 +94,7 @@ export function UserManagement() {
       loadUsers();
     } catch (error) {
       console.error('Error creating user:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create user');
+      alert(error instanceof Error ? error.message : (error as any).message || 'Failed to create user');
     }
   };
 
@@ -128,7 +128,7 @@ export function UserManagement() {
       loadUsers();
     } catch (error) {
       console.error('Error updating user:', error);
-      alert(error instanceof Error ? error.message : 'Failed to update user');
+      alert(error instanceof Error ? error.message : (error as any).message || 'Failed to update user');
     }
   };
 
