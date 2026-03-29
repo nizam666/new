@@ -10,6 +10,8 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
   const [loading, setLoading] = useState(false);
   const [materialSources, setMaterialSources] = useState<{ label: string, value: string }[]>([]);
   const [fetchingSources, setFetchingSources] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -110,12 +112,83 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
     fetchMaterialSources();
   }, []);
 
+  // Update current time every minute for the live timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+    return () => clearInterval(timer);
+  }, []);
+
+  // Auto-resume active shift on mount
+  useEffect(() => {
+    // Only resume if we haven't already interacted with this session's form
+    // and we don't have an active record ID yet
+    if (activeRecordId) return;
+
+    const resumeActiveShift = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const today = new Date().toISOString().split('T')[0];
+
+        const { data, error } = await supabase
+          .from('production_records')
+          .select('*')
+          .eq('manager_id', user.id)
+          .eq('status', 'in_progress')
+          .eq('date', today) 
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const record = data[0];
+          
+          // Don't resume if they just finished this specific record in this session
+          if (sessionStorage.getItem(`finished_${record.id}`)) return;
+
+          setActiveRecordId(record.id);
+          setFormData({
+            date: record.date,
+            shift: record.shift || 'morning',
+            crusher_type: record.crusher_type || 'jaw',
+            machine_start_time: record.machine_start_time || '',
+            machine_end_time: record.machine_end_time || '',
+            machine_working_hours: record.working_hours?.toString() || '0.0',
+            machine_downtime: record.downtime_hours?.toString() || '0.0',
+            maintenance_hours: record.maintenance_hours?.toString() || '0.0',
+            material_source: record.material_source || 'quarry',
+            status: record.status || 'in_progress',
+            maintenance_notes: record.maintenance_notes || '',
+            notes: record.notes || ''
+          });
+        }
+      } catch (error) {
+        console.error('Error resuming active shift:', error);
+      }
+    };
+
+    resumeActiveShift();
+  }, []);
+
   // Auto-calculate working hours when start or end time changes
   useEffect(() => {
-    if (!formData.machine_start_time || !formData.machine_end_time) return;
+    if (!formData.machine_start_time) {
+      setFormData(prev => ({
+        ...prev,
+        machine_working_hours: '0.0'
+      }));
+      return;
+    }
+
+    // Use current time if machine_end_time is not yet set
+    const endTimeValue = formData.machine_end_time || `${currentTime.getHours().toString().padStart(2, '0')}:${currentTime.getMinutes().toString().padStart(2, '0')}`;
 
     const start = new Date(`2000-01-01T${formData.machine_start_time}:00`);
-    const end = new Date(`2000-01-01T${formData.machine_end_time}:00`);
+    const end = new Date(`2000-01-01T${endTimeValue}:00`);
 
     // Handle overnight shifts (end time < start time)
     if (end < start) {
@@ -129,14 +202,16 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
       ...prev,
       machine_working_hours: diffHours.toFixed(2)
     }));
-  }, [formData.machine_start_time, formData.machine_end_time]);
+  }, [formData.machine_start_time, formData.machine_end_time, currentTime]);
 
   const handleSetCurrentTime = (field: 'machine_start_time' | 'machine_end_time') => {
     const now = new Date();
     const timeString = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
     setFormData(prev => ({
       ...prev,
-      [field]: timeString
+      [field]: timeString,
+      // Automatically set status to completed if we're setting an end time
+      status: field === 'machine_end_time' ? 'completed' : prev.status
     }));
   };
 
@@ -169,29 +244,47 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
         return;
       }
 
-      const { error } = await supabase
-        .from('production_records')
-        .insert([
-          {
-            manager_id: user.id,
-            date: formData.date,
-            shift: formData.shift,
-            crusher_type: formData.crusher_type,
-            machine_start_time: formData.machine_start_time || null,
-            machine_end_time: formData.machine_end_time || null,
-            working_hours: parseFloat(formData.machine_working_hours),
-            downtime_hours: parseFloat(formData.machine_downtime),
-            maintenance_hours: parseFloat(formData.maintenance_hours),
-            material_source: formData.material_source,
-            status: formData.status,
-            maintenance_notes: formData.maintenance_notes,
-            notes: formData.notes,
-          },
-        ]);
+      let finalStatus = formData.status;
+      if (formData.machine_start_time && !formData.machine_end_time && finalStatus === 'completed') {
+        finalStatus = 'in_progress';
+      }
+
+      const recordData = {
+        manager_id: user.id,
+        date: formData.date,
+        shift: formData.shift,
+        crusher_type: formData.crusher_type,
+        machine_start_time: formData.machine_start_time || null,
+        machine_end_time: formData.machine_end_time || null,
+        working_hours: parseFloat(formData.machine_working_hours),
+        downtime_hours: parseFloat(formData.machine_downtime),
+        maintenance_hours: parseFloat(formData.maintenance_hours),
+        material_source: formData.material_source,
+        status: finalStatus,
+        maintenance_notes: formData.maintenance_notes,
+        notes: formData.notes,
+      };
+
+      const { error } = activeRecordId
+        ? await supabase
+          .from('production_records')
+          .update(recordData)
+          .eq('id', activeRecordId)
+        : await supabase
+          .from('production_records')
+          .insert([recordData]);
 
       if (error) throw error;
 
-      alert('Crusher production record added successfully!');
+      alert(activeRecordId ? 'Crusher production record updated successfully!' : 'Crusher production record added successfully!');
+      
+      // If we were resuming a shift and we finished it, mark it as finished in session
+      if (activeRecordId) {
+        sessionStorage.setItem(`finished_${activeRecordId}`, 'true');
+      }
+
+      // Reset form and active record ID
+      setActiveRecordId(null);
       setFormData({
         date: new Date().toISOString().split('T')[0],
         shift: 'morning',
@@ -221,7 +314,51 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
         <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
           <Factory className="w-5 h-5 text-orange-600" />
         </div>
-        <h3 className="text-lg font-semibold text-slate-900">Record Crusher Production</h3>
+        <div className="flex-1 flex items-center justify-between">
+          <div className="flex flex-col">
+            <h3 className="text-lg font-semibold text-slate-900">
+              {formData.machine_end_time && activeRecordId 
+                ? 'Finalize & Save Completed Shift'
+                : activeRecordId 
+                  ? 'Resume Active Production Shift' 
+                  : 'Record Crusher Production'}
+            </h3>
+            {activeRecordId && (
+              <button 
+                type="button"
+                onClick={() => {
+                  if (activeRecordId) {
+                    sessionStorage.setItem(`finished_${activeRecordId}`, 'true');
+                  }
+                  setActiveRecordId(null);
+                  setFormData({
+                    date: new Date().toISOString().split('T')[0],
+                    shift: 'morning',
+                    crusher_type: 'jaw',
+                    machine_start_time: '',
+                    machine_end_time: '',
+                    machine_working_hours: '0.0',
+                    machine_downtime: '0.0',
+                    maintenance_hours: '0.0',
+                    material_source: 'quarry',
+                    status: 'completed',
+                    maintenance_notes: '',
+                    notes: ''
+                  });
+                }}
+                className="text-xs text-orange-600 hover:text-orange-700 font-medium underline text-left"
+              >
+                Discard active shift and start new record
+              </button>
+            )}
+          </div>
+          {formData.machine_start_time && !formData.machine_end_time && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full animate-pulse">
+              <div className="w-2 h-2 bg-green-600 rounded-full" />
+              <span className="text-xs font-bold uppercase tracking-wider">Shift Live</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -342,14 +479,13 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Machine End Time *
+                Machine End Time
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="time"
-                    required
                     value={formData.machine_end_time}
                     onChange={(e) => setFormData({ ...formData, machine_end_time: e.target.value })}
                     className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
@@ -435,7 +571,7 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
             </div>
             <div className="text-center">
               <p className="text-sm text-slate-500">Uptime</p>
-              <p className="text-lg font-semibold">
+              <p className={`text-lg font-semibold ${formData.machine_start_time && !formData.machine_end_time ? 'text-green-600' : ''}`}>
                 {totalHours > 0 ? ((parseFloat(formData.machine_working_hours) / totalHours) * 100).toFixed(1) : '0.0'}%
               </p>
             </div>
