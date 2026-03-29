@@ -137,7 +137,7 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
           .from('production_records')
           .select('*')
           .eq('manager_id', user.id)
-          .eq('status', 'in_progress')
+          .eq('status', 'completed')
           .eq('date', today) 
           .order('created_at', { ascending: false })
           .limit(1);
@@ -229,8 +229,8 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
     setFormData(prev => ({
       ...prev,
       [field]: timeString,
-      // Automatically set status to completed if we're setting an end time
-      status: field === 'machine_end_time' ? 'completed' : prev.status
+      // Automatically set status to completed
+      status: 'completed'
     }));
   };
 
@@ -264,9 +264,6 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
       }
 
       let finalStatus = formData.status;
-      if (formData.machine_start_time && !formData.machine_end_time && finalStatus === 'completed') {
-        finalStatus = 'in_progress';
-      }
 
       const recordData = {
         manager_id: user.id,
@@ -474,6 +471,23 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
           )}
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Status *
+          </label>
+          <select
+            required
+            value={formData.status}
+            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+          >
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="breakdown">Breakdown</option>
+          </select>
+        </div>
+
         {/* Machine Hours Tracking */}
         <div className="col-span-1 md:col-span-2 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -608,22 +622,6 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Status *
-          </label>
-          <select
-            required
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-          >
-            <option value="completed">Completed</option>
-            <option value="in_progress">In Progress</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="breakdown">Breakdown</option>
-          </select>
-        </div>
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-slate-700 mb-2">

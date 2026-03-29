@@ -16,6 +16,7 @@ import {
     Wallet,
     List,
     BarChart3,
+    Wrench,
     LucideIcon
 } from 'lucide-react';
 
@@ -72,6 +73,11 @@ export const DIRECTOR_NAV: MenuItem[] = [
                 name: 'EB Reports',
                 icon: Zap,
                 href: '#eb-reports'
+            },
+            {
+                name: 'Maintenance',
+                icon: Wrench,
+                href: '#crusher-maintenance'
             },
             { name: 'JCB Operations', icon: Truck, href: '#crusher-jcb-operations' },
         ]
@@ -132,6 +138,12 @@ export const MANAGER_NAV: MenuItem[] = [
         name: 'EB Reports',
         icon: Zap,
         href: '#eb-reports',
+        roles: ['crusher_manager', 'manager']
+    },
+    {
+        name: 'Crusher Maintenance',
+        icon: Wrench,
+        href: '#crusher-maintenance',
         roles: ['crusher_manager', 'manager']
     },
     { name: 'Sales', icon: ShoppingCart, href: '#sales', roles: ['sales', 'manager'] },
