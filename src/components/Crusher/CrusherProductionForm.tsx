@@ -165,9 +165,28 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
             maintenance_notes: record.maintenance_notes || '',
             notes: record.notes || ''
           });
+        } else {
+          // If no active shift today, fetch defaults from the MOST RECENT record overall
+          const { data: recent, error: recentError } = await supabase
+            .from('production_records')
+            .select('crusher_type, shift, downtime_hours, maintenance_hours, material_source')
+            .eq('manager_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (!recentError && recent && recent.length > 0) {
+            setFormData(prev => ({
+              ...prev,
+              crusher_type: recent[0].crusher_type || prev.crusher_type,
+              shift: recent[0].shift || prev.shift,
+              machine_downtime: recent[0].downtime_hours?.toString() || '0.0',
+              maintenance_hours: recent[0].maintenance_hours?.toString() || '0.0',
+              material_source: recent[0].material_source || prev.material_source
+            }));
+          }
         }
       } catch (error) {
-        console.error('Error resuming active shift:', error);
+        console.error('Error resuming active shift or fetching defaults:', error);
       }
     };
 
@@ -371,9 +390,12 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
             <input
               type="date"
               required
+              readOnly={!!formData.machine_start_time}
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                formData.machine_start_time ? 'bg-slate-50 border-slate-200 cursor-not-allowed' : 'border-slate-300'
+              }`}
             />
           </div>
         </div>
@@ -384,9 +406,12 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
           </label>
           <select
             required
+            disabled={!!formData.machine_start_time}
             value={formData.shift}
             onChange={(e) => setFormData({ ...formData, shift: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+              formData.machine_start_time ? 'bg-slate-50 border-slate-200 cursor-not-allowed' : 'border-slate-300'
+            }`}
           >
             <option value="morning">Morning Shift</option>
             <option value="night">Night Shift</option>
@@ -462,18 +487,23 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
                   <input
                     type="time"
                     required
+                    readOnly={!!formData.machine_start_time}
                     value={formData.machine_start_time}
                     onChange={(e) => setFormData({ ...formData, machine_start_time: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                      formData.machine_start_time ? 'bg-slate-50 border-slate-200 cursor-not-allowed' : 'border-slate-300'
+                    }`}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleSetCurrentTime('machine_start_time')}
-                  className="px-3 py-2 text-xs font-medium text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 border border-orange-200"
-                >
-                  Set Now
-                </button>
+                {!formData.machine_start_time && (
+                  <button
+                    type="button"
+                    onClick={() => handleSetCurrentTime('machine_start_time')}
+                    className="px-3 py-2 text-xs font-medium text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 border border-orange-200 transition-colors"
+                  >
+                    Set Now
+                  </button>
+                )}
               </div>
             </div>
 

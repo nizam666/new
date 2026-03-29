@@ -260,9 +260,9 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
                 <input
                   type="number"
                   step="0.01"
+                  readOnly
                   value={formData.starting_reading['KW CH']}
-                  onChange={(e) => handleReadingChange('starting', 'KW CH', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 text-slate-500 cursor-not-allowed"
                   placeholder="0.00"
                 />
               </div>
@@ -271,9 +271,9 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
                 <input
                   type="number"
                   step="0.01"
+                  readOnly
                   value={formData.starting_reading['PFC']}
-                  onChange={(e) => handleReadingChange('starting', 'PFC', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 text-slate-500 cursor-not-allowed"
                   placeholder="0.00"
                 />
               </div>
@@ -282,10 +282,9 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
                 <input
                   type="number"
                   step="0.01"
-                  required
+                  readOnly
                   value={formData.starting_reading['KW UC']}
-                  onChange={(e) => handleReadingChange('starting', 'KW UC', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 text-slate-500 cursor-not-allowed"
                   placeholder="0.00"
                 />
               </div>
