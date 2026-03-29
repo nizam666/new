@@ -8,27 +8,44 @@ interface EBReportFormProps {
 
 export function EBReportForm({ onSuccess }: EBReportFormProps) {
   const [loading, setLoading] = useState(false);
-  // Removed unused loadingLatestReport state as it's no longer needed
+  const [summaryDate, setSummaryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [totalUnits, setTotalUnits] = useState<number | null>(null);
+
   const [formData, setFormData] = useState({
     report_date: new Date().toISOString().split('T')[0],
     starting_reading: {
-      kw: '',
-      kva: '',
-      kvah: '',
-      kwh: '',
-      pf_c: '',
-      pf: ''
+      'KW CH': '',
+      'PFC': '',
+      'KW UC': ''
     },
     ending_reading: {
-      kw: '',
-      kva: '',
-      kvah: '',
-      kwh: '',
-      pf_c: '',
-      pf: ''
+      'KW CH': '',
+      'PFC': '',
+      'KW UC': ''
     },
     notes: ''
   });
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('eb_reports')
+          .select('meter_reading_start, meter_reading_end')
+          .eq('report_date', summaryDate);
+
+        if (error) throw error;
+
+        if (data) {
+          const sum = data.reduce((acc, row) => acc + ((row.meter_reading_end || 0) - (row.meter_reading_start || 0)), 0);
+          setTotalUnits(sum);
+        }
+      } catch (error) {
+        console.error('Error fetching summary:', error);
+      }
+    };
+    fetchSummary();
+  }, [summaryDate, formData]); // Reacts to date picker change or form submission reset
 
   useEffect(() => {
     const fetchLatestReport = async () => {
@@ -36,16 +53,28 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
         const { data, error } = await supabase
           .from('eb_reports')
           .select('ending_reading')
-          .order('report_date', { ascending: false })
-          .limit(1);
+          .not('ending_reading', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(5);
 
         if (error) throw error;
 
-        if (data && data.length > 0 && data[0].ending_reading) {
+        // Find the most recent record that ACTUALLY contains a typed-in ending reading
+        const validRecord = data?.find(r => r.ending_reading && r.ending_reading['KW CH'] !== '');
+
+        if (validRecord) {
           setFormData(prev => ({
             ...prev,
-            starting_reading: data[0].ending_reading,
-            ending_reading: data[0].ending_reading // Set both to the same value
+            starting_reading: validRecord.ending_reading
+          }));
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            starting_reading: {
+              'KW CH': '',
+              'PFC': '',
+              'KW UC': ''
+            }
           }));
         }
       } catch (error) {
@@ -54,7 +83,7 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
     };
 
     fetchLatestReport();
-  }, []);
+  }, [formData.report_date]);
 
   const createNotification = async (title: string, message: string, metadata: Record<string, unknown> = {}) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -72,8 +101,8 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
   };
 
   const checkPFAndNotify = async () => {
-    const startingPF = parseFloat(formData.starting_reading.pf) || 0;
-    const endingPF = parseFloat(formData.ending_reading.pf) || 0;
+    const startingPF = parseFloat(formData.starting_reading['PFC']) || 0;
+    const endingPF = parseFloat(formData.ending_reading['PFC']) || 0;
 
     if (startingPF > 0.95) {
       await createNotification(
@@ -97,7 +126,13 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
     setLoading(true);
 
     try {
-      // Check PF values and create notifications if needed
+      const startKWUC = parseFloat(formData.starting_reading['KW UC']) || 0;
+      const endKWUC = parseFloat(formData.ending_reading['KW UC']) || 0;
+
+      if (endKWUC < startKWUC) {
+        throw new Error('Ending KW UC must be equal to or greater than Starting KW UC.');
+      }
+
       await checkPFAndNotify();
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -106,8 +141,6 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
         return;
       }
 
-      // Remove unused variables
-
       const { error } = await supabase
         .from('eb_reports')
         .insert([{
@@ -115,6 +148,8 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
           report_date: formData.report_date,
           starting_reading: formData.starting_reading,
           ending_reading: formData.ending_reading,
+          meter_reading_start: parseFloat(formData.starting_reading['KW CH']) * 40 || 0,
+          meter_reading_end: parseFloat(formData.ending_reading['KW CH']) * 40 || 0,
           notes: formData.notes || null
         }]);
 
@@ -123,61 +158,45 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
       alert('EB report submitted successfully!');
       setFormData({
         report_date: new Date().toISOString().split('T')[0],
-        starting_reading: {
-          kw: '',
-          kva: '',
-          kvah: '',
-          kwh: '',
-          pf_c: '',
-          pf: ''
-        },
+        starting_reading: formData.ending_reading, // Retain what was just submitted as the future starting point!
         ending_reading: {
-          kw: '',
-          kva: '',
-          kvah: '',
-          kwh: '',
-          pf_c: '',
-          pf: ''
+          'KW CH': '',
+          'PFC': '',
+          'KW UC': '',
         },
         notes: ''
       });
       onSuccess();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Unknown error');
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      alert(error?.message || error?.details || 'Unknown error');
     } finally {
       setLoading(false);
     }
   };
 
   const calculateUnits = () => {
-    const startKWH = parseFloat(formData.starting_reading.kwh) || 0;
-    const endKWH = parseFloat(formData.ending_reading.kwh) || 0;
-    return Math.max(0, endKWH - startKWH);
+    const startKWCH = parseFloat(formData.starting_reading['KW CH']) || 0;
+    const endKWCH = parseFloat(formData.ending_reading['KW CH']) || 0;
+    return Math.max(0, (endKWCH - startKWCH) * 40);
   };
 
   const calculateCost = () => {
-    // Cost calculation removed as cost_per_unit field is removed
     return 0;
   };
 
   const handleReadingChange = (type: 'starting' | 'ending', field: string, value: string) => {
     setFormData(prev => {
-      // If we're updating the starting reading, update both starting and ending readings
       if (type === 'starting') {
         return {
           ...prev,
           starting_reading: {
             ...prev.starting_reading,
             [field]: value
-          },
-          ending_reading: {
-            ...prev.ending_reading,
-            [field]: value
           }
         };
       }
 
-      // If we're updating the ending reading, only update the ending reading
       return {
         ...prev,
         ending_reading: {
@@ -189,7 +208,8 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+    <div className="space-y-8">
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
       <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
         <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
           <Zap className="w-5 h-5 text-yellow-600" />
@@ -197,7 +217,7 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
         <h3 className="text-lg font-semibold text-slate-900">Daily EB Report</h3>
       </div>
 
-      {parseFloat(formData.starting_reading.pf) > 0.95 || parseFloat(formData.ending_reading.pf) > 0.95 && (
+      {(parseFloat(formData.starting_reading['PFC']) > 0.95 || parseFloat(formData.ending_reading['PFC']) > 0.95) && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -205,7 +225,7 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
             </div>
             <div className="ml-3">
               <p className="text-sm text-yellow-700">
-                Warning: Power Factor (PF) exceeds 0.95. A notification has been sent to the director.
+                Warning: Power Factor (PFC) exceeds 0.95. A notification has been sent to the director.
               </p>
             </div>
           </div>
@@ -234,70 +254,37 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
           {/* Starting Reading */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <h4 className="text-sm font-medium text-slate-700 mb-4">Starting Reading</h4>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-slate-600 mb-1">KW</label>
+                <label className="block text-sm text-slate-600 mb-1">KW CH</label>
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.starting_reading.kw}
-                  onChange={(e) => handleReadingChange('starting', 'kw', e.target.value)}
+                  value={formData.starting_reading['KW CH']}
+                  onChange={(e) => handleReadingChange('starting', 'KW CH', e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-1">KVA</label>
+                <label className="block text-sm text-slate-600 mb-1">PFC</label>
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.starting_reading.kva}
-                  onChange={(e) => handleReadingChange('starting', 'kva', e.target.value)}
+                  value={formData.starting_reading['PFC']}
+                  onChange={(e) => handleReadingChange('starting', 'PFC', e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-1">KVAH</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.starting_reading.kvah}
-                  onChange={(e) => handleReadingChange('starting', 'kvah', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">KWH</label>
+                <label className="block text-sm text-slate-600 mb-1">KW UC *</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  value={formData.starting_reading.kwh}
-                  onChange={(e) => handleReadingChange('starting', 'kwh', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">PF C</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.starting_reading.pf_c}
-                  onChange={(e) => handleReadingChange('starting', 'pf_c', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">PF</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.starting_reading.pf}
-                  onChange={(e) => handleReadingChange('starting', 'pf', e.target.value)}
+                  value={formData.starting_reading['KW UC']}
+                  onChange={(e) => handleReadingChange('starting', 'KW UC', e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   placeholder="0.00"
                 />
@@ -308,70 +295,37 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
           {/* Ending Reading */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <h4 className="text-sm font-medium text-slate-700 mb-4">Ending Reading</h4>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-slate-600 mb-1">KW</label>
+                <label className="block text-sm text-slate-600 mb-1">KW CH</label>
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.ending_reading.kw}
-                  onChange={(e) => handleReadingChange('ending', 'kw', e.target.value)}
+                  value={formData.ending_reading['KW CH']}
+                  onChange={(e) => handleReadingChange('ending', 'KW CH', e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-1">KVA</label>
+                <label className="block text-sm text-slate-600 mb-1">PFC</label>
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.ending_reading.kva}
-                  onChange={(e) => handleReadingChange('ending', 'kva', e.target.value)}
+                  value={formData.ending_reading['PFC']}
+                  onChange={(e) => handleReadingChange('ending', 'PFC', e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>
               <div>
-                <label className="block text-sm text-slate-600 mb-1">KVAH</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.ending_reading.kvah}
-                  onChange={(e) => handleReadingChange('ending', 'kvah', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">KWH *</label>
+                <label className="block text-sm text-slate-600 mb-1">KW UC *</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  value={formData.ending_reading.kwh}
-                  onChange={(e) => handleReadingChange('ending', 'kwh', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">PF C</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.ending_reading.pf_c}
-                  onChange={(e) => handleReadingChange('ending', 'pf_c', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">PF</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.ending_reading.pf}
-                  onChange={(e) => handleReadingChange('ending', 'pf', e.target.value)}
+                  value={formData.ending_reading['KW UC']}
+                  onChange={(e) => handleReadingChange('ending', 'KW UC', e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   placeholder="0.00"
                 />
@@ -385,7 +339,7 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
             <div className="text-sm font-medium text-slate-600 mb-1">Units Consumed</div>
             <input
               type="text"
-              value={`${calculateUnits().toFixed(2)} kWh`}
+              value={calculateUnits().toFixed(2)}
               readOnly
               className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 font-semibold mt-2"
             />
@@ -427,6 +381,26 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
           {loading ? 'Submitting...' : 'Submit EB Report'}
         </button>
       </div>
-    </form>
+      </form>
+
+      {/* Daily Units Summary Widget */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-900">Daily Units Summary Report</h3>
+          <input
+            type="date"
+            value={summaryDate}
+            onChange={(e) => setSummaryDate(e.target.value)}
+            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm w-40"
+          />
+        </div>
+        <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 flex items-center justify-between">
+          <span className="text-slate-700 font-medium">Total Consumed Units</span>
+          <span className="text-2xl font-bold text-yellow-700">
+            {totalUnits !== null ? totalUnits.toFixed(2) : '0.00'} Units
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -21,7 +21,7 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
     machine_downtime: '0.0',
     maintenance_hours: '0.0',
     material_source: 'quarry',
-    status: 'operational',
+    status: 'completed',
     maintenance_notes: '',
     notes: ''
   });
@@ -173,13 +173,14 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
         .from('production_records')
         .insert([
           {
+            manager_id: user.id,
             date: formData.date,
             shift: formData.shift,
             crusher_type: formData.crusher_type,
             machine_start_time: formData.machine_start_time || null,
             machine_end_time: formData.machine_end_time || null,
-            machine_working_hours: parseFloat(formData.machine_working_hours),
-            machine_downtime: parseFloat(formData.machine_downtime),
+            working_hours: parseFloat(formData.machine_working_hours),
+            downtime_hours: parseFloat(formData.machine_downtime),
             maintenance_hours: parseFloat(formData.maintenance_hours),
             material_source: formData.material_source,
             status: formData.status,
@@ -201,13 +202,14 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
         machine_downtime: '0.0',
         maintenance_hours: '0.0',
         material_source: 'quarry',
-        status: 'operational',
+        status: 'completed',
         maintenance_notes: '',
         notes: ''
       });
       onSuccess();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Unknown error');
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      alert(error?.message || error?.details || 'Unknown error');
     } finally {
       setLoading(false);
     }
