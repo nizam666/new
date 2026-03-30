@@ -50,24 +50,45 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
   useEffect(() => {
     const fetchLatestReport = async () => {
       try {
+        // Get the current user to confirm identity in the log
+        const { data: { user } } = await supabase.auth.getUser();
+        console.log('[EB] Fetching previous records for user:', user?.id);
+
         const { data, error } = await supabase
           .from('eb_reports')
-          .select('ending_reading')
+          .select('ending_reading, created_at, user_id')
           .not('ending_reading', 'is', null)
           .order('created_at', { ascending: false })
           .limit(20);
 
-        if (error) throw error;
+        if (error) {
+          console.error('[EB] RLS or query error:', error);
+          throw error;
+        }
 
-        // Find the most recent record that ACTUALLY contains a typed-in ending reading
-        const validRecord = data?.find(r => r.ending_reading && r.ending_reading['KW CH'] && r.ending_reading['KW CH'] !== '');
+        console.log('[EB] Fetched previous EB reports:', data);
 
-        if (validRecord) {
+        // Find the most recent record that has a complete ending_reading
+        const validRecord = data?.find(r =>
+          r.ending_reading &&
+          (r.ending_reading['KW CH'] !== undefined ||
+           r.ending_reading['KW UC'] !== undefined)
+        );
+
+        if (validRecord && validRecord.ending_reading) {
+          console.log('[EB] Using validRecord ending_reading:', validRecord.ending_reading);
+          // Normalize values to strings (they may be stored as numbers in JSONB)
+          const normalized = {
+            'KW CH': String(validRecord.ending_reading['KW CH'] ?? ''),
+            'PFC': String(validRecord.ending_reading['PFC'] ?? ''),
+            'KW UC': String(validRecord.ending_reading['KW UC'] ?? ''),
+          };
           setFormData(prev => ({
             ...prev,
-            starting_reading: validRecord.ending_reading
+            starting_reading: normalized
           }));
         } else {
+          console.warn('[EB] No valid previous record found. Starting reading will be empty.');
           setFormData(prev => ({
             ...prev,
             starting_reading: {
@@ -78,7 +99,7 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
           }));
         }
       } catch (error) {
-        console.error('Error fetching latest EB report:', error);
+        console.error('[EB] Error fetching latest EB report:', error);
       }
     };
 
