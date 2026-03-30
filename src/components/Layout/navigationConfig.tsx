@@ -17,6 +17,7 @@ import {
     List,
     BarChart3,
     Wrench,
+    Receipt,
     LucideIcon
 } from 'lucide-react';
 
@@ -73,6 +74,11 @@ export const DIRECTOR_NAV: MenuItem[] = [
                 name: 'EB Reports',
                 icon: Zap,
                 href: '#eb-reports'
+            },
+            {
+                name: 'EB Bill Taken',
+                icon: Receipt,
+                href: '#eb-bill-taken'
             },
             {
                 name: 'Maintenance',
@@ -138,6 +144,12 @@ export const MANAGER_NAV: MenuItem[] = [
         name: 'EB Reports',
         icon: Zap,
         href: '#eb-reports',
+        roles: ['crusher_manager', 'manager']
+    },
+    {
+        name: 'EB Bill Taken',
+        icon: Receipt,
+        href: '#eb-bill-taken',
         roles: ['crusher_manager', 'manager']
     },
     {

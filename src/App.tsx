@@ -26,6 +26,7 @@ import { ReportsModule } from './components/Reports/ReportsModule';
 import { UserManagement } from './components/Users/UserManagement';
 import { CrusherProductionForm } from './components/Crusher/CrusherProductionForm';
 import { EBReportForm } from './components/Crusher/EBReportForm';
+import { EBBillTakenForm } from './components/Crusher/EBBillTakenForm';
 import { CrusherMaintenanceForm } from './components/Crusher/CrusherMaintenanceForm';
 import { JCBOperationsForm } from './components/Operations/JCBOperationsForm';
 import { JCBOperationsDetails } from './components/Operations/JCBOperationsDetails';
@@ -212,6 +213,17 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Manage Electricity Board reports and records</p>
             </div>
             <EBReportForm onSuccess={() => window.location.reload()} />
+          </div>
+        );
+
+      case 'eb-bill-taken':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">EB Bill Taken</h2>
+              <p className="text-slate-600 mt-1">Record received EB bill and perform KW UC meter reset</p>
+            </div>
+            <EBBillTakenForm onSuccess={() => window.location.reload()} />
           </div>
         );
 
