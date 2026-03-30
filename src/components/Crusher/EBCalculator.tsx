@@ -1,0 +1,297 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { Calculator, Calendar, Zap, TrendingUp, IndianRupee, ChevronDown } from 'lucide-react';
+
+const RATE_PER_UNIT = 8.80;
+const MONTHLY_FIXED = 18480;
+const DAILY_FIXED = MONTHLY_FIXED / 30; // 616
+const TAX_RATE = 0.05; // 5%
+
+interface EBRow {
+  id: string;
+  report_date: string;
+  units_consumed: number;
+  starting_reading: Record<string, string | number> | null;
+  ending_reading: Record<string, string | number> | null;
+  created_at: string;
+}
+
+interface CalculatedRow extends EBRow {
+  unitAmount: number;
+  fixedCost: number;
+  tax: number;
+  sumAmount: number;
+}
+
+function getMonthRange(year: number, month: number) {
+  const from = new Date(year, month, 1).toISOString().split('T')[0];
+  const to = new Date(year, month + 1, 0).toISOString().split('T')[0];
+  return { from, to };
+}
+
+export function EBCalculator() {
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [rows, setRows] = useState<CalculatedRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const MONTHS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedYear, selectedMonth]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { from, to } = getMonthRange(selectedYear, selectedMonth);
+
+      const { data, error } = await supabase
+        .from('eb_reports')
+        .select('id, report_date, units_consumed, starting_reading, ending_reading, created_at')
+        .gte('report_date', from)
+        .lte('report_date', to)
+        .order('report_date', { ascending: true });
+
+      if (error) throw error;
+
+      const calculated: CalculatedRow[] = (data || []).map((row: EBRow) => {
+        // units_consumed is stored as (meter_reading_end - meter_reading_start)
+        // Each unit in meter = KW CH * 40, so units_consumed already in kWh
+        const units = row.units_consumed ?? 0;
+        const unitAmount = units * RATE_PER_UNIT;
+        const fixedCost = DAILY_FIXED;
+        const tax = (unitAmount + fixedCost) * TAX_RATE;
+        const sumAmount = unitAmount + fixedCost + tax;
+        return { ...row, unitAmount, fixedCost, tax, sumAmount };
+      });
+
+      setRows(calculated);
+    } catch (err) {
+      console.error('Error fetching EB data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totals = rows.reduce(
+    (acc, r) => ({
+      units: acc.units + r.units_consumed,
+      unitAmount: acc.unitAmount + r.unitAmount,
+      fixedCost: acc.fixedCost + r.fixedCost,
+      tax: acc.tax + r.tax,
+      sumAmount: acc.sumAmount + r.sumAmount,
+    }),
+    { units: 0, unitAmount: 0, fixedCost: 0, tax: 0, sumAmount: 0 }
+  );
+
+  const fmt = (n: number) =>
+    '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const fmtUnits = (n: number) =>
+    n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return (
+    <div className="space-y-6">
+      {/* Header Card */}
+      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+            <Calculator className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">EB Calculator</h2>
+            <p className="text-indigo-200 text-sm">Daily electricity cost breakdown</p>
+          </div>
+        </div>
+
+        {/* Rate Info */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+          {[
+            { label: 'Rate/Unit', value: '₹8.80' },
+            { label: 'Daily Fixed', value: '₹616' },
+            { label: 'Monthly Fixed', value: '₹18,480' },
+            { label: 'Tax Rate', value: '5%' },
+          ].map(item => (
+            <div key={item.label} className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-indigo-200 text-xs font-medium">{item.label}</p>
+              <p className="text-white text-lg font-bold">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Month / Year Selector */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-indigo-500" />
+            <span className="text-sm font-medium text-slate-700">Period:</span>
+          </div>
+          <div className="relative">
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(Number(e.target.value))}
+              className="appearance-none pl-4 pr-10 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+            >
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i}>{m}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(Number(e.target.value))}
+              className="appearance-none pl-4 pr-10 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+            >
+              {[2024, 2025, 2026, 2027].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          </div>
+          <span className="text-sm text-slate-500 ml-auto">
+            {rows.length} record{rows.length !== 1 ? 's' : ''} found
+          </span>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {[
+            { label: 'Total Units', value: fmtUnits(totals.units) + ' kWh', color: 'yellow', icon: Zap },
+            { label: 'Unit Amount', value: fmt(totals.unitAmount), color: 'blue', icon: IndianRupee },
+            { label: 'Fixed Cost', value: fmt(totals.fixedCost), color: 'slate', icon: IndianRupee },
+            { label: 'Total Tax (5%)', value: fmt(totals.tax), color: 'orange', icon: TrendingUp },
+            { label: 'Total Payable', value: fmt(totals.sumAmount), color: 'green', icon: IndianRupee },
+          ].map(card => (
+            <div
+              key={card.label}
+              className={`bg-${card.color}-50 border border-${card.color}-200 rounded-xl p-4`}
+            >
+              <p className={`text-xs font-medium text-${card.color}-600 mb-1`}>{card.label}</p>
+              <p className={`text-base font-bold text-${card.color}-900 break-words`}>{card.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Main Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-900">
+            Daily EB Cost — {MONTHS[selectedMonth]} {selectedYear}
+          </h3>
+          <span className="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+            Fixed: ₹616/day · Rate: ₹8.80/unit · Tax: 5%
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="py-16 text-center text-slate-500">
+            <Calculator className="w-8 h-8 mx-auto mb-2 text-slate-300 animate-pulse" />
+            <p>Loading EB data...</p>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="py-16 text-center text-slate-500">
+            <Zap className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+            <p className="font-medium">No EB reports found</p>
+            <p className="text-sm mt-1">Submit Daily EB Reports to see calculations here</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-yellow-700 uppercase tracking-wider">
+                    Units (kWh)
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                    Unit Amount<br />
+                    <span className="normal-case font-normal text-blue-400">(Units × ₹8.80)</span>
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Fixed Cost<br />
+                    <span className="normal-case font-normal text-slate-400">(₹18480 / 30)</span>
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-orange-700 uppercase tracking-wider">
+                    Tax<br />
+                    <span className="normal-case font-normal text-orange-400">(Col 2+3) × 5%</span>
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-green-700 uppercase tracking-wider bg-green-50">
+                    Sum Amount
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((row, idx) => (
+                  <tr
+                    key={row.id}
+                    className={`hover:bg-slate-50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/40'}`}
+                  >
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900 whitespace-nowrap">
+                      {new Date(row.report_date).toLocaleDateString('en-IN', {
+                        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
+                      })}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        <Zap className="w-3.5 h-3.5 text-yellow-500" />
+                        <span className="font-semibold text-yellow-700">{fmtUnits(row.units_consumed)}</span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right font-medium text-blue-700">
+                      {fmt(row.unitAmount)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-600">
+                      {fmt(row.fixedCost)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-orange-600">
+                      {fmt(row.tax)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right bg-green-50">
+                      <span className="font-bold text-green-800">{fmt(row.sumAmount)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {/* Totals Row */}
+              <tfoot>
+                <tr className="bg-indigo-50 border-t-2 border-indigo-200">
+                  <td className="px-4 py-4 text-sm font-bold text-indigo-900">
+                    TOTAL ({rows.length} days)
+                  </td>
+                  <td className="px-4 py-4 text-sm text-right font-bold text-yellow-800">
+                    {fmtUnits(totals.units)} kWh
+                  </td>
+                  <td className="px-4 py-4 text-sm text-right font-bold text-blue-800">
+                    {fmt(totals.unitAmount)}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-right font-bold text-slate-700">
+                    {fmt(totals.fixedCost)}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-right font-bold text-orange-800">
+                    {fmt(totals.tax)}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-right bg-green-100">
+                    <span className="text-base font-extrabold text-green-900">{fmt(totals.sumAmount)}</span>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

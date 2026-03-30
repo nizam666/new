@@ -26,6 +26,7 @@ import { ReportsModule } from './components/Reports/ReportsModule';
 import { UserManagement } from './components/Users/UserManagement';
 import { CrusherProductionForm } from './components/Crusher/CrusherProductionForm';
 import { EBReportForm } from './components/Crusher/EBReportForm';
+import { EBCalculator } from './components/Crusher/EBCalculator';
 import { EBRecords } from './components/Crusher/EBRecords';
 import { CrusherMaintenanceForm } from './components/Crusher/CrusherMaintenanceForm';
 import { JCBOperationsForm } from './components/Operations/JCBOperationsForm';
@@ -224,6 +225,13 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Record received EB bill and perform KW UC meter reset</p>
             </div>
             <EBRecords onSuccess={() => window.location.reload()} />
+          </div>
+        );
+
+      case 'eb-calculator':
+        return (
+          <div className="space-y-6">
+            <EBCalculator />
           </div>
         );
 

@@ -18,6 +18,7 @@ import {
     BarChart3,
     Wrench,
     Receipt,
+    Calculator,
     LucideIcon
 } from 'lucide-react';
 
@@ -79,6 +80,11 @@ export const DIRECTOR_NAV: MenuItem[] = [
                 name: 'EB Records ',
                 icon: Receipt,
                 href: '#eb-records'
+            },
+            {
+                name: 'EB Calculator',
+                icon: Calculator,
+                href: '#eb-calculator'
             },
             {
                 name: 'Maintenance',
@@ -151,6 +157,12 @@ export const MANAGER_NAV: MenuItem[] = [
         icon: Receipt,
         href: '#eb-records',
         roles: ['manager']
+    },
+    {
+        name: 'EB Calculator',
+        icon: Calculator,
+        href: '#eb-calculator',
+        roles: ['crusher_manager', 'manager']
     },
     {
         name: 'Crusher Maintenance',
