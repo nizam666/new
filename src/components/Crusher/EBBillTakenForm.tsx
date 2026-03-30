@@ -219,7 +219,7 @@ export function EBBillTakenForm({ onSuccess }: EBBillTakenFormProps) {
               type="text"
               value={formData.bill_number}
               onChange={e => setFormData({ ...formData, bill_number: e.target.value })}
-              placeholder="e.g. EB/2026/0330"
+              placeholder=""
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>

@@ -54,6 +54,32 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
         const { data: { user } } = await supabase.auth.getUser();
         console.log('[EB] Fetching previous records for user:', user?.id);
 
+        // --- Check if a KW UC Reset was recorded after the last EB report ---
+        const { data: resetData } = await supabase
+          .from('eb_bill_records')
+          .select('kw_uc_reset, kw_uc_reset_value, created_at')
+          .eq('kw_uc_reset', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const { data: lastReportData } = await supabase
+          .from('eb_reports')
+          .select('created_at')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        // If a reset exists and is NEWER than the last EB report → KW UC starts from reset value
+        const resetIsActive =
+          resetData &&
+          resetData.kw_uc_reset === true &&
+          (!lastReportData || new Date(resetData.created_at) > new Date(lastReportData.created_at));
+
+        if (resetIsActive) {
+          console.log('[EB] KW UC Reset detected! Starting KW UC →', resetData.kw_uc_reset_value);
+        }
+
         const { data, error } = await supabase
           .from('eb_reports')
           .select('ending_reading, created_at, user_id')
@@ -81,7 +107,10 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
           const normalized = {
             'KW CH': String(validRecord.ending_reading['KW CH'] ?? ''),
             'PFC': String(validRecord.ending_reading['PFC'] ?? ''),
-            'KW UC': String(validRecord.ending_reading['KW UC'] ?? ''),
+            // If KW UC Reset was applied, override KW UC with the reset value (usually 0)
+            'KW UC': resetIsActive
+              ? String(resetData!.kw_uc_reset_value ?? 0)
+              : String(validRecord.ending_reading['KW UC'] ?? ''),
           };
           setFormData(prev => ({
             ...prev,
@@ -94,7 +123,8 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
             starting_reading: {
               'KW CH': '',
               'PFC': '',
-              'KW UC': ''
+              // If a reset exists even with no prior EB report, apply the reset value
+              'KW UC': resetIsActive ? String(resetData!.kw_uc_reset_value ?? 0) : ''
             }
           }));
         }
