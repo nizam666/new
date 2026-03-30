@@ -26,7 +26,7 @@ import { ReportsModule } from './components/Reports/ReportsModule';
 import { UserManagement } from './components/Users/UserManagement';
 import { CrusherProductionForm } from './components/Crusher/CrusherProductionForm';
 import { EBReportForm } from './components/Crusher/EBReportForm';
-import { EBBillTakenForm } from './components/Crusher/EBBillTakenForm';
+import { EBBillTakenForm } from './components/Crusher/EBRecords';
 import { CrusherMaintenanceForm } from './components/Crusher/CrusherMaintenanceForm';
 import { JCBOperationsForm } from './components/Operations/JCBOperationsForm';
 import { JCBOperationsDetails } from './components/Operations/JCBOperationsDetails';
