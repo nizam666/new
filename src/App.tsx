@@ -216,11 +216,11 @@ function AppContent() {
           </div>
         );
 
-      case 'eb-bill-taken':
+      case 'eb-records':
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">EB Bill Taken</h2>
+              <h2 className="text-2xl font-bold text-slate-900">EB Records</h2>
               <p className="text-slate-600 mt-1">Record received EB bill and perform KW UC meter reset</p>
             </div>
             <EBRecords onSuccess={() => window.location.reload()} />

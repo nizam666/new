@@ -76,9 +76,9 @@ export const DIRECTOR_NAV: MenuItem[] = [
                 href: '#eb-reports'
             },
             {
-                name: 'EB Bill Taken',
+                name: 'EB Records ',
                 icon: Receipt,
-                href: '#eb-bill-taken'
+                href: '#eb-records'
             },
             {
                 name: 'Maintenance',
@@ -147,10 +147,10 @@ export const MANAGER_NAV: MenuItem[] = [
         roles: ['crusher_manager', 'manager']
     },
     {
-        name: 'EB Bill Taken',
+        name: 'EB Records',
         icon: Receipt,
-        href: '#eb-bill-taken',
-        roles: ['crusher_manager', 'manager']
+        href: '#eb-records',
+        roles: ['manager']
     },
     {
         name: 'Crusher Maintenance',
