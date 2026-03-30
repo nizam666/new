@@ -55,12 +55,12 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
           .select('ending_reading')
           .not('ending_reading', 'is', null)
           .order('created_at', { ascending: false })
-          .limit(5);
+          .limit(20);
 
         if (error) throw error;
 
         // Find the most recent record that ACTUALLY contains a typed-in ending reading
-        const validRecord = data?.find(r => r.ending_reading && r.ending_reading['KW CH'] !== '');
+        const validRecord = data?.find(r => r.ending_reading && r.ending_reading['KW CH'] && r.ending_reading['KW CH'] !== '');
 
         if (validRecord) {
           setFormData(prev => ({
