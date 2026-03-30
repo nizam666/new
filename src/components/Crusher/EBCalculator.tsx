@@ -7,16 +7,9 @@ const MONTHLY_FIXED = 18480;
 const DAILY_FIXED = MONTHLY_FIXED / 30; // 616
 const TAX_RATE = 0.05; // 5%
 
-interface EBRow {
-  id: string;
+interface DailyRow {
   report_date: string;
-  units_consumed: number;
-  starting_reading: Record<string, string | number> | null;
-  ending_reading: Record<string, string | number> | null;
-  created_at: string;
-}
-
-interface CalculatedRow extends EBRow {
+  units_consumed: number;  // sum of all records on this date
   unitAmount: number;
   fixedCost: number;
   tax: number;
@@ -33,7 +26,7 @@ export function EBCalculator() {
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [rows, setRows] = useState<CalculatedRow[]>([]);
+  const [rows, setRows] = useState<DailyRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const MONTHS = [
@@ -52,22 +45,26 @@ export function EBCalculator() {
 
       const { data, error } = await supabase
         .from('eb_reports')
-        .select('id, report_date, units_consumed, starting_reading, ending_reading, created_at')
+        .select('report_date, units_consumed')
         .gte('report_date', from)
         .lte('report_date', to)
         .order('report_date', { ascending: true });
 
       if (error) throw error;
 
-      const calculated: CalculatedRow[] = (data || []).map((row: EBRow) => {
-        // units_consumed is stored as (meter_reading_end - meter_reading_start)
-        // Each unit in meter = KW CH * 40, so units_consumed already in kWh
-        const units = row.units_consumed ?? 0;
+      // Group by date — sum all units for the same day, fixed cost once per day
+      const grouped: Record<string, number> = {};
+      for (const row of data || []) {
+        const d = row.report_date;
+        grouped[d] = (grouped[d] ?? 0) + (row.units_consumed ?? 0);
+      }
+
+      const calculated: DailyRow[] = Object.entries(grouped).map(([date, units]) => {
         const unitAmount = units * RATE_PER_UNIT;
-        const fixedCost = DAILY_FIXED;
+        const fixedCost = DAILY_FIXED;          // ₹616 once per day
         const tax = (unitAmount + fixedCost) * TAX_RATE;
         const sumAmount = unitAmount + fixedCost + tax;
-        return { ...row, unitAmount, fixedCost, tax, sumAmount };
+        return { report_date: date, units_consumed: units, unitAmount, fixedCost, tax, sumAmount };
       });
 
       setRows(calculated);
@@ -157,7 +154,7 @@ export function EBCalculator() {
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           </div>
           <span className="text-sm text-slate-500 ml-auto">
-            {rows.length} record{rows.length !== 1 ? 's' : ''} found
+            {rows.length} day{rows.length !== 1 ? 's' : ''} found
           </span>
         </div>
       </div>
@@ -236,7 +233,7 @@ export function EBCalculator() {
               <tbody className="divide-y divide-slate-100">
                 {rows.map((row, idx) => (
                   <tr
-                    key={row.id}
+                    key={row.report_date}
                     className={`hover:bg-slate-50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/40'}`}
                   >
                     <td className="px-4 py-3 text-sm font-medium text-slate-900 whitespace-nowrap">
@@ -269,7 +266,7 @@ export function EBCalculator() {
               <tfoot>
                 <tr className="bg-indigo-50 border-t-2 border-indigo-200">
                   <td className="px-4 py-4 text-sm font-bold text-indigo-900">
-                    TOTAL ({rows.length} days)
+                    TOTAL ({rows.length} day{rows.length !== 1 ? 's' : ''})
                   </td>
                   <td className="px-4 py-4 text-sm text-right font-bold text-yellow-800">
                     {fmtUnits(totals.units)} kWh
