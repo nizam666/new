@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Receipt, Calendar, RotateCcw, Zap, AlertTriangle, CheckCircle, IndianRupee } from 'lucide-react';
 
-interface EBBillTakenFormProps {
+interface EBRecordsProps {
   onSuccess: () => void;
 }
 
@@ -20,7 +20,7 @@ interface BillRecord {
   created_at: string;
 }
 
-export function EBBillTakenForm({ onSuccess }: EBBillTakenFormProps) {
+export function EBRecords({ onSuccess }: EBRecordsProps) {
   const [loading, setLoading] = useState(false);
   const [pastBills, setPastBills] = useState<BillRecord[]>([]);
   const [latestKwUC, setLatestKwUC] = useState<number | null>(null);
