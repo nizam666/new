@@ -17,8 +17,12 @@ interface DailyRow {
 }
 
 function getMonthRange(year: number, month: number) {
-  const from = new Date(year, month, 1).toISOString().split('T')[0];
-  const to = new Date(year, month + 1, 0).toISOString().split('T')[0];
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  
+  const from = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-${String(firstDay.getDate()).padStart(2, '0')}`;
+  const to = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+  
   return { from, to };
 }
 

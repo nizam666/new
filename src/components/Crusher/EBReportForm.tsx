@@ -98,7 +98,7 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
         const validRecord = data?.find(r =>
           r.ending_reading &&
           (r.ending_reading['KW CH'] !== undefined ||
-           r.ending_reading['KW UC'] !== undefined)
+            r.ending_reading['KW UC'] !== undefined)
         );
 
         if (validRecord && validRecord.ending_reading) {
@@ -261,176 +261,176 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
   return (
     <div className="space-y-8">
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
-      <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
-        <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-          <Zap className="w-5 h-5 text-yellow-600" />
-        </div>
-        <h3 className="text-lg font-semibold text-slate-900">Daily EB Report</h3>
-      </div>
-
-      {(parseFloat(formData.starting_reading['PFC']) > 0.95 || parseFloat(formData.ending_reading['PFC']) > 0.95) && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertTriangle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-yellow-700">
-                Warning: Power Factor (PFC) exceeds 0.95. A notification has been sent to the director.
-              </p>
-            </div>
+        <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+          <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+            <Zap className="w-5 h-5 text-yellow-600" />
           </div>
-        </div>
-      )}
-      <div className="space-y-6">
-        {/* Report Date */}
-        <div className="max-w-xs">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Report Date *
-          </label>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="date"
-              required
-              value={formData.report_date}
-              onChange={(e) => setFormData({ ...formData, report_date: e.target.value })}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-            />
-          </div>
+          <h3 className="text-lg font-semibold text-slate-900">Daily EB Report</h3>
         </div>
 
-        {/* Meter Readings - Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Starting Reading */}
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <h4 className="text-sm font-medium text-slate-700 mb-4">Starting Reading</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">KW CH</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  readOnly
-                  value={formData.starting_reading['KW CH']}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 text-slate-500 cursor-not-allowed"
-                  placeholder="0.00"
-                />
+        {(parseFloat(formData.starting_reading['PFC']) > 0.95 || parseFloat(formData.ending_reading['PFC']) > 0.95) && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-yellow-400" aria-hidden="true" />
               </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">PFC</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  readOnly
-                  value={formData.starting_reading['PFC']}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 text-slate-500 cursor-not-allowed"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">KW UC *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  readOnly
-                  value={formData.starting_reading['KW UC']}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 text-slate-500 cursor-not-allowed"
-                  placeholder="0.00"
-                />
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  Warning: Power Factor (PFC) exceeds 0.95. A notification has been sent to the director.
+                </p>
               </div>
             </div>
           </div>
-
-          {/* Ending Reading */}
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <h4 className="text-sm font-medium text-slate-700 mb-4">Ending Reading</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">KW CH</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.ending_reading['KW CH']}
-                  onChange={(e) => handleReadingChange('ending', 'KW CH', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">PFC</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.ending_reading['PFC']}
-                  onChange={(e) => handleReadingChange('ending', 'PFC', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-600 mb-1">KW UC *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={formData.ending_reading['KW UC']}
-                  onChange={(e) => handleReadingChange('ending', 'KW UC', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-            <div className="text-sm font-medium text-slate-600 mb-1">Units Consumed</div>
-            <input
-              type="text"
-              value={calculateUnits().toFixed(2)}
-              readOnly
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 font-semibold mt-2"
-            />
-          </div>
-
-          <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-            <label className="block text-sm font-medium text-slate-600 mb-1">
-              Total Cost
+        )}
+        <div className="space-y-6">
+          {/* Report Date */}
+          <div className="max-w-xs">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Report Date *
             </label>
-            <input
-              type="text"
-              value={'₹' + calculateCost().toFixed(2)}
-              readOnly
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-green-700 font-semibold mt-2"
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="date"
+                required
+                value={formData.report_date}
+                onChange={(e) => setFormData({ ...formData, report_date: e.target.value })}
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Meter Readings - Side by Side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Starting Reading */}
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <h4 className="text-sm font-medium text-slate-700 mb-4">Starting Reading</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-600 mb-1">KW CH</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    readOnly
+                    value={formData.starting_reading['KW CH']}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 text-slate-500 cursor-not-allowed"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-600 mb-1">PFC</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    readOnly
+                    value={formData.starting_reading['PFC']}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 text-slate-500 cursor-not-allowed"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-600 mb-1">KW UC *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    readOnly
+                    value={formData.starting_reading['KW UC']}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 text-slate-500 cursor-not-allowed"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Ending Reading */}
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <h4 className="text-sm font-medium text-slate-700 mb-4">Ending Reading</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-600 mb-1">KW CH</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.ending_reading['KW CH']}
+                    onChange={(e) => handleReadingChange('ending', 'KW CH', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-600 mb-1">PFC</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.ending_reading['PFC']}
+                    onChange={(e) => handleReadingChange('ending', 'PFC', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-600 mb-1">KW UC *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.ending_reading['KW UC']}
+                    onChange={(e) => handleReadingChange('ending', 'KW UC', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="text-sm font-medium text-slate-600 mb-1">Units Consumed</div>
+              <input
+                type="text"
+                value={calculateUnits().toFixed(2)}
+                readOnly
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 font-semibold mt-2"
+              />
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <label className="block text-sm font-medium text-slate-600 mb-1">
+                Total Cost
+              </label>
+              <input
+                type="text"
+                value={'₹' + calculateCost().toFixed(2)}
+                readOnly
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-green-700 font-semibold mt-2"
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Additional Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              rows={2}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              placeholder="Any other observations or remarks..."
             />
           </div>
         </div>
 
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Additional Notes
-          </label>
-          <textarea
-            value={formData.notes}
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            rows={2}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-            placeholder="Any other observations or remarks..."
-          />
+        <div className="flex justify-end pt-4 border-t border-slate-200">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-slate-400 transition-colors"
+          >
+            {loading ? 'Submitting...' : 'Submit EB Report'}
+          </button>
         </div>
-      </div>
-
-      <div className="flex justify-end pt-4 border-t border-slate-200">
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-slate-400 transition-colors"
-        >
-          {loading ? 'Submitting...' : 'Submit EB Report'}
-        </button>
-      </div>
       </form>
 
       {/* Daily Units Summary Widget */}
