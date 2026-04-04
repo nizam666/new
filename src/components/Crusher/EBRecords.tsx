@@ -11,6 +11,8 @@ interface BillRecord {
   bill_date: string;
   due_date: string | null;
   bill_amount: number;
+  md_penalty: number;
+  pf_penalty: number;
   units_billed: number;
   kw_uc_at_billing: number;
   kw_uc_reset: boolean;
@@ -29,6 +31,8 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
     bill_date: new Date().toISOString().split('T')[0],
     due_date: '',
     bill_amount: '',
+    md_penalty: '',
+    pf_penalty: '',
     units_billed: '',
     kw_uc_at_billing: '',
     kw_uc_reset: false,
@@ -96,6 +100,8 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
         bill_date: formData.bill_date,
         due_date: formData.due_date || null,
         bill_amount: parseFloat(formData.bill_amount) || 0,
+        md_penalty: parseFloat(formData.md_penalty) || 0,
+        pf_penalty: parseFloat(formData.pf_penalty) || 0,
         units_billed: parseFloat(formData.units_billed) || 0,
         kw_uc_at_billing: parseFloat(formData.kw_uc_at_billing) || 0,
         kw_uc_reset: formData.kw_uc_reset,
@@ -118,6 +124,8 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
         bill_date: new Date().toISOString().split('T')[0],
         due_date: '',
         bill_amount: '',
+        md_penalty: '',
+        pf_penalty: '',
         units_billed: '',
         kw_uc_at_billing: '',
         kw_uc_reset: false,
@@ -244,6 +252,44 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
             </div>
           </div>
 
+          {/* MD Penalty */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              MD Penalty (₹)
+            </label>
+            <div className="relative">
+              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.md_penalty}
+                onChange={e => setFormData({ ...formData, md_penalty: e.target.value })}
+                placeholder="0.00"
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* PF Penalty */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              PF Penalty (₹)
+            </label>
+            <div className="relative">
+              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.pf_penalty}
+                onChange={e => setFormData({ ...formData, pf_penalty: e.target.value })}
+                placeholder="0.00"
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
           {/* Units Billed */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -362,6 +408,8 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Bill Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Bill No.</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">MD Pen.</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">PF Pen.</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Units</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">KW UC at Bill</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">KW UC Reset</th>
@@ -376,6 +424,8 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">{bill.bill_number || '—'}</td>
                     <td className="px-4 py-3 text-sm text-right font-semibold text-green-700">₹{bill.bill_amount.toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">₹{(bill.md_penalty || 0).toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">₹{(bill.pf_penalty || 0).toLocaleString('en-IN')}</td>
                     <td className="px-4 py-3 text-sm text-right text-yellow-700 font-medium">{bill.units_billed}</td>
                     <td className="px-4 py-3 text-sm text-right text-slate-700">{bill.kw_uc_at_billing}</td>
                     <td className="px-4 py-3 text-center">
