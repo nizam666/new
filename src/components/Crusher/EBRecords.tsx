@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Receipt, Calendar, RotateCcw, Zap, AlertTriangle, CheckCircle, IndianRupee } from 'lucide-react';
+import { Receipt, Calendar, Zap, IndianRupee } from 'lucide-react';
 
 interface EBRecordsProps {
   onSuccess: () => void;
@@ -35,8 +35,6 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
     pf_penalty: '',
     units_billed: '',
     kw_uc_at_billing: '',
-    kw_uc_reset: false,
-    kw_uc_reset_value: '0',
     bill_number: '',
     notes: '',
   });
@@ -79,13 +77,6 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
     } catch (_) { }
   };
 
-  const handleKwUcReset = () => {
-    setFormData(prev => ({ ...prev, kw_uc_reset: true, kw_uc_reset_value: '0' }));
-  };
-
-  const handleCancelReset = () => {
-    setFormData(prev => ({ ...prev, kw_uc_reset: false, kw_uc_reset_value: '0' }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,8 +95,6 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
         pf_penalty: parseFloat(formData.pf_penalty) || 0,
         units_billed: parseFloat(formData.units_billed) || 0,
         kw_uc_at_billing: parseFloat(formData.kw_uc_at_billing) || 0,
-        kw_uc_reset: formData.kw_uc_reset,
-        kw_uc_reset_value: formData.kw_uc_reset ? parseFloat(formData.kw_uc_reset_value) || 0 : 0,
         bill_number: formData.bill_number || null,
         notes: formData.notes || null,
       };
@@ -113,11 +102,7 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
       const { error } = await supabase.from('eb_bill_records').insert([payload]);
       if (error) throw error;
 
-      alert(
-        formData.kw_uc_reset
-          ? '✅ Bill recorded & KW UC Reset marked. The next EB Daily Report will start from ' + formData.kw_uc_reset_value + '.'
-          : '✅ EB Bill recorded successfully!'
-      );
+      alert('✅ EB Bill recorded successfully!');
 
       // Reset form
       setFormData({
@@ -128,8 +113,6 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
         pf_penalty: '',
         units_billed: '',
         kw_uc_at_billing: '',
-        kw_uc_reset: false,
-        kw_uc_reset_value: '0',
         bill_number: '',
         notes: '',
       });
@@ -164,25 +147,6 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
           )}
         </div>
 
-        {/* KW UC Reset Banner */}
-        {formData.kw_uc_reset && (
-          <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800">KW UC Reset is Active</p>
-              <p className="text-sm text-amber-700 mt-0.5">
-                After submitting, the next Daily EB Report will use <strong>{formData.kw_uc_reset_value || 0}</strong> as the Starting KW UC.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleCancelReset}
-              className="text-amber-600 hover:text-amber-800 text-sm font-medium underline"
-            >
-              Cancel Reset
-            </button>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Bill Date */}
@@ -332,23 +296,6 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
           </div>
         </div>
 
-        {/* KW UC Reset Value (shown when reset is active) */}
-        {formData.kw_uc_reset && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <label className="block text-sm font-medium text-amber-800 mb-2">
-              KW UC Reset To (New Starting Value)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.kw_uc_reset_value}
-              onChange={e => setFormData({ ...formData, kw_uc_reset_value: e.target.value })}
-              className="w-full max-w-xs px-4 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
-            />
-            <p className="text-xs text-amber-700 mt-1">Usually 0 — this becomes the Starting KW UC for the next EB report</p>
-          </div>
-        )}
 
         {/* Notes */}
         <div>
@@ -365,24 +312,7 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
         </div>
 
         {/* Footer Buttons */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200">
-          {/* KW UC Reset Button */}
-          {!formData.kw_uc_reset ? (
-            <button
-              type="button"
-              onClick={handleKwUcReset}
-              className="flex items-center gap-2 px-5 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-200 transition-colors font-medium"
-            >
-              <RotateCcw className="w-4 h-4" />
-              KW UC Reset
-            </button>
-          ) : (
-            <div className="flex items-center gap-2 text-amber-700">
-              <CheckCircle className="w-5 h-5 text-amber-500" />
-              <span className="text-sm font-medium">KW UC Reset will be applied on submit</span>
-            </div>
-          )}
-
+        <div className="flex items-center justify-end pt-4 border-t border-slate-200">
           {/* Submit */}
           <button
             type="submit"
@@ -412,7 +342,6 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">PF Pen.</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Units</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">KW UC at Bill</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">KW UC Reset</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Notes</th>
                 </tr>
               </thead>
@@ -428,15 +357,6 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
                     <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">₹{(bill.pf_penalty || 0).toLocaleString('en-IN')}</td>
                     <td className="px-4 py-3 text-sm text-right text-yellow-700 font-medium">{bill.units_billed}</td>
                     <td className="px-4 py-3 text-sm text-right text-slate-700">{bill.kw_uc_at_billing}</td>
-                    <td className="px-4 py-3 text-center">
-                      {bill.kw_uc_reset ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                          <RotateCcw className="w-3 h-3" /> Reset → {bill.kw_uc_reset_value}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
-                    </td>
                     <td className="px-4 py-3 text-sm text-slate-500 max-w-xs truncate">{bill.notes || '—'}</td>
                   </tr>
                 ))}
