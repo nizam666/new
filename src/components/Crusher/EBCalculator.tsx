@@ -9,6 +9,8 @@ const TAX_RATE = 0.05; // 5%
 
 interface DailyRow {
   report_date: string;
+  starting_reading: string;
+  ending_reading: string;
   units_consumed: number;  // sum of all records on this date
   unitAmount: number;
   fixedCost: number;
@@ -49,26 +51,48 @@ export function EBCalculator() {
 
       const { data, error } = await supabase
         .from('eb_reports')
-        .select('report_date, units_consumed')
+        .select('report_date, units_consumed, starting_reading, ending_reading')
         .gte('report_date', from)
         .lte('report_date', to)
-        .order('report_date', { ascending: true });
+        .order('report_date', { ascending: true })
+        .order('created_at', { ascending: true }); // Ensure chronological order for same day
 
       if (error) throw error;
 
       // Group by date — sum all units for the same day, fixed cost once per day
-      const grouped: Record<string, number> = {};
+      // Track the first starting reading and the last ending reading
+      const grouped: Record<string, { units: number, start: string, end: string }> = {};
       for (const row of data || []) {
         const d = row.report_date;
-        grouped[d] = (grouped[d] ?? 0) + (row.units_consumed ?? 0);
+        if (!grouped[d]) {
+          grouped[d] = {
+            units: 0,
+            start: row.starting_reading?.['KW CH'] || '-',
+            end: row.ending_reading?.['KW CH'] || '-'
+          };
+        }
+        grouped[d].units += (row.units_consumed ?? 0);
+        // Overwrite end with the latest record for the day
+        if (row.ending_reading?.['KW CH']) {
+            grouped[d].end = row.ending_reading['KW CH'];
+        }
       }
 
-      const calculated: DailyRow[] = Object.entries(grouped).map(([date, units]) => {
-        const unitAmount = units * RATE_PER_UNIT;
+      const calculated: DailyRow[] = Object.entries(grouped).map(([date, data]) => {
+        const unitAmount = data.units * RATE_PER_UNIT;
         const fixedCost = DAILY_FIXED;          // ₹616 once per day
         const tax = (unitAmount + fixedCost) * TAX_RATE;
         const sumAmount = unitAmount + fixedCost + tax;
-        return { report_date: date, units_consumed: units, unitAmount, fixedCost, tax, sumAmount };
+        return { 
+            report_date: date, 
+            starting_reading: data.start,
+            ending_reading: data.end,
+            units_consumed: data.units, 
+            unitAmount, 
+            fixedCost, 
+            tax, 
+            sumAmount 
+        };
       });
 
       setRows(calculated);
@@ -214,6 +238,12 @@ export function EBCalculator() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                     Date
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    Start
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    End
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-yellow-700 uppercase tracking-wider">
                     Units (kWh)
                   </th>
@@ -245,6 +275,12 @@ export function EBCalculator() {
                         weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
                       })}
                     </td>
+                    <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                      {row.starting_reading}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                      {row.ending_reading}
+                    </td>
                     <td className="px-4 py-3 text-sm text-right">
                       <span className="inline-flex items-center justify-end gap-1">
                         <Zap className="w-3.5 h-3.5 text-yellow-500" />
@@ -269,7 +305,7 @@ export function EBCalculator() {
               {/* Totals Row */}
               <tfoot>
                 <tr className="bg-indigo-50 border-t-2 border-indigo-200">
-                  <td className="px-4 py-4 text-sm font-bold text-indigo-900">
+                  <td colSpan={3} className="px-4 py-4 text-sm font-bold text-indigo-900">
                     TOTAL ({rows.length} day{rows.length !== 1 ? 's' : ''})
                   </td>
                   <td className="px-4 py-4 text-sm text-right font-bold text-yellow-800">
