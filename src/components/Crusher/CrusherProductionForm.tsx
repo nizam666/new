@@ -23,7 +23,7 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
     machine_downtime: '0.0',
     maintenance_hours: '0.0',
     material_source: 'quarry',
-    status: 'completed',
+    status: 'in_progress',
     maintenance_notes: '',
     notes: ''
   });
@@ -311,7 +311,7 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
         machine_downtime: '0.0',
         maintenance_hours: '0.0',
         material_source: 'quarry',
-        status: 'completed',
+        status: 'in_progress',
         maintenance_notes: '',
         notes: ''
       });
@@ -357,7 +357,7 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
                     machine_downtime: '0.0',
                     maintenance_hours: '0.0',
                     material_source: 'quarry',
-                    status: 'completed',
+                    status: 'in_progress',
                     maintenance_notes: '',
                     notes: ''
                   });
