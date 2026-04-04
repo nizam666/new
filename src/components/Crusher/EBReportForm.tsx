@@ -224,13 +224,6 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
     setLoading(true);
 
     try {
-      const startKWUC = parseFloat(formData.starting_reading['KW UC']) || 0;
-      const endKWUC = parseFloat(formData.ending_reading['KW UC']) || 0;
-
-      if (endKWUC < startKWUC) {
-        throw new Error('Ending KW UC must be equal to or greater than Starting KW UC.');
-      }
-
       await checkPFAndNotify();
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -376,7 +369,7 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-slate-600 mb-1">KW UC *</label>
+                  <label className="block text-sm text-slate-600 mb-1">KW UC</label>
                   <input
                     type="number"
                     step="0.01"
@@ -416,11 +409,10 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-slate-600 mb-1">KW UC *</label>
+                  <label className="block text-sm text-slate-600 mb-1">KW UC</label>
                   <input
                     type="number"
                     step="0.01"
-                    required
                     value={formData.ending_reading['KW UC']}
                     onChange={(e) => handleReadingChange('ending', 'KW UC', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
