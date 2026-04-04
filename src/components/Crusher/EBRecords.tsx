@@ -76,7 +76,7 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
         .limit(10);
 
       if (!error && data) setPastBills(data);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleKwUcReset = () => {
@@ -255,7 +255,7 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
           {/* MD Penalty */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              MD Penalty (₹)
+              MD Penalty (&lt;= 2.8 is 0) (₹)
             </label>
             <div className="relative">
               <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -274,7 +274,7 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
           {/* PF Penalty */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              PF Penalty (₹)
+              PF Penalty (&lt;= 0.90 is 0) (₹)
             </label>
             <div className="relative">
               <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
