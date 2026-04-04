@@ -8,7 +8,7 @@ interface EBReportFormProps {
 
 export function EBReportForm({ onSuccess }: EBReportFormProps) {
   const [loading, setLoading] = useState(false);
-  const [summaryDate, setSummaryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [summaryMonth, setSummaryMonth] = useState(new Date().toISOString().substring(0, 7));
   const [totalUnits, setTotalUnits] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
@@ -34,7 +34,8 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
         const { data, error } = await supabase
           .from('eb_reports')
           .select('meter_reading_start, meter_reading_end, starting_reading, ending_reading')
-          .eq('report_date', summaryDate)
+          .gte('report_date', `${summaryMonth}-01`)
+          .lte('report_date', `${summaryMonth}-31`)
           .order('created_at', { ascending: true }); // Need chronological order to determine daily start/end properly
 
         if (error) throw error;
@@ -60,7 +61,7 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
       }
     };
     fetchSummary();
-  }, [summaryDate, formData]); // Reacts to date picker change or form submission reset
+  }, [summaryMonth, formData]); // Reacts to date picker change or form submission reset
 
   useEffect(() => {
     const fetchLatestReport = async () => {
@@ -448,14 +449,14 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
         </div>
       </form>
 
-      {/* Daily Units Summary Widget */}
+      {/* Monthly Units Summary Widget */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">Daily Units Summary Report</h3>
+          <h3 className="text-lg font-semibold text-slate-900">Monthly Units Summary Report</h3>
           <input
-            type="date"
-            value={summaryDate}
-            onChange={(e) => setSummaryDate(e.target.value)}
+            type="month"
+            value={summaryMonth}
+            onChange={(e) => setSummaryMonth(e.target.value)}
             className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm w-40"
           />
         </div>
