@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Zap, Calendar, AlertTriangle } from 'lucide-react';
+import { Zap, Calendar, AlertTriangle, ChevronDown } from 'lucide-react';
 
 interface EBReportFormProps {
   onSuccess: () => void;
@@ -8,8 +8,20 @@ interface EBReportFormProps {
 
 export function EBReportForm({ onSuccess }: EBReportFormProps) {
   const [loading, setLoading] = useState(false);
-  const [summaryMonth, setSummaryMonth] = useState(new Date().toISOString().substring(0, 7));
-  const [totalUnits, setTotalUnits] = useState<number | null>(null);
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const now = new Date();
+  const [summaryMonth, setSummaryMonth] = useState(now.getMonth());
+  const [summaryYear, setSummaryYear] = useState(now.getFullYear());
+  
+  interface DailySummary {
+    date: string;
+    start: string;
+    end: string;
+    units: number;
+  }
+  const [monthlySummaries, setMonthlySummaries] = useState<DailySummary[]>([]);
+  const [monthTotalUnits, setMonthTotalUnits] = useState<number>(0);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     report_date: new Date().toISOString().split('T')[0],
@@ -26,42 +38,61 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
     notes: ''
   });
 
-  const [summaryReading, setSummaryReading] = useState({ start: '-', end: '-' });
-
   useEffect(() => {
     const fetchSummary = async () => {
+      setSummaryLoading(true);
       try {
+        const firstDay = new Date(summaryYear, summaryMonth, 1);
+        const lastDay = new Date(summaryYear, summaryMonth + 1, 0);
+        
+        const from = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-${String(firstDay.getDate()).padStart(2, '0')}`;
+        const to = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+
         const { data, error } = await supabase
           .from('eb_reports')
-          .select('meter_reading_start, meter_reading_end, starting_reading, ending_reading')
-          .gte('report_date', `${summaryMonth}-01`)
-          .lte('report_date', `${summaryMonth}-31`)
+          .select('report_date, meter_reading_start, meter_reading_end, starting_reading, ending_reading')
+          .gte('report_date', from)
+          .lte('report_date', to)
+          .order('report_date', { ascending: true })
           .order('created_at', { ascending: true }); // Need chronological order to determine daily start/end properly
 
         if (error) throw error;
 
         if (data && data.length > 0) {
-          const sum = data.reduce((acc, row) => acc + ((row.meter_reading_end || 0) - (row.meter_reading_start || 0)), 0);
-          setTotalUnits(sum);
-
-          // Get start from the first record, and end from the last record for that day
-          const firstRecord = data[0];
-          const lastRecord = data[data.length - 1];
-
-          setSummaryReading({
-            start: firstRecord.starting_reading?.['KW CH'] || '-',
-            end: lastRecord.ending_reading?.['KW CH'] || '-'
-          });
+          const grouped: Record<string, DailySummary> = {};
+          
+          for (const row of data) {
+             const d = row.report_date;
+             if (!grouped[d]) {
+                 grouped[d] = {
+                     date: d,
+                     start: row.starting_reading?.['KW CH'] || '-',
+                     end: row.ending_reading?.['KW CH'] || '-',
+                     units: 0
+                 };
+             }
+             grouped[d].units += ((row.meter_reading_end || 0) - (row.meter_reading_start || 0));
+             
+             if (row.ending_reading?.['KW CH']) {
+                 grouped[d].end = row.ending_reading['KW CH'];
+             }
+          }
+          
+          const summaries = Object.values(grouped);
+          setMonthlySummaries(summaries);
+          setMonthTotalUnits(summaries.reduce((sum, s) => sum + s.units, 0));
         } else {
-          setTotalUnits(null);
-          setSummaryReading({ start: '', end: '' });
+          setMonthlySummaries([]);
+          setMonthTotalUnits(0);
         }
       } catch (error) {
         console.error('Error fetching summary:', error);
+      } finally {
+        setSummaryLoading(false);
       }
     };
     fetchSummary();
-  }, [summaryMonth, formData]); // Reacts to date picker change or form submission reset
+  }, [summaryMonth, summaryYear, formData]); // Reacts to changes
 
   useEffect(() => {
     const fetchLatestReport = async () => {
@@ -450,32 +481,87 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
       </form>
 
       {/* Monthly Units Summary Widget */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">Monthly Units Summary Report</h3>
-          <input
-            type="month"
-            value={summaryMonth}
-            onChange={(e) => setSummaryMonth(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm w-40"
-          />
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-8">
+        <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+          <h3 className="text-base font-semibold text-slate-900">Monthly Units Report</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <select
+                value={summaryMonth}
+                onChange={e => setSummaryMonth(Number(e.target.value))}
+                className="appearance-none pl-4 pr-10 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white"
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i}>{m}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+            <div className="relative">
+              <select
+                value={summaryYear}
+                onChange={e => setSummaryYear(Number(e.target.value))}
+                className="appearance-none pl-4 pr-10 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-yellow-500 focus:border-transparent bg-white"
+              >
+                {[2024, 2025, 2026, 2027].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-            <p className="text-sm text-slate-500 font-medium">Start Reading (KW CH)</p>
-            <p className="text-xl font-bold text-slate-800 mt-1">{summaryReading.start}</p>
+
+        {summaryLoading ? (
+          <div className="py-12 text-center text-slate-500">
+             <Zap className="w-8 h-8 mx-auto mb-2 text-slate-300 animate-pulse" />
+             <p>Loading monthly summary...</p>
           </div>
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-            <p className="text-sm text-slate-500 font-medium">End Reading (KW CH)</p>
-            <p className="text-xl font-bold text-slate-800 mt-1">{summaryReading.end}</p>
+        ) : monthlySummaries.length === 0 ? (
+          <div className="py-12 text-center text-slate-500">
+             <Zap className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+             <p className="font-medium">No records found for this month</p>
           </div>
-          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 flex flex-col justify-center">
-            <span className="text-yellow-800 font-medium text-sm">Total Consumed Units</span>
-            <span className="text-2xl font-bold text-yellow-700 mt-1">
-              {totalUnits !== null ? totalUnits.toFixed(2) : '0.00'} Units
-            </span>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Start Reading (KW CH)</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">End Reading (KW CH)</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-yellow-700 uppercase tracking-wider">Total Units</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {monthlySummaries.map((row, idx) => (
+                  <tr key={row.date} className={`hover:bg-slate-50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/40'}`}>
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900 whitespace-nowrap">
+                      {new Date(row.date).toLocaleDateString('en-IN', {
+                        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
+                      })}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{row.start}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">{row.end}</td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-yellow-700">
+                      {row.units.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-yellow-50 border-t-2 border-yellow-200">
+                  <td colSpan={3} className="px-4 py-4 text-sm font-bold text-yellow-900 text-right">
+                    MONTHLY TOTAL
+                  </td>
+                  <td className="px-4 py-4 text-sm font-bold text-yellow-800 text-right">
+                    {monthTotalUnits.toFixed(2)} Units
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
