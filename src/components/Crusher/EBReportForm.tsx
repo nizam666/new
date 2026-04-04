@@ -26,19 +26,34 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
     notes: ''
   });
 
+  const [summaryReading, setSummaryReading] = useState({ start: '-', end: '-' });
+
   useEffect(() => {
     const fetchSummary = async () => {
       try {
         const { data, error } = await supabase
           .from('eb_reports')
-          .select('meter_reading_start, meter_reading_end')
-          .eq('report_date', summaryDate);
+          .select('meter_reading_start, meter_reading_end, starting_reading, ending_reading')
+          .eq('report_date', summaryDate)
+          .order('created_at', { ascending: true }); // Need chronological order to determine daily start/end properly
 
         if (error) throw error;
 
-        if (data) {
+        if (data && data.length > 0) {
           const sum = data.reduce((acc, row) => acc + ((row.meter_reading_end || 0) - (row.meter_reading_start || 0)), 0);
           setTotalUnits(sum);
+
+          // Get start from the first record, and end from the last record for that day
+          const firstRecord = data[0];
+          const lastRecord = data[data.length - 1];
+
+          setSummaryReading({
+            start: firstRecord.starting_reading?.['KW CH'] || '-',
+            end: lastRecord.ending_reading?.['KW CH'] || '-'
+          });
+        } else {
+          setTotalUnits(null);
+          setSummaryReading({ start: '', end: '' });
         }
       } catch (error) {
         console.error('Error fetching summary:', error);
@@ -444,11 +459,21 @@ export function EBReportForm({ onSuccess }: EBReportFormProps) {
             className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm w-40"
           />
         </div>
-        <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 flex items-center justify-between">
-          <span className="text-slate-700 font-medium">Total Consumed Units</span>
-          <span className="text-2xl font-bold text-yellow-700">
-            {totalUnits !== null ? totalUnits.toFixed(2) : '0.00'} Units
-          </span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+            <p className="text-sm text-slate-500 font-medium">Start Reading (KW CH)</p>
+            <p className="text-xl font-bold text-slate-800 mt-1">{summaryReading.start}</p>
+          </div>
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+            <p className="text-sm text-slate-500 font-medium">End Reading (KW CH)</p>
+            <p className="text-xl font-bold text-slate-800 mt-1">{summaryReading.end}</p>
+          </div>
+          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 flex flex-col justify-center">
+            <span className="text-yellow-800 font-medium text-sm">Total Consumed Units</span>
+            <span className="text-2xl font-bold text-yellow-700 mt-1">
+              {totalUnits !== null ? totalUnits.toFixed(2) : '0.00'} Units
+            </span>
+          </div>
         </div>
       </div>
     </div>
