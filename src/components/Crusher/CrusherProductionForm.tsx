@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Factory, Calendar, Loader2, Clock } from 'lucide-react';
+import { Factory, Calendar, Loader2, Clock, ChevronDown } from 'lucide-react';
 
 interface CrusherProductionFormProps {
   onSuccess: () => void;
@@ -12,6 +12,27 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
   const [fetchingSources, setFetchingSources] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
+
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const now = new Date();
+  const [summaryMonth, setSummaryMonth] = useState(now.getMonth());
+  const [summaryYear, setSummaryYear] = useState(now.getFullYear());
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  interface DailyProductionSummary {
+    date: string;
+    workingTime: number;
+    maintenanceTime: number;
+    breakdownTime: number;
+    totalTime: number;
+  }
+  const [monthlySummaries, setMonthlySummaries] = useState<DailyProductionSummary[]>([]);
+  const [monthlyTotals, setMonthlyTotals] = useState({
+    workingTime: 0,
+    maintenanceTime: 0,
+    breakdownTime: 0,
+    totalTime: 0
+  });
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -250,6 +271,80 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
 
   const { totalHours, efficiency } = calculateTotalHours();
 
+  // Fetch Monthly Summary
+  useEffect(() => {
+    const fetchSummary = async () => {
+      setSummaryLoading(true);
+      try {
+        const firstDay = new Date(summaryYear, summaryMonth, 1);
+        const lastDay = new Date(summaryYear, summaryMonth + 1, 0);
+        
+        const from = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-${String(firstDay.getDate()).padStart(2, '0')}`;
+        const to = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+
+        const { data, error } = await supabase
+          .from('production_records')
+          .select('date, working_hours, downtime_hours, maintenance_hours')
+          .gte('date', from)
+          .lte('date', to)
+          .order('date', { ascending: true });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const grouped: Record<string, DailyProductionSummary> = {};
+          
+          let totalWorking = 0;
+          let totalMaintenance = 0;
+          let totalBreakdown = 0;
+
+          for (const row of data) {
+            const d = row.date;
+            if (!grouped[d]) {
+              grouped[d] = {
+                date: d,
+                workingTime: 0,
+                maintenanceTime: 0,
+                breakdownTime: 0,
+                totalTime: 0
+              };
+            }
+            const working = parseFloat(row.working_hours) || 0;
+            const downtime = parseFloat(row.downtime_hours) || 0;
+            const maintenance = parseFloat(row.maintenance_hours) || 0;
+
+            grouped[d].workingTime += working;
+            grouped[d].breakdownTime += downtime;
+            grouped[d].maintenanceTime += maintenance;
+            grouped[d].totalTime += (working + downtime + maintenance);
+
+            totalWorking += working;
+            totalBreakdown += downtime;
+            totalMaintenance += maintenance;
+          }
+          
+          const summaries = Object.values(grouped);
+          setMonthlySummaries(summaries);
+          setMonthlyTotals({
+            workingTime: totalWorking,
+            maintenanceTime: totalMaintenance,
+            breakdownTime: totalBreakdown,
+            totalTime: totalWorking + totalMaintenance + totalBreakdown
+          });
+        } else {
+          setMonthlySummaries([]);
+          setMonthlyTotals({ workingTime: 0, maintenanceTime: 0, breakdownTime: 0, totalTime: 0 });
+        }
+      } catch (error) {
+        console.error('Error fetching summary:', error);
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+    fetchSummary();
+  }, [summaryMonth, summaryYear, formData]); // Also fetch when formData updates after submission
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,7 +420,8 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+    <div className="space-y-8">
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
       <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
         <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
           <Factory className="w-5 h-5 text-orange-600" />
@@ -660,5 +756,101 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
         </button>
       </div>
     </form>
+
+      {/* Monthly Production Summary Widget */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-8">
+        <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+          <h3 className="text-base font-semibold text-slate-900">Monthly Production Report</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <select
+                value={summaryMonth}
+                onChange={e => setSummaryMonth(Number(e.target.value))}
+                className="appearance-none pl-4 pr-10 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i}>{m}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+            <div className="relative">
+              <select
+                value={summaryYear}
+                onChange={e => setSummaryYear(Number(e.target.value))}
+                className="appearance-none pl-4 pr-10 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+              >
+                {[2024, 2025, 2026, 2027].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        {summaryLoading ? (
+          <div className="py-12 text-center text-slate-500">
+             <Factory className="w-8 h-8 mx-auto mb-2 text-slate-300 animate-pulse" />
+             <p>Loading monthly summary...</p>
+          </div>
+        ) : monthlySummaries.length === 0 ? (
+          <div className="py-12 text-center text-slate-500">
+             <Factory className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+             <p className="font-medium">No records found for this month</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Work Time (hrs)</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Maint. Time (hrs)</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Breakdown Time (hrs)</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-orange-700 uppercase tracking-wider">Total Time (hrs)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {monthlySummaries.map((row, idx) => (
+                  <tr key={row.date} className={`hover:bg-slate-50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/40'}`}>
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900 whitespace-nowrap">
+                      {new Date(row.date).toLocaleDateString('en-IN', {
+                        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
+                      })}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-600 whitespace-nowrap">{row.workingTime.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-slate-600 whitespace-nowrap">{row.maintenanceTime.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-red-600 font-medium whitespace-nowrap">{row.breakdownTime.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-orange-700">
+                      {row.totalTime.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-orange-50 border-t-2 border-orange-200">
+                  <td className="px-4 py-4 text-sm font-bold text-orange-900 text-left whitespace-nowrap">
+                    MONTHLY TOTAL
+                  </td>
+                  <td className="px-4 py-4 text-sm font-bold text-orange-800 text-right">
+                    {monthlyTotals.workingTime.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-4 text-sm font-bold text-orange-800 text-right">
+                    {monthlyTotals.maintenanceTime.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-4 text-sm font-bold text-red-700 text-right">
+                    {monthlyTotals.breakdownTime.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-4 text-sm font-bold text-orange-900 text-right">
+                    {monthlyTotals.totalTime.toFixed(2)} Total
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
