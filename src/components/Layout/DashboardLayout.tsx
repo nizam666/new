@@ -24,19 +24,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
 
   const toggleMenu = (menuName: string) => {
-    console.log('Toggling menu:', menuName);
-    setExpandedMenus(prev => {
-      const newMenus = prev.includes(menuName)
+    setExpandedMenus(prev =>
+      prev.includes(menuName)
         ? prev.filter(name => name !== menuName)
-        : [...prev, menuName];
-      console.log('New menu state:', newMenus);
-      return newMenus;
-    });
+        : [...prev, menuName]
+    );
   };
 
   const handleNavigation = (e: React.MouseEvent, href?: string) => {
     e.preventDefault();
-    console.log('Navigation clicked:', href);
     if (href) {
       window.location.hash = href;
       setSidebarOpen(false);
@@ -46,23 +42,23 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedMenus.includes(item.name);
+    const paddingClass = level === 0 ? 'px-4' : level === 1 ? 'pl-8 pr-4' : 'pl-12 pr-4';
 
     if (hasChildren) {
       return (
         <div key={item.name}>
           <button
             onClick={() => toggleMenu(item.name)}
-            className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition-colors ${level > 0 ? 'pl-8' : ''
-              }`}
+            className={`w-full flex items-center justify-between gap-3 ${paddingClass} py-3 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition-colors`}
           >
-            <div className="flex items-center gap-3">
-              <item.icon className="w-5 h-5" />
-              <span>{item.name}</span>
+            <div className="flex items-center gap-3 min-w-0">
+              <item.icon className="w-5 h-5 shrink-0" />
+              <span className="truncate">{item.name}</span>
             </div>
             {isExpanded ? (
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown className="w-4 h-4 shrink-0" />
             ) : (
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 shrink-0" />
             )}
           </button>
           {isExpanded && (
@@ -78,15 +74,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <a
         key={item.name}
         href={item.href}
-        onClick={(e) => {
-          console.log('Link clicked:', item.href);
-          handleNavigation(e, item.href);
-        }}
-        className={`flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition-colors ${level > 0 ? 'pl-12' : ''
-          }`}
+        onClick={(e) => handleNavigation(e, item.href)}
+        className={`flex items-center gap-3 ${paddingClass} py-3 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition-colors`}
       >
-        <item.icon className="w-5 h-5" />
-        <span>{item.name}</span>
+        <item.icon className="w-5 h-5 shrink-0" />
+        <span className="truncate">{item.name}</span>
       </a>
     );
   };
