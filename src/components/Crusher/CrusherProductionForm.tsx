@@ -28,10 +28,7 @@ function formatElapsed(seconds: number) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function nowHHMM() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
+
 
 function diffHours(start: Date, end: Date) {
   return Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
@@ -275,7 +272,7 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
   }, [summaryMonth, summaryYear, mode]); // refresh on mode change (after save)
 
   const isRunning = mode !== 'idle';
-  const modeColor = mode === 'production' ? 'green' : mode === 'breakdown' ? 'red' : 'slate';
+
 
   return (
     <div className="space-y-6">
