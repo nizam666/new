@@ -37,7 +37,7 @@ interface MachinePanelProps {
   type: 'jaw' | 'vsi';
   date: string;
   materialSources: { label: string; value: string }[];
-  onSaved: () => void;
+  onSaved: (type: 'jaw' | 'vsi') => void;
   otherMachineMode: SessionMode;
   onModeChange: (mode: SessionMode) => void;
 }
@@ -160,7 +160,7 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
       breakdownStartRef.current  = null;
       setMode('idle');
       setNotes('');
-      onSaved();
+      onSaved(type);
     } catch (err: any) {
       alert(err?.message || 'Error saving record');
     } finally {
@@ -468,9 +468,18 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
   const [jawMode, setJawMode] = useState<SessionMode>('idle');
   const [vsiMode, setVsiMode] = useState<SessionMode>('idle');
 
-  const handleSaved = () => {
+  // Only call onSuccess (which may remount the component) once BOTH machines are idle.
+  // We track the modes passed back via onModeChange so we know the current state.
+  const handleSaved = (savedType: 'jaw' | 'vsi') => {
     setSummaryRefreshKey(k => k + 1);
-    onSuccess();
+    // After this save, the saved machine will become idle.
+    // Check if the OTHER machine is also already idle.
+    const otherIsIdle = savedType === 'jaw' ? vsiMode === 'idle' : jawMode === 'idle';
+    if (otherIsIdle) {
+      // Both machines idle — safe to call onSuccess
+      onSuccess();
+    }
+    // Otherwise, just refresh the summary table silently and leave the other panel running.
   };
 
   return (
@@ -512,7 +521,7 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
           type="jaw"
           date={date}
           materialSources={materialSources}
-          onSaved={handleSaved}
+          onSaved={() => handleSaved('jaw')}
           otherMachineMode={vsiMode}
           onModeChange={setJawMode}
         />
@@ -520,7 +529,7 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
           type="vsi"
           date={date}
           materialSources={materialSources}
-          onSaved={handleSaved}
+          onSaved={() => handleSaved('vsi')}
           otherMachineMode={jawMode}
           onModeChange={setVsiMode}
         />
