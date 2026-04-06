@@ -38,12 +38,20 @@ interface MachinePanelProps {
   date: string;
   materialSources: { label: string; value: string }[];
   onSaved: () => void;
+  otherMachineMode: SessionMode;
+  onModeChange: (mode: SessionMode) => void;
 }
 
 // ─── MachinePanel ─────────────────────────────────────────────────────────────
 
-function MachinePanel({ type, date, materialSources, onSaved }: MachinePanelProps) {
-  const [mode, setMode] = useState<SessionMode>('idle');
+function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, onModeChange }: MachinePanelProps) {
+  const [mode, setModeLocal] = useState<SessionMode>('idle');
+
+  const setMode = (m: SessionMode) => {
+    setModeLocal(m);
+    onModeChange(m);
+  };
+
   const [elapsed, setElapsed] = useState(0);
   const [saving, setSaving] = useState(false);
   const [materialSource, setMaterialSource] = useState(
@@ -78,6 +86,10 @@ function MachinePanel({ type, date, materialSources, onSaved }: MachinePanelProp
 
   const handleProduction = () => {
     if (mode !== 'idle') return;
+    if (otherMachineMode === 'production') {
+      alert(`Cannot start Production: the other crusher is already running in production mode.`);
+      return;
+    }
     productionStartRef.current = new Date();
     productionEndRef.current   = null;
     breakdownStartRef.current  = null;
@@ -159,7 +171,6 @@ function MachinePanel({ type, date, materialSources, onSaved }: MachinePanelProp
   const isRunning   = mode !== 'idle';
   const label       = type === 'jaw' ? 'Jaw Crusher' : 'VSI';
   const Icon        = type === 'jaw' ? Factory : Zap;
-  const accentColor = type === 'jaw' ? 'orange' : 'blue';
 
   const accentClasses = {
     headerBg:       type === 'jaw' ? 'bg-orange-100' : 'bg-blue-100',
@@ -238,12 +249,12 @@ function MachinePanel({ type, date, materialSources, onSaved }: MachinePanelProp
         {/* Production Button */}
         <button
           type="button"
-          disabled={mode === 'production'}
+          disabled={mode === 'production' || otherMachineMode === 'production'}
           onClick={handleProduction}
           className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border-2 font-bold text-sm transition-all ${
             mode === 'production'
               ? accentClasses.prodActive
-              : mode === 'breakdown'
+              : (mode === 'breakdown' || otherMachineMode === 'production')
                 ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
                 : accentClasses.prodIdle
           }`}
@@ -454,6 +465,9 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
     fetchSummary();
   }, [summaryMonth, summaryYear, summaryRefreshKey]);
 
+  const [jawMode, setJawMode] = useState<SessionMode>('idle');
+  const [vsiMode, setVsiMode] = useState<SessionMode>('idle');
+
   const handleSaved = () => {
     setSummaryRefreshKey(k => k + 1);
     onSuccess();
@@ -499,12 +513,16 @@ export function CrusherProductionForm({ onSuccess }: CrusherProductionFormProps)
           date={date}
           materialSources={materialSources}
           onSaved={handleSaved}
+          otherMachineMode={vsiMode}
+          onModeChange={setJawMode}
         />
         <MachinePanel
           type="vsi"
           date={date}
           materialSources={materialSources}
           onSaved={handleSaved}
+          otherMachineMode={jawMode}
+          onModeChange={setVsiMode}
         />
       </div>
 
