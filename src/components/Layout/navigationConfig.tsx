@@ -123,12 +123,30 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Sales',              icon: ShoppingCart,   href: '#sales',               roles: ['sales', 'manager'] },
     { name: 'Customers',          icon: Users,          href: '#customers',           roles: ['sales', 'manager'] },
     { name: 'Approvals',          icon: ClipboardCheck, href: '#approvals',           roles: ['manager'] },
-    { name: 'Reports',            icon: BarChart3,      href: '#reports',             roles: ['manager', 'chairmen'] },
+    { name: 'Reports',            icon: BarChart3,      href: '#reports',             roles: ['manager'] },
+];
+
+export const CHAIRMEN_NAV: MenuItem[] = [
+    { name: 'Dashboard', icon: Home, href: '#dashboard' },
+    { name: 'Accounts', icon: Wallet, href: '#accounts' },
+    {
+        name: 'Reports',
+        icon: BarChart3,
+        children: [
+            { name: 'Dashboard',         icon: BarChart3, href: '#reports' },
+            { name: 'Permit Reports',    icon: FileText,  href: '#permit-report' },
+            { name: 'Attendance Report', icon: Clock,     href: '#attendance-report' },
+        ]
+    },
 ];
 
 export const getNavigationByRole = (role?: string): MenuItem[] => {
     if (role === 'director') {
         return DIRECTOR_NAV;
+    }
+    
+    if (role === 'chairmen') {
+        return CHAIRMEN_NAV;
     }
 
     return MANAGER_NAV.filter(item => {
