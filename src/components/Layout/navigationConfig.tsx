@@ -123,7 +123,7 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Sales',              icon: ShoppingCart,   href: '#sales',               roles: ['sales', 'manager'] },
     { name: 'Customers',          icon: Users,          href: '#customers',           roles: ['sales', 'manager'] },
     { name: 'Approvals',          icon: ClipboardCheck, href: '#approvals',           roles: ['manager'] },
-    { name: 'Reports',            icon: BarChart3,      href: '#reports',             roles: ['manager'] },
+    { name: 'Reports',            icon: BarChart3,      href: '#reports',             roles: ['manager', 'chairmen'] },
 ];
 
 export const getNavigationByRole = (role?: string): MenuItem[] => {
