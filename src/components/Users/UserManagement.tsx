@@ -262,8 +262,27 @@ export function UserManagement() {
           <button
             onClick={() => {
               if (!showAddForm) {
-                // Auto-generate next employee ID
-                const nextId = users.length + 1;
+                // Find all existing EMP numbers to find the first available gap
+                const empNumbers = users
+                  .map(u => {
+                    if (u.employee_id && u.employee_id.startsWith('EMP')) {
+                      const num = parseInt(u.employee_id.replace('EMP', ''), 10);
+                      return isNaN(num) ? null : num;
+                    }
+                    return null;
+                  })
+                  .filter((n): n is number => n !== null)
+                  .sort((a, b) => a - b);
+
+                let nextId = 1;
+                for (const num of empNumbers) {
+                  if (num === nextId) {
+                    nextId++;
+                  } else if (num > nextId) {
+                    break; // Found a gap!
+                  }
+                }
+                
                 const formattedId = `EMP${nextId.toString().padStart(3, '0')}`;
                 setFormData(prev => ({ ...prev, employee_id: formattedId }));
               }
@@ -286,13 +305,17 @@ export function UserManagement() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Employee ID (Auto-generated) *
+                  Employee ID *
                 </label>
                 <input
                   type="text"
-                  readOnly
+                  required
                   value={formData.employee_id}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed"
+                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value.toUpperCase() })}
+                  disabled={!!editingUser}
+                  className={`w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent ${
+                    !!editingUser ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
 
