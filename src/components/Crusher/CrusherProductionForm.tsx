@@ -44,14 +44,40 @@ interface MachinePanelProps {
 
 // ─── MachinePanel ─────────────────────────────────────────────────────────────
 
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+
+const SESSION_KEY = (t: string) => `crusher_session_${t}`;
+
+interface PersistedSession {
+  mode: SessionMode;
+  productionStart: string | null;
+  productionEnd: string | null;
+  breakdownStart: string | null;
+  notes: string;
+  materialSource: string;
+}
+
+function saveSession(type: string, data: PersistedSession) {
+  localStorage.setItem(SESSION_KEY(type), JSON.stringify(data));
+}
+
+function loadSession(type: string): PersistedSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY(type));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearSession(type: string) {
+  localStorage.removeItem(SESSION_KEY(type));
+}
+
+// ─── MachinePanel ─────────────────────────────────────────────────────────────
+
 function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, onModeChange }: MachinePanelProps) {
   const [mode, setModeLocal] = useState<SessionMode>('idle');
-
-  const setMode = (m: SessionMode) => {
-    setModeLocal(m);
-    onModeChange(m);
-  };
-
   const [elapsed, setElapsed] = useState(0);
   const [saving, setSaving] = useState(false);
   const [materialSource, setMaterialSource] = useState(
@@ -65,6 +91,29 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
   const breakdownStartRef  = useRef<Date | null>(null);
   const timerRef           = useRef<number | null>(null);
 
+  const setMode = (m: SessionMode) => {
+    setModeLocal(m);
+    onModeChange(m);
+  };
+
+  // ── Restore session from localStorage on first mount ──────────────────────
+  useEffect(() => {
+    const saved = loadSession(type);
+    if (saved && saved.mode !== 'idle') {
+      productionStartRef.current = saved.productionStart ? new Date(saved.productionStart) : null;
+      productionEndRef.current   = saved.productionEnd   ? new Date(saved.productionEnd)   : null;
+      breakdownStartRef.current  = saved.breakdownStart  ? new Date(saved.breakdownStart)  : null;
+
+      if (saved.notes) setNotes(saved.notes);
+      if (saved.materialSource) setMaterialSource(saved.materialSource);
+
+      // Changing mode triggers the timer useEffect which will compute elapsed from the refs.
+      setModeLocal(saved.mode);
+      onModeChange(saved.mode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Sync materialSource when sources load
   useEffect(() => {
     if (materialSources.length > 0 && !materialSources.find(s => s.value === materialSource)) {
@@ -72,10 +121,24 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
     }
   }, [materialSources]);
 
-  // Live timer
+  // Live timer – recalculates elapsed from the actual start-time refs each time mode changes.
+  // This works correctly for both fresh starts and page-refresh restores.
   useEffect(() => {
     if (mode !== 'idle') {
-      setElapsed(0);
+      // Determine which ref holds the relevant start time.
+      const startRef =
+        mode === 'production' ? productionStartRef.current
+                              : breakdownStartRef.current;
+
+      // Seed elapsed from the real start time (near-zero for a fresh start,
+      // several seconds/hours for a restored session).
+      const now = new Date();
+      const seed = startRef
+        ? Math.max(0, Math.floor((now.getTime() - startRef.getTime()) / 1000))
+        : 0;
+      setElapsed(seed);
+
+      if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = window.setInterval(() => setElapsed(e => e + 1), 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -90,9 +153,18 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
       alert(`Cannot start Production: the other crusher is already running in production mode.`);
       return;
     }
-    productionStartRef.current = new Date();
+    const now = new Date();
+    productionStartRef.current = now;
     productionEndRef.current   = null;
     breakdownStartRef.current  = null;
+    saveSession(type, {
+      mode: 'production',
+      productionStart: now.toISOString(),
+      productionEnd: null,
+      breakdownStart: null,
+      notes,
+      materialSource,
+    });
     setMode('production');
   };
 
@@ -103,6 +175,14 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
       productionEndRef.current = now;
     }
     breakdownStartRef.current = now;
+    saveSession(type, {
+      mode: 'breakdown',
+      productionStart: productionStartRef.current?.toISOString() ?? null,
+      productionEnd: productionEndRef.current?.toISOString() ?? null,
+      breakdownStart: now.toISOString(),
+      notes,
+      materialSource,
+    });
     setMode('breakdown');
   };
 
@@ -154,6 +234,7 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
 
       if (error) throw error;
 
+      clearSession(type);   // ← remove the persisted session now that it's saved
       alert(`${type === 'jaw' ? 'Jaw Crusher' : 'VSI'} record saved!`);
       productionStartRef.current = null;
       productionEndRef.current   = null;
