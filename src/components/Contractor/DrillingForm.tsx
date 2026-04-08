@@ -22,6 +22,17 @@ const INITIAL_ROD_STATE = ROD_STEPS.reduce((acc, step) => {
   return acc;
 }, {} as Record<string, number>);
 
+const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Invalid Date';
+    return format(d, formatStr);
+  } catch (e) {
+    return 'Error';
+  }
+};
+
 function ToggleGroup({
   options,
   value,
@@ -160,6 +171,8 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
     fetchMonthlyStats();
   }, [fetchMonthlyStats]);
 
+  const drillingProduction = (totalFeet() * 0.8) || 0;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) { setError('User not authenticated'); return; }
@@ -297,7 +310,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                 }`}
               >
                 <div className="text-xs sm:text-sm font-semibold">{type}</div>
-                <div className="text-[10px] sm:text-xs mt-1 opacity-75">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]}</div>
+                <div className="text-[10px] sm:text-xs mt-1 opacity-75">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL] || ''}</div>
               </button>
             ))}
           </div>
@@ -407,7 +420,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
             <div className="bg-emerald-700 text-white rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
               <div className="text-[10px] sm:text-xs text-emerald-300 uppercase tracking-wider mb-1 font-semibold">Production</div>
-              <div className="text-sm sm:text-2xl font-bold">{(totalFeet() * 0.8).toFixed(1)}<span className="text-[10px] sm:text-sm text-emerald-300 ml-1">t</span></div>
+              <div className="text-sm sm:text-2xl font-bold">{drillingProduction.toFixed(1)}<span className="text-[10px] sm:text-sm text-emerald-300 ml-1">t</span></div>
             </div>
           </div>
         </div>
@@ -470,9 +483,9 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                     <div className="grid grid-cols-2 items-center mb-1">
                       <div className="flex flex-col">
                         <span className="text-sm font-semibold text-slate-900">
-                          {format(new Date(stat.date), 'dd MMM')}
+                          {safeFormat(stat.date, 'dd MMM')}
                         </span>
-                        <span className="text-[10px] text-slate-500">{format(new Date(stat.date), 'EEEE')}</span>
+                        <span className="text-[10px] text-slate-500">{safeFormat(stat.date, 'EEEE')}</span>
                       </div>
                       <div className="text-right">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200">
@@ -515,11 +528,11 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                 {/* Footer breakdown */}
                 <div className="grid grid-cols-1 gap-2 pt-3 border-t border-white/10">
                   {['Good Boulders', 'Weathered Rocks', 'Soil'].map(type => {
-                    const typeTotal = monthlyStats.reduce((acc, curr) => acc + (curr.breakdown[type] || 0), 0);
+                    const typeTotal = monthlyStats.reduce((acc, curr) => acc + (curr.breakdown?.[type] || 0), 0);
                     if (typeTotal === 0) return null;
                     return (
                       <div key={type} className="flex justify-between items-center text-[10px]">
-                        <span className="opacity-60">{type} ({MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]})</span>
+                        <span className="opacity-60">{type} ({MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL] || type})</span>
                         <span className="font-semibold">{typeTotal.toFixed(1)} ft</span>
                       </div>
                     );
