@@ -18,11 +18,14 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     notes: ''
   });
 
+  const [errorStatus, setErrorStatus] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     setLoading(true);
+    setErrorStatus(null);
     try {
       const { error } = await supabase
         .from('blasting_records')
@@ -58,8 +61,20 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
 
       alert('Blasting record submitted successfully!');
       if (onSuccess) onSuccess();
-    } catch (error) {
-      alert('Error submitting blasting record: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } catch (err) {
+      console.error('Blasting save error:', err);
+      let msg = 'Unknown error';
+      if (err && typeof err === 'object') {
+        const e = err as Record<string, unknown>;
+        const parts: string[] = [];
+        if (e.message) parts.push(String(e.message));
+        if (e.details) parts.push(`Details: ${e.details}`);
+        if (e.hint) parts.push(`Hint: ${e.hint}`);
+        if (e.code) parts.push(`Code: ${e.code}`);
+        msg = parts.join(' | ') || JSON.stringify(err);
+      }
+      setErrorStatus(msg);
+      alert('Error submitting blasting record: ' + msg);
     } finally {
       setLoading(false);
     }
