@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Truck, Save, AlertCircle } from 'lucide-react';
+import { Truck, Save } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const MATERIAL_TYPES = [
