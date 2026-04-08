@@ -87,7 +87,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
         notes: ''
       });
 
-      toast.success('Breaking/Loading record submitted successfully!', { position: 'top-right' });
+      toast.success('Excavator breaking/loading record submitted successfully!', { position: 'top-right' });
       if (onSuccess) onSuccess();
     } catch (error) {
       toast.error('Error submitting loading record: ' + (error instanceof Error ? error.message : 'Unknown error'), { position: 'top-right' });
@@ -104,8 +104,8 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
           <Truck className="w-5 sm:w-6 h-5 sm:h-6 text-white" />
         </div>
         <div>
-          <h3 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">Loading Record</h3>
-          <p className="text-xs sm:text-sm font-medium text-slate-500">Material breaking & loading log</p>
+          <h3 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">Excavator Record</h3>
+          <p className="text-xs sm:text-sm font-medium text-slate-500">Excavator breaking & loading log</p>
         </div>
       </div>
 
