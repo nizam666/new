@@ -14,16 +14,6 @@ const MATERIAL_TYPES = [
   'Others'
 ];
 
-const MATERIAL_TYPES_SHORT = {
-  'KVSS Good Boulders': 'KVSS G.B',
-  'KVSS Weather Rocks': 'KVSS W.R',
-  'KVSS Soil': 'KVSS Soil',
-  'SBBM Slurry Work': 'SBBM Slurry',
-  'SBBM Stockyard Good Boulders': 'SBBM G.B',
-  'Aggregates rehandling/ Aggregate Loading': 'Aggregates',
-  'Others': 'Others'
-};
-
 const VEHICLE_TYPES = [
   'govindarajEX140'
 ];
@@ -138,20 +128,20 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
           <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3">
             Material Type <span className="text-red-500">*</span>
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             {MATERIAL_TYPES.map((material) => (
               <button
                 key={material}
                 type="button"
                 onClick={() => setFormData({ ...formData, material_type: material })}
-                className={`p-2 sm:p-3 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold text-xs sm:text-sm whitespace-nowrap overflow-hidden text-ellipsis ${
+                className={`p-3 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-bold text-left text-xs sm:text-sm ${
                   formData.material_type === material
                     ? 'bg-green-600 border-green-600 text-white shadow-md shadow-green-600/20'
                     : 'bg-white border-slate-300 text-slate-700 hover:border-green-300'
                 }`}
                 title={material}
               >
-                {MATERIAL_TYPES_SHORT[material as keyof typeof MATERIAL_TYPES_SHORT]}
+                {material}
               </button>
             ))}
           </div>
