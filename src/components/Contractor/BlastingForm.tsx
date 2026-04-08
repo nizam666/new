@@ -142,21 +142,10 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
       <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
         <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
           <Bomb className="w-4 sm:w-5 h-4 sm:h-5 text-orange-600" />
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">PG Unit</label>
-            <div className="grid grid-cols-2 gap-2">
-              {PG_UNITS.map((u) => (
-                <button
-                  key={u}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, pg_unit: u })}
-                  className={`p-2 sm:p-3 rounded-lg border-2 transition-all text-xs sm:text-sm ${formData.pg_unit === u ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20' : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'}`}
-                >
-                  {u}
-                </button>
-              ))}
-            </div>
-          </div>
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">New Blasting Record</h3>
+          <p className="text-xs sm:text-sm text-slate-500 truncate">Record explosives used for blasting</p>
         </div>
       </div>
 
@@ -280,23 +269,40 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         </div>
 
-        {/* PG Quantity & Unit */}
-        <div className="bg-slate-50 p-3 sm:p-4 rounded-lg sm:rounded-2xl border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div>
-            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">PG Quantity</label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.pg_nos}
-              onChange={(e) => setFormData({ ...formData, pg_nos: e.target.value })}
-              min="0"
-              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
-              placeholder="0.00"
-            />
-          </div>
-          <div>
-            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">PG Unit</label>
-            <CycleButton options={PG_UNITS} value={formData.pg_unit} onChange={(v) => setFormData({ ...formData, pg_unit: v })} color="orange" />
+        {/* PG Quantity */}
+        <div>
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">PG Quantity</label>
+          <input
+            type="number"
+            step="0.01"
+            value={formData.pg_nos}
+            onChange={(e) => setFormData({ ...formData, pg_nos: e.target.value })}
+            min="0"
+            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
+            placeholder="0.00"
+          />
+        </div>
+
+        {/* PG Unit */}
+        <div className="bg-slate-50 p-3 sm:p-4 rounded-lg sm:rounded-2xl border border-slate-100">
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3">
+            PG Unit <span className="text-red-500">*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            {PG_UNITS.map((unit) => (
+              <button
+                key={unit}
+                type="button"
+                onClick={() => setFormData({ ...formData, pg_unit: unit })}
+                className={`p-2 sm:p-3 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold text-xs sm:text-sm ${
+                  formData.pg_unit === unit
+                    ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20'
+                    : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'
+                }`}
+              >
+                {unit.charAt(0).toUpperCase() + unit.slice(1)}
+              </button>
+            ))}
           </div>
         </div>
 
