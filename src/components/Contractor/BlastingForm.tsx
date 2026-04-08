@@ -54,6 +54,10 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     setErrorStatus(null);
 
     try {
+      // Convert nos to boxes if unit 'nos' is selected (1 box = 200 nos)
+      const rawPg = parseFloat(formData.pg_nos) || 0;
+      const finalPg = formData.pg_unit === 'nos' ? rawPg / 200 : rawPg;
+
       const { error } = await supabase
         .from('blasting_records')
         .insert([
@@ -65,8 +69,8 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
             edet_nos: parseFloat(formData.edet_nos) || 0,
             nonel_3m_nos: parseFloat(formData.nonel_3m_nos) || 0,
             nonel_4m_nos: parseFloat(formData.nonel_4m_nos) || 0,
-            pg_nos: parseFloat(formData.pg_nos) || 0,
-            pg_unit: formData.pg_unit,
+            pg_nos: finalPg,
+            pg_unit: 'boxes', // Always save in boxes for consistency
             material_type: formData.material_type,
             notes: formData.notes,
             status: 'pending'
@@ -252,8 +256,14 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
             onChange={(e) => setFormData({ ...formData, pg_nos: e.target.value })}
             min="0"
             className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
-            placeholder="0.00"
+            placeholder={formData.pg_unit === 'nos' ? "Enter quantity in nos (e.g. 200)" : "Enter quantity in boxes"}
           />
+          {formData.pg_nos && formData.pg_unit === 'nos' && (
+            <div className="mt-1 ml-1 text-[10px] font-semibold text-orange-600 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-pulse" />
+              Equates to {(parseFloat(formData.pg_nos) / 200).toFixed(3)} boxes (1 box = 200 nos)
+            </div>
+          )}
         </div>
 
         {/* PG Unit */}
