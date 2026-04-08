@@ -70,7 +70,11 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
     notes: ''
   });
 
-  const [monthlyStats, setMonthlyStats] = useState<{ date: string; totalFeet: number }[]>([]);
+  const [monthlyStats, setMonthlyStats] = useState<{
+    date: string;
+    totalFeet: number;
+    breakdown: Record<string, number>;
+  }[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
 
@@ -108,7 +112,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
       const { data, error } = await supabase
         .from('drilling_records')
-        .select('date, rod_measurements, rod_measurements_set2')
+        .select('date, material_type, rod_measurements, rod_measurements_set2')
         .eq('contractor_id', user.id)
         .gte('date', format(start, 'yyyy-MM-dd'))
         .lte('date', format(end, 'yyyy-MM-dd'))
@@ -116,8 +120,10 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
       if (error) throw error;
 
-      // Group and sum by date
-      const statsMap = new Map<string, number>();
+      // Group and sum by date and material
+      type DailyBreakdown = { total: number; breakdown: Record<string, number> };
+      const statsMap = new Map<string, DailyBreakdown>();
+
       data?.forEach(record => {
         let dailySum = 0;
         const set1 = record.rod_measurements as Record<string, number> || {};
@@ -129,12 +135,17 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
           dailySum += (set2[`rod${key}_set2`] || 0) * step;
         });
 
-        statsMap.set(record.date, (statsMap.get(record.date) || 0) + dailySum);
+        const mType = record.material_type || 'Unknown';
+        const current = statsMap.get(record.date) || { total: 0, breakdown: {} };
+        current.total += dailySum;
+        current.breakdown[mType] = (current.breakdown[mType] || 0) + dailySum;
+        statsMap.set(record.date, current);
       });
 
-      const statsArray = Array.from(statsMap.entries()).map(([date, totalFeet]) => ({
+      const statsArray = Array.from(statsMap.entries()).map(([date, data]) => ({
         date,
-        totalFeet
+        totalFeet: data.total,
+        breakdown: data.breakdown
       }));
       setMonthlyStats(statsArray);
     } catch (err) {
@@ -455,17 +466,35 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                 <div className="p-4 text-center text-xs text-slate-500 italic">No records for this month</div>
               ) : (
                 monthlyStats.map((stat) => (
-                  <div key={stat.date} className="grid grid-cols-2 px-4 py-3 items-center hover:bg-slate-50/50 transition-colors">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-900">
-                        {format(new Date(stat.date), 'dd MMM')}
-                      </span>
-                      <span className="text-[10px] text-slate-500">{format(new Date(stat.date), 'EEEE')}</span>
+                  <div key={stat.date} className="px-4 py-3 hover:bg-slate-50/50 transition-colors">
+                    <div className="grid grid-cols-2 items-center mb-1">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-slate-900">
+                          {format(new Date(stat.date), 'dd MMM')}
+                        </span>
+                        <span className="text-[10px] text-slate-500">{format(new Date(stat.date), 'EEEE')}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200">
+                          {stat.totalFeet.toFixed(1)} <span className="ml-1 text-[8px] font-medium opacity-70">ft</span>
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-sm font-bold border border-blue-100">
-                        {stat.totalFeet.toFixed(1)} <span className="ml-1 text-[10px] font-medium opacity-70">ft</span>
-                      </span>
+
+                    {/* Material Breakdown */}
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {Object.entries(stat.breakdown).map(([type, feet]) => (
+                        <div key={type} className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                          <div className={`w-1.5 h-1.5 rounded-full ${
+                            type === 'Good Boulders' ? 'bg-orange-500' :
+                            type === 'Weathered Rocks' ? 'bg-amber-500' :
+                            type === 'Soil' ? 'bg-emerald-500' : 'bg-slate-400'
+                          }`} />
+                          <span className="text-[10px] font-medium text-slate-600">
+                            {MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL] || type}: {feet.toFixed(1)}ft
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))
@@ -474,12 +503,28 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
             {/* Monthly Total Footer */}
             {monthlyStats.length > 0 && (
-              <div className="bg-slate-900 px-4 py-3 flex justify-between items-center text-white">
-                <span className="text-[10px] font-semibold uppercase tracking-wider opacity-60">Month Total</span>
-                <span className="text-lg font-bold">
-                  {monthlyStats.reduce((acc, curr) => acc + curr.totalFeet, 0).toFixed(1)}
-                  <span className="ml-1 text-xs font-medium opacity-60">ft</span>
-                </span>
+              <div className="bg-slate-900 px-4 py-4 text-white">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider opacity-60">Month Total</span>
+                  <span className="text-xl font-bold">
+                    {monthlyStats.reduce((acc, curr) => acc + curr.totalFeet, 0).toFixed(1)}
+                    <span className="ml-1 text-xs font-medium opacity-60">ft</span>
+                  </span>
+                </div>
+
+                {/* Footer breakdown */}
+                <div className="grid grid-cols-1 gap-2 pt-3 border-t border-white/10">
+                  {['Good Boulders', 'Weathered Rocks', 'Soil'].map(type => {
+                    const typeTotal = monthlyStats.reduce((acc, curr) => acc + (curr.breakdown[type] || 0), 0);
+                    if (typeTotal === 0) return null;
+                    return (
+                      <div key={type} className="flex justify-between items-center text-[10px]">
+                        <span className="opacity-60">{type} ({MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]})</span>
+                        <span className="font-semibold">{typeTotal.toFixed(1)} ft</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
