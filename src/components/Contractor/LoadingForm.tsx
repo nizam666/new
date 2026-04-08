@@ -90,10 +90,20 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    console.log('Submission attempt started', { user, formData });
+
+    if (!user) {
+      toast.error('User session not found. Please log in again.', { position: 'top-right' });
+      return;
+    }
 
     if (!formData.material_type || !formData.vehicle_used || !formData.breaker_bucket) {
-      toast.error('Please select all required fields', { position: 'top-right' });
+      const missing = [];
+      if (!formData.material_type) missing.push('Material Type');
+      if (!formData.vehicle_used) missing.push('Vehicle');
+      if (!formData.breaker_bucket) missing.push('Equipment Setting (Breaker/Bucket)');
+      
+      toast.error(`Please select: ${missing.join(', ')}`, { position: 'top-right' });
       return;
     }
 
