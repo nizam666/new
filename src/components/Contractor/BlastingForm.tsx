@@ -412,8 +412,8 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           {/* Table Wrapper for Horizontal Scroll on small screens */}
           <div className="overflow-x-auto">
-            <div className="min-w-[500px]">
-              <div className="grid grid-cols-[80px_100px_60px_60px_60px_50px_50px] bg-slate-50 border-b border-slate-200 px-3 py-2 font-bold text-slate-500 uppercase text-[9px] tracking-tight text-center">
+            <div className="min-w-[600px]">
+              <div className="grid grid-cols-[90px_110px_70px_70px_70px_60px_60px] bg-slate-50 border-b border-slate-200 px-3 py-3.5 font-bold text-slate-500 uppercase text-[10px] tracking-tight text-center">
                 <span className="text-left font-black">Date</span>
                 <span className="text-left font-black">Material</span>
                 <span>PG (bx)</span>
@@ -423,7 +423,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
                 <span>EDET</span>
               </div>
 
-              <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+              <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
                 {statsLoading ? (
                   <div className="p-4 text-center text-xs text-slate-500">Loading summary...</div>
                 ) : statsError ? (
@@ -432,29 +432,29 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
                   <div className="p-4 text-center text-xs text-slate-500 italic">No records for this month</div>
                 ) : (
                   monthlyStats.map((stat, idx) => (
-                    <div key={`${stat.date}-${stat.material_type}-${idx}`} className="grid grid-cols-[80px_100px_60px_60px_60px_50px_50px] px-3 py-2.5 items-center hover:bg-slate-50/50 transition-colors text-center text-[10px]">
+                    <div key={`${stat.date}-${stat.material_type}-${idx}`} className="grid grid-cols-[90px_110px_70px_70px_70px_60px_60px] px-3 py-4 items-center hover:bg-slate-50/50 transition-colors text-center text-xs">
                       <div className="text-left">
-                        <div className="font-bold text-slate-900">{safeFormat(stat.date, 'dd MMM')}</div>
-                        <div className="text-[8px] text-slate-400 capitalize">{safeFormat(stat.date, 'EEE')}</div>
+                        <div className="font-bold text-slate-900 leading-tight">{safeFormat(stat.date, 'dd MMM')}</div>
+                        <div className="text-[10px] text-slate-400 capitalize">{safeFormat(stat.date, 'EEE')}</div>
                       </div>
                       <div className="text-left">
                         <div className="font-bold text-orange-600 truncate mr-1">
                           {MATERIAL_TYPES_TAMIL[stat.material_type as keyof typeof MATERIAL_TYPES_TAMIL] || stat.material_type}
                         </div>
                       </div>
-                      <div className="font-bold text-slate-700 bg-orange-50 py-1 rounded-md border border-orange-100 mx-0.5">
+                      <div className="font-bold text-slate-700 bg-orange-50 py-1.5 rounded-lg border border-orange-100 mx-1">
                         {stat.pg > 0 ? stat.pg.toFixed(1) : '-'}
                       </div>
-                      <div className="text-slate-600">
+                      <div className="text-slate-700 font-medium">
                         {stat.nonel_3m > 0 ? stat.nonel_3m : '-'}
                       </div>
-                      <div className="text-slate-600">
+                      <div className="text-slate-700 font-medium">
                         {stat.nonel_4m > 0 ? stat.nonel_4m : '-'}
                       </div>
-                      <div className="text-slate-600">
+                      <div className="text-slate-700 font-medium">
                         {stat.ed > 0 ? stat.ed : '-'}
                       </div>
-                      <div className="text-slate-600">
+                      <div className="text-slate-700 font-medium">
                         {stat.edet > 0 ? stat.edet : '-'}
                       </div>
                     </div>
