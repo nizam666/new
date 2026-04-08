@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Bomb, Save, AlertCircle } from 'lucide-react';
+import { Bomb, Save, AlertCircle, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 const MATERIAL_TYPES = ['Good Boulders', 'Weathered Rocks', 'Soil'];
 const MATERIAL_TYPES_TAMIL = {
@@ -12,6 +13,17 @@ const MATERIAL_TYPES_TAMIL = {
 };
 const LOCATIONS = ['Site 1', 'Storage Bay'];
 const PG_UNITS = ['boxes', 'nos'];
+
+const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Invalid Date';
+    return format(d, formatStr);
+  } catch (e) {
+    return 'Error';
+  }
+};
 
 export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
@@ -30,6 +42,18 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     notes: ''
   });
 
+  const [monthlyStats, setMonthlyStats] = useState<{
+    date: string;
+    material_type: string;
+    ed: number;
+    edet: number;
+    nonel_3m: number;
+    nonel_4m: number;
+    pg: number;
+  }[]>([]);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
   const today = new Date().toISOString().split('T')[0];
 
   const validateForm = () => {
@@ -44,6 +68,62 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     setErrorStatus(null);
     return true;
   };
+
+  const fetchMonthlyStats = useCallback(async () => {
+    if (!user) return;
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const start = startOfMonth(new Date());
+      const end = endOfMonth(new Date());
+
+      const { data, error } = await supabase
+        .from('blasting_records')
+        .select('*')
+        .eq('contractor_id', user.id)
+        .gte('date', format(start, 'yyyy-MM-dd'))
+        .lte('date', format(end, 'yyyy-MM-dd'))
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      // Group by date + material
+      type Key = string; // date_material
+      const statsMap = new Map<Key, any>();
+
+      data?.forEach(record => {
+        const key = `${record.date}_${record.material_type}`;
+        const current = statsMap.get(key) || {
+          date: record.date,
+          material_type: record.material_type,
+          ed: 0,
+          edet: 0,
+          nonel_3m: 0,
+          nonel_4m: 0,
+          pg: 0
+        };
+        
+        current.ed += (record.ed_nos || 0);
+        current.edet += (record.edet_nos || 0);
+        current.nonel_3m += (record.nonel_3m_nos || 0);
+        current.nonel_4m += (record.nonel_4m_nos || 0);
+        current.pg += (record.pg_nos || 0);
+        
+        statsMap.set(key, current);
+      });
+
+      setMonthlyStats(Array.from(statsMap.values()));
+    } catch (err) {
+      console.error('Error fetching blasting stats:', err);
+      setStatsError('Failed to load summary');
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchMonthlyStats();
+  }, [fetchMonthlyStats]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +173,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
       });
 
       toast.success('Blasting record saved successfully!');
+      fetchMonthlyStats();
       if (onSuccess) onSuccess();
     } catch (err) {
       console.error('Blasting save error:', err);
@@ -312,6 +393,110 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
           <span className="hidden sm:inline">{loading ? 'Saving...' : 'Save Blasting Record'}</span>
           <span className="sm:hidden">{loading ? 'Saving...' : 'Save'}</span>
         </button>
+      </div>
+
+      {/* ── Monthly Summary Section ── */}
+      <div className="pt-6 border-t border-slate-200">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+              <Calendar className="w-4 h-4 text-orange-600" />
+            </div>
+            <h4 className="text-sm font-bold text-slate-900">Monthly Usage Summary</h4>
+          </div>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded">
+            {format(new Date(), 'MMMM yyyy')}
+          </span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+            {statsLoading ? (
+              <div className="p-4 text-center text-xs text-slate-500">Loading summary...</div>
+            ) : statsError ? (
+              <div className="p-4 text-center text-xs text-red-500">{statsError}</div>
+            ) : monthlyStats.length === 0 ? (
+              <div className="p-4 text-center text-xs text-slate-500 italic">No records for this month</div>
+            ) : (
+              monthlyStats.map((stat, idx) => (
+                <div key={`${stat.date}-${stat.material_type}-${idx}`} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">{safeFormat(stat.date, 'dd MMM')}</div>
+                      <div className="text-[10px] text-slate-500 capitalize">{safeFormat(stat.date, 'EEEE')}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] sm:text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">
+                        {MATERIAL_TYPES_TAMIL[stat.material_type as keyof typeof MATERIAL_TYPES_TAMIL] || stat.material_type}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Explosives breakdown chips */}
+                  <div className="flex flex-wrap gap-2">
+                    {stat.ed > 0 && (
+                      <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
+                        <span className="text-slate-400 mr-1">ED:</span>
+                        <span className="font-bold text-slate-700">{stat.ed}</span>
+                      </div>
+                    )}
+                    {stat.edet > 0 && (
+                      <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
+                        <span className="text-slate-400 mr-1">EDET:</span>
+                        <span className="font-bold text-slate-700">{stat.edet}</span>
+                      </div>
+                    )}
+                    {stat.nonel_3m > 0 && (
+                      <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
+                        <span className="text-slate-400 mr-1">NLO 3m:</span>
+                        <span className="font-bold text-slate-700">{stat.nonel_3m}</span>
+                      </div>
+                    )}
+                    {stat.nonel_4m > 0 && (
+                      <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
+                        <span className="text-slate-400 mr-1">NLO 4m:</span>
+                        <span className="font-bold text-slate-700">{stat.nonel_4m}</span>
+                      </div>
+                    )}
+                    {stat.pg > 0 && (
+                      <div className="bg-orange-50 border border-orange-200 rounded px-2 py-0.5 text-[10px]">
+                        <span className="text-orange-400 mr-1 font-bold">PG:</span>
+                        <span className="font-bold text-orange-700">{stat.pg.toFixed(2)} bx</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Monthly Totals Footer */}
+          {monthlyStats.length > 0 && (
+            <div className="bg-slate-900 p-4 text-white">
+              <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">Total Monthly Usage</h5>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-slate-500 uppercase">ED / EDET</span>
+                  <span className="text-sm font-bold">
+                    {monthlyStats.reduce((acc, curr) => acc + curr.ed, 0)} / {monthlyStats.reduce((acc, curr) => acc + curr.edet, 0)}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-slate-500 uppercase">Nonel 3m / 4m</span>
+                  <span className="text-sm font-bold">
+                    {monthlyStats.reduce((acc, curr) => acc + curr.nonel_3m, 0)} / {monthlyStats.reduce((acc, curr) => acc + curr.nonel_4m, 0)}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-orange-500 uppercase">PG Total (Boxes)</span>
+                  <span className="text-sm font-bold text-orange-400">
+                    {monthlyStats.reduce((acc, curr) => acc + curr.pg, 0).toFixed(2)} <span className="text-[10px] font-normal opacity-60">bx</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </form>
   );
