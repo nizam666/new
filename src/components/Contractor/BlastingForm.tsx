@@ -13,33 +13,6 @@ const MATERIAL_TYPES_TAMIL = {
 const LOCATIONS = ['Site 1', 'Storage Bay'];
 const PG_UNITS = ['boxes', 'nos'];
 
-function CycleButton({
-  options,
-  value,
-  onChange,
-  color = 'orange',
-}: {
-  options: string[];
-  value: string;
-  onChange: (val: string) => void;
-  color?: 'blue' | 'emerald' | 'orange';
-}) {
-  const handleClick = () => {
-    const currentIndex = value === '' ? -1 : options.indexOf(value);
-    const nextIndex = (currentIndex + 1) % options.length;
-    onChange(options[nextIndex]);
-  };
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className={`px-3 py-2 rounded-lg text-sm font-medium border transition-all cursor-pointer bg-${color}-600 text-white border-${color}-600 shadow-sm hover:bg-${color}-700`}
-    >
-      {value || 'Select'}
-    </button>
-  );
-}
-
 export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
