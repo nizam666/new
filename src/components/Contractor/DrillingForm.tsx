@@ -514,8 +514,8 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                       <div key={type} className={`p-3 rounded-lg border flex flex-col items-center ${
                         isBoulders ? 'bg-orange-600/20 border-orange-600/30' : 'bg-amber-600/20 border-amber-600/30'
                       }`}>
-                        <span className="text-[8px] sm:text-[10px] font-semibold uppercase tracking-widest opacity-70 mb-1">
-                          Total {isBoulders ? 'Boulders' : 'Rocks'}
+                        <span className="text-[8px] sm:text-[10px] font-semibold uppercase tracking-widest opacity-70 mb-1 text-center">
+                          {isBoulders ? 'Total G.B in feets' : 'Total W.R in feets'}
                         </span>
                         <span className={`text-lg sm:text-xl font-black ${isBoulders ? 'text-orange-400' : 'text-amber-400'}`}>
                           {typeTotal.toFixed(0)}
