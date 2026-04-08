@@ -31,7 +31,6 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
     date: new Date().toISOString().split('T')[0],
     material_type: '',
     vehicle_used: '',
-    destination: '',
     diesel: '',
     breaker_bucket: '',
     starting_hours: '',
@@ -115,7 +114,6 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
         date: formData.date,
         material_type: formData.material_type,
         vehicle_used: formData.vehicle_used,
-        destination: formData.destination,
         breaker_bucket: formData.breaker_bucket,
         starting_hours: parseFloat(formData.starting_hours) || 0,
         ending_hours: parseFloat(formData.ending_hours) || 0,
@@ -123,16 +121,18 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
       };
 
       // Add notes if the field exists in the database
-      if (formData.notes.trim()) {
-        insertData.notes = formData.notes;
-      }
+      let notesContent = formData.notes.trim();
 
       // Add diesel info to notes if provided
       if (formData.diesel.trim()) {
         const dieselNote = `Diesel refilled: ${formData.diesel} liters`;
-        insertData.notes = insertData.notes 
-          ? `${insertData.notes}\n${dieselNote}` 
+        notesContent = notesContent
+          ? `${notesContent}\n${dieselNote}`
           : dieselNote;
+      }
+
+      if (notesContent) {
+        insertData.notes = notesContent;
       }
 
       const { error } = await supabase
@@ -145,7 +145,6 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
         date: new Date().toISOString().split('T')[0],
         material_type: '',
         vehicle_used: '',
-        destination: '',
         diesel: '',
         breaker_bucket: '',
         starting_hours: '',
@@ -272,19 +271,26 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         </div>
 
-        {/* Destination Input */}
+        {/* Diesel Input */}
         <div className="relative">
           <label className="block text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 ml-1">
-            Destination
+            Diesel Refilled <span className="text-red-500 text-base">*</span>
           </label>
-          <input
-            type="text"
-            value={formData.destination}
-            onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-            required
-            className="w-full px-4 sm:px-5 py-3 sm:py-4 border-2 border-slate-100 bg-slate-50/50 rounded-xl sm:rounded-2xl text-sm sm:text-base focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all font-bold text-slate-900"
-            placeholder="Where is the material being delivered?"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              step="0.1"
+              value={formData.diesel}
+              onChange={(e) => setFormData({ ...formData, diesel: e.target.value })}
+              required
+              min="0"
+              className="w-full px-4 sm:px-5 py-3 sm:py-4 border-2 border-slate-100 bg-slate-50/50 rounded-xl sm:rounded-2xl text-sm sm:text-base focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all font-bold text-slate-900 pr-16"
+              placeholder="0.0"
+            />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 uppercase tracking-widest">
+              Liters
+            </div>
+          </div>
         </div>
 
         {/* Hours Tracking Grid */}
