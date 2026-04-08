@@ -409,18 +409,25 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
 
           {/* Combined summary */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-8">
             <div className="bg-slate-800 text-white rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
               <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider mb-1">Total Holes</div>
-              <div className="text-sm sm:text-2xl font-bold">{totalHoles()}</div>
+              <div className="text-sm sm:text-xl font-bold">{totalHoles()}</div>
             </div>
-            <div className="bg-slate-800 text-white rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
-              <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider mb-1">Total Feet</div>
-              <div className="text-sm sm:text-2xl font-bold">{totalFeet().toFixed(1)}<span className="text-[10px] sm:text-sm text-slate-400 ml-1">ft</span></div>
+            
+            <div className={`rounded-lg sm:rounded-xl p-2 sm:p-4 text-center transition-colors ${formData.material_type === 'Good Boulders' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+              <div className="text-[10px] sm:text-xs uppercase tracking-wider mb-1">Boulders (ft)</div>
+              <div className="text-sm sm:text-xl font-bold">{formData.material_type === 'Good Boulders' ? totalFeet().toFixed(0) : '0'}</div>
             </div>
+
+            <div className={`rounded-lg sm:rounded-xl p-2 sm:p-4 text-center transition-colors ${formData.material_type === 'Weathered Rocks' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+              <div className="text-[10px] sm:text-xs uppercase tracking-wider mb-1">Rocks (ft)</div>
+              <div className="text-sm sm:text-xl font-bold">{formData.material_type === 'Weathered Rocks' ? totalFeet().toFixed(0) : '0'}</div>
+            </div>
+
             <div className="bg-emerald-700 text-white rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
               <div className="text-[10px] sm:text-xs text-emerald-300 uppercase tracking-wider mb-1 font-semibold">Production</div>
-              <div className="text-sm sm:text-2xl font-bold">{drillingProduction.toFixed(1)}<span className="text-[10px] sm:text-sm text-emerald-300 ml-1">t</span></div>
+              <div className="text-sm sm:text-xl font-bold">{drillingProduction.toFixed(1)}<span className="text-[10px] sm:text-xs text-emerald-300 ml-1">t</span></div>
             </div>
           </div>
         </div>
@@ -464,76 +471,57 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             </span>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="grid grid-cols-2 bg-slate-50 border-b border-slate-200 px-4 py-2">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</span>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Total Feet</span>
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-[10px] sm:text-xs">
+            <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-200 px-2 sm:px-4 py-2 font-bold text-slate-500 uppercase tracking-wider text-center">
+              <span className="text-left">Date</span>
+              <span>Good Boulders</span>
+              <span className="text-right">Weathered Rock</span>
             </div>
 
             <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
               {statsLoading ? (
-                <div className="p-4 text-center text-xs text-slate-500">Loading summary...</div>
+                <div className="p-4 text-center text-slate-500">Loading summary...</div>
               ) : statsError ? (
-                <div className="p-4 text-center text-xs text-red-500">{statsError}</div>
+                <div className="p-4 text-center text-red-500">{statsError}</div>
               ) : monthlyStats.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-500 italic">No records for this month</div>
+                <div className="p-4 text-center text-slate-500 italic">No records for this month</div>
               ) : (
                 monthlyStats.map((stat) => (
-                  <div key={stat.date} className="px-4 py-3 hover:bg-slate-50/50 transition-colors">
-                    <div className="grid grid-cols-2 items-center mb-1">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-slate-900">
-                          {safeFormat(stat.date, 'dd MMM')}
-                        </span>
-                        <span className="text-[10px] text-slate-500">{safeFormat(stat.date, 'EEEE')}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200">
-                          {stat.totalFeet.toFixed(1)} <span className="ml-1 text-[8px] font-medium opacity-70">ft</span>
-                        </span>
-                      </div>
+                  <div key={stat.date} className="grid grid-cols-3 px-2 sm:px-4 py-3 items-center hover:bg-slate-50/50 transition-colors text-center text-xs">
+                    <div className="text-left">
+                      <div className="font-bold text-slate-900">{safeFormat(stat.date, 'dd MMM')}</div>
+                      <div className="text-[8px] sm:text-[10px] text-slate-400 capitalize">{safeFormat(stat.date, 'EEE')}</div>
                     </div>
-
-                    {/* Material Breakdown */}
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {Object.entries(stat.breakdown).map(([type, feet]) => (
-                        <div key={type} className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
-                          <div className={`w-1.5 h-1.5 rounded-full ${
-                            type === 'Good Boulders' ? 'bg-orange-500' :
-                            type === 'Weathered Rocks' ? 'bg-amber-500' :
-                            type === 'Soil' ? 'bg-emerald-500' : 'bg-slate-400'
-                          }`} />
-                          <span className="text-[10px] font-medium text-slate-600">
-                            {MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL] || type}: {feet.toFixed(1)}ft
-                          </span>
-                        </div>
-                      ))}
+                    <div className="text-orange-600 font-bold">
+                      {(stat.breakdown?.['Good Boulders'] || 0).toFixed(0)}<span className="text-[8px] opacity-70 ml-0.5 font-normal">ft</span>
+                    </div>
+                    <div className="text-amber-600 font-bold text-right pr-1">
+                      {(stat.breakdown?.['Weathered Rocks'] || 0).toFixed(0)}<span className="text-[8px] opacity-70 ml-0.5 font-normal">ft</span>
                     </div>
                   </div>
                 ))
               )}
             </div>
 
-            {/* Monthly Total Footer */}
+            {/* Monthly Total Footer - Redesigned to show material totals only */}
             {monthlyStats.length > 0 && (
               <div className="bg-slate-900 px-4 py-4 text-white">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider opacity-60">Month Total</span>
-                  <span className="text-xl font-bold">
-                    {monthlyStats.reduce((acc, curr) => acc + curr.totalFeet, 0).toFixed(1)}
-                    <span className="ml-1 text-xs font-medium opacity-60">ft</span>
-                  </span>
-                </div>
-
-                {/* Footer breakdown */}
-                <div className="grid grid-cols-1 gap-2 pt-3 border-t border-white/10">
-                  {['Good Boulders', 'Weathered Rocks', 'Soil'].map(type => {
+                <div className="grid grid-cols-2 gap-4">
+                  {['Good Boulders', 'Weathered Rocks'].map(type => {
                     const typeTotal = monthlyStats.reduce((acc, curr) => acc + (curr.breakdown?.[type] || 0), 0);
-                    if (typeTotal === 0) return null;
+                    const isBoulders = type === 'Good Boulders';
                     return (
-                      <div key={type} className="flex justify-between items-center text-[10px]">
-                        <span className="opacity-60">{type} ({MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL] || type})</span>
-                        <span className="font-semibold">{typeTotal.toFixed(1)} ft</span>
+                      <div key={type} className={`p-3 rounded-lg border flex flex-col items-center ${
+                        isBoulders ? 'bg-orange-600/20 border-orange-600/30' : 'bg-amber-600/20 border-amber-600/30'
+                      }`}>
+                        <span className="text-[8px] sm:text-[10px] font-semibold uppercase tracking-widest opacity-70 mb-1">
+                          Total {isBoulders ? 'Boulders' : 'Rocks'}
+                        </span>
+                        <span className={`text-lg sm:text-xl font-black ${isBoulders ? 'text-orange-400' : 'text-amber-400'}`}>
+                          {typeTotal.toFixed(0)}
+                          <span className="text-[10px] sm:text-xs font-medium opacity-60 ml-1 tracking-normal">ft</span>
+                        </span>
+                        <span className="text-[8px] opacity-50 mt-1">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]}</span>
                       </div>
                     );
                   })}
