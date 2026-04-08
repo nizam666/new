@@ -126,7 +126,18 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
       toast.success('Drilling record saved successfully!');
       if (onSuccess) onSuccess();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Drilling save error:', err);
+      let msg = 'Unknown error';
+      if (err && typeof err === 'object') {
+        // Supabase errors have .message, .code, .details, .hint
+        const e = err as Record<string, unknown>;
+        const parts: string[] = [];
+        if (e.message) parts.push(String(e.message));
+        if (e.details) parts.push(`Details: ${e.details}`);
+        if (e.hint) parts.push(`Hint: ${e.hint}`);
+        if (e.code) parts.push(`Code: ${e.code}`);
+        msg = parts.join(' | ') || JSON.stringify(err);
+      }
       setError(`Failed to save: ${msg}`);
       toast.error(`Failed to save: ${msg}`);
     } finally {
