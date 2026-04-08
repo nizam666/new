@@ -142,10 +142,21 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
       <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
         <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
           <Bomb className="w-4 sm:w-5 h-4 sm:h-5 text-orange-600" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">New Blasting Record</h3>
-          <p className="text-xs sm:text-sm text-slate-500 truncate">Record explosives used for blasting</p>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">PG Unit</label>
+            <div className="grid grid-cols-2 gap-2">
+              {PG_UNITS.map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, pg_unit: u })}
+                  className={`p-2 sm:p-3 rounded-lg border-2 transition-all text-xs sm:text-sm ${formData.pg_unit === u ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20' : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'}`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
