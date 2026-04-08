@@ -154,53 +154,53 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-0">
+    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
 
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-          <Drill className="w-5 h-5 text-blue-600" />
+      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+          <Drill className="w-4 sm:w-5 h-4 sm:h-5 text-blue-600" />
         </div>
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900">New Drilling Record</h3>
-          <p className="text-sm text-slate-500">Fill details below and enter rod counts</p>
+        <div className="min-w-0">
+          <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">New Drilling Record</h3>
+          <p className="text-xs sm:text-sm text-slate-500 truncate">Fill details below and enter rod counts</p>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5 flex gap-3">
-          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="bg-red-50 border border-red-200 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-3 sm:mb-5 flex gap-2 sm:gap-3">
+          <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs sm:text-sm text-red-700">{error}</p>
         </div>
       )}
 
       {/* ══════════════════════════════════════
           FORM DETAILS
       ══════════════════════════════════════ */}
-      <div className="space-y-5">
+      <div className="space-y-4 sm:space-y-5">
 
         {/* Date + Diesel on one row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Date</label>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Date</label>
             <input
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               required
               max={today}
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Diesel Consumed (L)</label>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Diesel Consumed (L)</label>
             <input
               type="number"
               step="0.01"
               value={formData.diesel_consumed}
               onChange={(e) => setFormData({ ...formData, diesel_consumed: e.target.value })}
               min="0"
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
               placeholder="0.00"
             />
           </div>
@@ -208,31 +208,31 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
         {/* Location toggle buttons */}
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-2">
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
             Location <span className="text-red-500">*</span>
           </label>
           <ToggleGroup options={LOCATIONS} value={formData.location} onChange={(v) => setFormData({ ...formData, location: v })} color="blue" />
         </div>
 
         {/* Material Type */}
-        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-          <label className="block text-sm font-semibold text-slate-700 mb-3">
+        <div className="bg-slate-50 p-3 sm:p-4 rounded-lg sm:rounded-2xl border border-slate-100">
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3">
             Material Type <span className="text-red-500">*</span>
           </label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
             {MATERIAL_TYPES.map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => setFormData({ ...formData, material_type: type })}
-                className={`p-4 rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                className={`p-2 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
                   formData.material_type === type
                     ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20'
                     : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'
                 }`}
               >
-                <div className="text-sm font-semibold">{type}</div>
-                <div className="text-xs mt-1 opacity-75">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]}</div>
+                <div className="text-xs sm:text-sm font-semibold">{type}</div>
+                <div className="text-[10px] sm:text-xs mt-1 opacity-75">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]}</div>
               </button>
             ))}
           </div>
@@ -240,7 +240,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
         {/* Equipment toggle buttons */}
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-2">
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
             Equipment Used <span className="text-red-500">*</span>
           </label>
           <ToggleGroup options={EQUIPMENT_OPTIONS} value={formData.equipment_used} onChange={(v) => setFormData({ ...formData, equipment_used: v })} color="emerald" />
@@ -250,14 +250,14 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             ROD MEASUREMENTS  (moved here)
         ══════════════════════════════════════ */}
         <div className="pt-2">
-          <label className="block text-sm font-semibold text-slate-700 mb-3">Rod Measurements (Size)</label>
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden mb-6">
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3">Rod Measurements (Size)</label>
+          <div className="bg-slate-50 border border-slate-200 rounded-lg sm:rounded-2xl overflow-hidden mb-4 sm:mb-6">
 
             {/* Table header */}
-            <div className="grid grid-cols-[auto_1fr_1fr] items-center bg-slate-100 border-b border-slate-200 px-4 py-3">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider w-20">Size</span>
-              <span className="text-xs font-bold text-blue-600 uppercase tracking-wider text-center">Set 1 (holes qty)</span>
-              <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider text-center">Set 2 (holes qty)</span>
+            <div className="grid grid-cols-[auto_1fr_1fr] items-center bg-slate-100 border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider w-12 sm:w-20">Size</span>
+              <span className="text-[10px] sm:text-xs font-bold text-blue-600 uppercase tracking-wider text-center">Set 1</span>
+              <span className="text-[10px] sm:text-xs font-bold text-emerald-600 uppercase tracking-wider text-center">Set 2</span>
             </div>
 
             {/* Rows */}
@@ -272,8 +272,8 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                     className={`grid grid-cols-[auto_1fr_1fr] items-center gap-3 px-4 py-2 ${isHalf ? 'bg-amber-50/60 border-t-2 border-amber-200' : ''}`}
                   >
                     {/* Size label */}
-                    <div className="w-20">
-                      <span className={`inline-flex items-center justify-center w-14 h-7 rounded-lg text-sm font-bold
+                    <div className="w-12 sm:w-20">
+                      <span className={`inline-flex items-center justify-center w-10 sm:w-14 h-6 sm:h-7 rounded-md sm:rounded-lg text-xs sm:text-sm font-bold
                         ${isHalf
                           ? 'bg-amber-100 text-amber-700 border border-amber-300'
                           : num >= 8 ? 'bg-blue-100 text-blue-700'
@@ -292,7 +292,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                         onChange={(e) => setRodMeasurements({ ...rodMeasurements, [k1]: parseInt(e.target.value) || 0 })}
                         min="0"
                         step="1"
-                        className="w-24 px-3 py-1.5 text-center border border-slate-300 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 text-sm font-medium"
+                        className="w-16 sm:w-24 px-2 sm:px-3 py-1 sm:py-1.5 text-center border border-slate-300 bg-white rounded-md sm:rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 text-xs sm:text-sm font-medium"
                         placeholder="0"
                       />
                     </div>
@@ -305,7 +305,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                         onChange={(e) => setRodMeasurements({ ...rodMeasurements, [k2]: parseInt(e.target.value) || 0 })}
                         min="0"
                         step="1"
-                        className="w-24 px-3 py-1.5 text-center border border-slate-300 bg-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 text-sm font-medium"
+                        className="w-16 sm:w-24 px-2 sm:px-3 py-1 sm:py-1.5 text-center border border-slate-300 bg-white rounded-md sm:rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 text-xs sm:text-sm font-medium"
                         placeholder="0"
                       />
                     </div>
@@ -315,59 +315,60 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
 
             {/* Totals row */}
-            <div className="grid grid-cols-[auto_1fr_1fr] items-center bg-slate-100 border-t-2 border-slate-300 px-4 py-3 gap-3">
-              <div className="w-20">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Totals</span>
+            <div className="grid grid-cols-[auto_1fr_1fr] items-center bg-slate-100 border-t-2 border-slate-300 px-3 sm:px-4 py-2 sm:py-3 gap-2 sm:gap-3">
+              <div className="w-12 sm:w-20">
+                <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Holes</span>
               </div>
               <div className="text-center space-y-0.5">
-                <div className="text-lg font-bold text-blue-700">{calcHoles1()} holes</div>
-                <div className="text-xs text-blue-500 font-medium">{calcFeet1().toFixed(1)} ft</div>
+                <div className="text-sm sm:text-lg font-bold text-blue-700">{calcHoles1()}</div>
+                <div className="text-[10px] sm:text-xs text-blue-500 font-medium">{calcFeet1().toFixed(1)} ft</div>
               </div>
               <div className="text-center space-y-0.5">
-                <div className="text-lg font-bold text-emerald-700">{calcHoles2()} holes</div>
-                <div className="text-xs text-emerald-500 font-medium">{calcFeet2().toFixed(1)} ft</div>
+                <div className="text-sm sm:text-lg font-bold text-emerald-700">{calcHoles2()}</div>
+                <div className="text-[10px] sm:text-xs text-emerald-500 font-medium">{calcFeet2().toFixed(1)} ft</div>
               </div>
             </div>
           </div>
 
           {/* Combined summary */}
-          <div className="grid grid-cols-3 gap-3 mb-8">
-            <div className="bg-slate-800 text-white rounded-xl p-4 text-center">
-              <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Holes</div>
-              <div className="text-2xl font-bold">{totalHoles()}</div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-8">
+            <div className="bg-slate-800 text-white rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+              <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider mb-1">Total Holes</div>
+              <div className="text-sm sm:text-2xl font-bold">{totalHoles()}</div>
             </div>
-            <div className="bg-slate-800 text-white rounded-xl p-4 text-center">
-              <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Feet</div>
-              <div className="text-2xl font-bold">{totalFeet().toFixed(1)}<span className="text-sm text-slate-400 ml-1">ft</span></div>
+            <div className="bg-slate-800 text-white rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+              <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider mb-1">Total Feet</div>
+              <div className="text-sm sm:text-2xl font-bold">{totalFeet().toFixed(1)}<span className="text-[10px] sm:text-sm text-slate-400 ml-1">ft</span></div>
             </div>
-            <div className="bg-emerald-700 text-white rounded-xl p-4 text-center">
-              <div className="text-xs text-emerald-300 uppercase tracking-wider mb-1">Est. Production</div>
-              <div className="text-2xl font-bold">{(totalFeet() * 0.8).toFixed(1)}<span className="text-sm text-emerald-300 ml-1">t</span></div>
+            <div className="bg-emerald-700 text-white rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+              <div className="text-[10px] sm:text-xs text-emerald-300 uppercase tracking-wider mb-1 font-semibold">Production</div>
+              <div className="text-sm sm:text-2xl font-bold">{(totalFeet() * 0.8).toFixed(1)}<span className="text-[10px] sm:text-sm text-emerald-300 ml-1">t</span></div>
             </div>
           </div>
         </div>
 
         {/* Notes */}
         <div className="pt-2 border-t border-slate-200">
-          <label className="block text-sm font-semibold text-slate-700 mb-2">Notes</label>
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Notes</label>
           <textarea
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             rows={3}
-            className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none"
+            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm resize-none"
             placeholder="Additional notes..."
           />
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end pb-6">
+        <div className="flex justify-end pt-2 pb-6">
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 font-semibold shadow-md shadow-blue-600/20"
+            className="flex items-center gap-2 px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg sm:rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 font-semibold text-xs sm:text-sm shadow-md shadow-blue-600/20"
           >
-            <Save className="w-5 h-5" />
-            {loading ? 'Saving...' : 'Save Drilling Record'}
+            <Save className="w-4 sm:w-5 h-4 sm:h-5" />
+            <span className="hidden sm:inline">{loading ? 'Saving...' : 'Save Drilling Record'}</span>
+            <span className="sm:hidden">{loading ? 'Saving...' : 'Save'}</span>
           </button>
         </div>
       </div>
