@@ -6,6 +6,11 @@ import { toast } from 'react-toastify';
 
 const LOCATIONS = ['Site 1', 'Storage Bay'];
 const MATERIAL_TYPES = ['Good Boulders', 'Weathered Rocks', 'Soil'];
+const MATERIAL_TYPES_TAMIL = {
+  'Good Boulders': 'பாறை',
+  'Weathered Rocks': 'மதுரை கல்',
+  'Soil': 'மண்'
+};
 const EQUIPMENT_OPTIONS = ['Tractor', 'Bore'];
 
 function ToggleGroup({
@@ -209,10 +214,28 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
           <ToggleGroup options={LOCATIONS} value={formData.location} onChange={(v) => setFormData({ ...formData, location: v })} color="blue" />
         </div>
 
-        {/* Material Type toggle buttons */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-2">Material Type</label>
-          <ToggleGroup options={MATERIAL_TYPES} value={formData.material_type} onChange={(v) => setFormData({ ...formData, material_type: v })} color="orange" />
+        {/* Material Type */}
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          <label className="block text-sm font-semibold text-slate-700 mb-3">
+            Material Type <span className="text-red-500">*</span>
+          </label>
+          <div className="grid grid-cols-3 gap-3">
+            {MATERIAL_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setFormData({ ...formData, material_type: type })}
+                className={`p-4 rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                  formData.material_type === type
+                    ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20'
+                    : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'
+                }`}
+              >
+                <div className="text-sm font-semibold">{type}</div>
+                <div className="text-xs mt-1 opacity-75">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Equipment toggle buttons */}
