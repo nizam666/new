@@ -139,21 +139,26 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toISOString();
 
-      // Check current status: Fetch the most recent record for this employee
-      const { data: latestRecord, error: activeError } = await supabase
+      // Check current status: Fetch the most recent Open record for this employee
+      // We look for any record where check_out is NULL, ordered by check_in desc
+      const { data: activeRecord, error: activeError } = await supabase
         .from('selfie_attendance')
         .select('id, check_out, date')
         .eq('employee_id', employeeId.trim().toUpperCase())
+        .is('check_out', null)
         .order('check_in', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (activeError) throw activeError;
+      if (activeError) {
+        console.error("Error fetching active session:", activeError);
+        throw activeError;
+      }
 
-      const hasActiveSession = latestRecord && !latestRecord.check_out;
-
+      // If we are punching in, we must not have an active session
+      // If we are punching out, we MUST have an active session
       if (action === 'punch_in') {
-        if (hasActiveSession) {
+        if (activeRecord) {
           throw new Error(`You are already Punched IN. Please Punch OUT first.`);
         }
 
@@ -167,14 +172,17 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
             work_area: workArea
           });
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error("Error inserting punch in record:", insertError);
+          throw insertError;
+        }
 
         setStatus('success');
         setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerName}!`);
 
       } else {
-        // Punch out logic
-        if (!hasActiveSession) {
+        // Punch out logic: must have an active session
+        if (!activeRecord) {
           throw new Error(`No active Punch In found. Please Punch In first.`);
         }
 
@@ -185,9 +193,12 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
              check_out_photo: photoUrl,
              updated_at: now
           })
-          .eq('id', latestRecord.id);
+          .eq('id', activeRecord.id);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error("Error updating punch out record:", updateError);
+          throw updateError;
+        }
         
         setStatus('success');
         setStatusMessage(`Successfully Punched OUT at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Goodbye, ${workerName}!`);
