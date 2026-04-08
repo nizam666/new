@@ -186,19 +186,29 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           throw new Error(`No active Punch In found. Please Punch In first.`);
         }
 
-        const { error: updateError } = await supabase
+        console.log("Found active record to update:", activeRecord.id);
+
+        const { data: updateData, error: updateError } = await supabase
           .from('selfie_attendance')
           .update({
              check_out: now,
              check_out_photo: photoUrl,
              updated_at: now
           })
-          .eq('id', activeRecord.id);
+          .eq('id', activeRecord.id)
+          .select();
 
         if (updateError) {
           console.error("Error updating punch out record:", updateError);
           throw updateError;
         }
+
+        if (!updateData || updateData.length === 0) {
+          console.error("No record was updated. ID might be wrong or RLS blocked the update.");
+          throw new Error("Failed to save Punch Out data. Please try again.");
+        }
+
+        console.log("Successfully updated record:", updateData[0]);
         
         setStatus('success');
         setStatusMessage(`Successfully Punched OUT at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Goodbye, ${workerName}!`);
