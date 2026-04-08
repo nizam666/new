@@ -186,9 +186,10 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           throw new Error(`No active Punch In found. Please Punch In first.`);
         }
 
-        console.log("Found active record to update:", activeRecord.id);
+        console.log("Preparing to update record:", activeRecord);
 
-        const { data: updateData, error: updateError } = await supabase
+        // Try primary update by ID
+        let { data: updateData, error: updateError } = await supabase
           .from('selfie_attendance')
           .update({
              check_out: now,
@@ -198,14 +199,35 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           .eq('id', activeRecord.id)
           .select();
 
+        // Fallback: If primary update returned no rows but no error, try by employee_id + status
+        if (!updateError && (!updateData || updateData.length === 0)) {
+          console.warn("Primary ID update returned no rows. Attempting fallback match...");
+          const fallbackResponse = await supabase
+            .from('selfie_attendance')
+            .update({
+               check_out: now,
+               check_out_photo: photoUrl,
+               updated_at: now
+            })
+            .eq('employee_id', employeeId.trim().toUpperCase())
+            .is('check_out', null)
+            .select();
+          
+          updateData = fallbackResponse.data;
+          updateError = fallbackResponse.error;
+        }
+
         if (updateError) {
           console.error("Error updating punch out record:", updateError);
           throw updateError;
         }
 
         if (!updateData || updateData.length === 0) {
-          console.error("No record was updated. ID might be wrong or RLS blocked the update.");
-          throw new Error("Failed to save Punch Out data. Please try again.");
+          console.error("Critical: No record was updated even after fallback.", {
+            emp_id: employeeId.trim().toUpperCase(),
+            target_id: activeRecord.id
+          });
+          throw new Error("Failed to save Punch Out data. Please ensure you are Punched IN correctly.");
         }
 
         console.log("Successfully updated record:", updateData[0]);
