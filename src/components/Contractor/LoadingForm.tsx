@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Truck, Save } from 'lucide-react';
@@ -26,6 +26,7 @@ const BREAKER_BUCKET_OPTIONS = [
 export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [fetchingLastHr, setFetchingLastHr] = useState(false);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     material_type: '',
@@ -45,6 +46,41 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
     }
     return '0.0';
   };
+
+  const fetchLastEndingHours = useCallback(async (vehicle: string) => {
+    if (!user || !vehicle) return;
+    setFetchingLastHr(true);
+    try {
+      const { data, error } = await supabase
+        .from('loading_records')
+        .select('ending_hours')
+        .eq('contractor_id', user.id)
+        .eq('vehicle_used', vehicle)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data && data.ending_hours > 0) {
+        setFormData(prev => ({ 
+          ...prev, 
+          starting_hours: data.ending_hours.toString() 
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching last ending hours:', err);
+    } finally {
+      setFetchingLastHr(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (formData.vehicle_used) {
+      fetchLastEndingHours(formData.vehicle_used);
+    }
+  }, [formData.vehicle_used, fetchLastEndingHours]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,8 +257,13 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
         {/* Hours Tracking Grid */}
         <div className="grid grid-cols-2 gap-3 sm:gap-6 bg-slate-900 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-lg border border-slate-800">
           <div>
-            <label className="block text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest mb-3">
-              Starting Hr
+            <label className="block text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center justify-between">
+              <span>Starting Hr</span>
+              {fetchingLastHr ? (
+                <span className="text-[8px] text-green-500 animate-pulse normal-case font-medium">Fetching...</span>
+              ) : formData.starting_hours && (
+                <span className="text-[8px] text-emerald-600 normal-case font-bold bg-emerald-100/50 px-1.5 py-0.5 rounded">Auto-filled</span>
+              )}
             </label>
             <input
               type="number"
