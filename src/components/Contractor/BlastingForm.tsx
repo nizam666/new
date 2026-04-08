@@ -11,6 +11,11 @@ const MATERIAL_TYPES_TAMIL = {
   'Weathered Rocks': 'மதுரை கல்',
   'Soil': 'மண்'
 };
+const MATERIAL_TYPES_ABBR = {
+  'Good Boulders': 'G.B',
+  'Weathered Rocks': 'W.R',
+  'Soil': 'Soil'
+};
 const LOCATIONS = ['Site 1', 'Storage Bay'];
 const PG_UNITS = ['boxes', 'nos'];
 
@@ -439,7 +444,10 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
                       </div>
                       <div className="text-left">
                         <div className="font-bold text-orange-600 truncate mr-1">
-                          {MATERIAL_TYPES_TAMIL[stat.material_type as keyof typeof MATERIAL_TYPES_TAMIL] || stat.material_type}
+                          {MATERIAL_TYPES_ABBR[stat.material_type as keyof typeof MATERIAL_TYPES_ABBR] || stat.material_type}
+                        </div>
+                        <div className="text-[9px] text-slate-400">
+                          {MATERIAL_TYPES_TAMIL[stat.material_type as keyof typeof MATERIAL_TYPES_TAMIL]}
                         </div>
                       </div>
                       <div className="font-bold text-slate-700 bg-orange-50 py-1.5 rounded-lg border border-orange-100 mx-1">
