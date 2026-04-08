@@ -5,9 +5,15 @@ import { Bomb, Save, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const MATERIAL_TYPES = ['Good Boulders', 'Weathered Rocks', 'Soil'];
+const MATERIAL_TYPES_TAMIL = {
+  'Good Boulders': 'பாறை',
+  'Weathered Rocks': 'மதுரை கல்',
+  'Soil': 'மண்'
+};
+const LOCATIONS = ['Site 1', 'Storage Bay'];
 const PG_UNITS = ['boxes', 'nos'];
 
-function ToggleGroup({
+function CycleButton({
   options,
   value,
   onChange,
@@ -18,27 +24,19 @@ function ToggleGroup({
   onChange: (val: string) => void;
   color?: 'blue' | 'emerald' | 'orange';
 }) {
-  const base = 'px-3 py-2 rounded-lg text-sm font-medium border transition-all cursor-pointer';
-  const activeClass: Record<string, string> = {
-    blue: 'bg-blue-600 text-white border-blue-600 shadow-sm',
-    emerald: 'bg-emerald-600 text-white border-emerald-600 shadow-sm',
-    orange: 'bg-orange-600 text-white border-orange-600 shadow-sm',
+  const handleClick = () => {
+    const currentIndex = value === '' ? -1 : options.indexOf(value);
+    const nextIndex = (currentIndex + 1) % options.length;
+    onChange(options[nextIndex]);
   };
-  const inactiveClass = 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-slate-400';
-
   return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt === value ? '' : opt)}
-          className={`${base} ${value === opt ? activeClass[color] : inactiveClass}`}
-        >
-          {opt.charAt(0).toUpperCase() + opt.slice(1)}
-        </button>
-      ))}
-    </div>
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`px-3 py-2 rounded-lg text-sm font-medium border transition-all cursor-pointer bg-${color}-600 text-white border-${color}-600 shadow-sm hover:bg-${color}-700`}
+    >
+      {value || 'Select'}
+    </button>
   );
 }
 
@@ -48,6 +46,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
+    location: '',
     ed_nos: '',
     edet_nos: '',
     nonel_3m_nos: '',
@@ -62,6 +61,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const validateForm = () => {
     const errors: string[] = [];
+    if (!formData.location) errors.push('Location is required');
     if (!formData.material_type) errors.push('Material type is required');
     if (formData.date > today) errors.push('Date cannot be in the future');
     if (errors.length > 0) {
@@ -72,7 +72,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     if (!validateForm()) return;
@@ -87,6 +87,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
           {
             contractor_id: user.id,
             date: formData.date,
+            location: formData.location,
             ed_nos: parseFloat(formData.ed_nos) || 0,
             edet_nos: parseFloat(formData.edet_nos) || 0,
             nonel_3m_nos: parseFloat(formData.nonel_3m_nos) || 0,
@@ -103,6 +104,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
 
       setFormData({
         date: new Date().toISOString().split('T')[0],
+        location: '',
         ed_nos: '',
         edet_nos: '',
         nonel_3m_nos: '',
@@ -135,7 +137,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+    <form onSubmit={handleSave} className="space-y-6 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
       {/* ── Header ── */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
@@ -154,7 +156,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Date Row */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">Date</label>
@@ -168,16 +170,55 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
           />
         </div>
 
+        {/* Location Selection */}
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          <label className="block text-sm font-semibold text-slate-700 mb-3">
+            Location <span className="text-red-500">*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {LOCATIONS.map((loc) => (
+              <button
+                key={loc}
+                type="button"
+                onClick={() => setFormData({ ...formData, location: loc })}
+                className={`p-3 rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                  formData.location === loc
+                    ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20'
+                    : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'
+                }`}
+              >
+                <div className="text-sm font-semibold">{loc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Material Type */}
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-2">
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          <label className="block text-sm font-semibold text-slate-700 mb-3">
             Material Type <span className="text-red-500">*</span>
           </label>
-          <ToggleGroup options={MATERIAL_TYPES} value={formData.material_type} onChange={(v) => setFormData({ ...formData, material_type: v })} color="orange" />
+          <div className="grid grid-cols-3 gap-3">
+            {MATERIAL_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setFormData({ ...formData, material_type: type })}
+                className={`p-4 rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                  formData.material_type === type
+                    ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20'
+                    : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'
+                }`}
+              >
+                <div className="text-sm font-semibold">{type}</div>
+                <div className="text-xs mt-1 opacity-75">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Explosives Grid */}
-        <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">ED (nos)</label>
             <input
@@ -185,7 +226,6 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
               step="0.01"
               value={formData.ed_nos}
               onChange={(e) => setFormData({ ...formData, ed_nos: e.target.value })}
-              required
               min="0"
               className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 text-sm"
               placeholder="0"
@@ -198,7 +238,6 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
               step="0.01"
               value={formData.edet_nos}
               onChange={(e) => setFormData({ ...formData, edet_nos: e.target.value })}
-              required
               min="0"
               className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 text-sm"
               placeholder="0"
@@ -211,7 +250,6 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
               step="0.01"
               value={formData.nonel_3m_nos}
               onChange={(e) => setFormData({ ...formData, nonel_3m_nos: e.target.value })}
-              required
               min="0"
               className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 text-sm"
               placeholder="0"
@@ -224,7 +262,6 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
               step="0.01"
               value={formData.nonel_4m_nos}
               onChange={(e) => setFormData({ ...formData, nonel_4m_nos: e.target.value })}
-              required
               min="0"
               className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 text-sm"
               placeholder="0"
@@ -233,7 +270,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         {/* PG Quantity & Unit */}
-        <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6 items-end">
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">PG Quantity</label>
             <input
@@ -241,7 +278,6 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
               step="0.01"
               value={formData.pg_nos}
               onChange={(e) => setFormData({ ...formData, pg_nos: e.target.value })}
-              required
               min="0"
               className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 text-sm"
               placeholder="0.00"
@@ -249,12 +285,12 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">PG Unit</label>
-            <ToggleGroup options={PG_UNITS} value={formData.pg_unit} onChange={(v) => setFormData({ ...formData, pg_unit: v })} color="orange" />
+            <CycleButton options={PG_UNITS} value={formData.pg_unit} onChange={(v) => setFormData({ ...formData, pg_unit: v })} color="orange" />
           </div>
         </div>
 
         {/* Notes */}
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-sm font-semibold text-slate-700 mb-2">Notes</label>
           <textarea
             value={formData.notes}
@@ -266,7 +302,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
       </div>
 
-      <div className="flex justify-end pt-2">
+      <div className="flex justify-end pt-4">
         <button
           type="submit"
           disabled={loading}
