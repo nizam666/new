@@ -181,9 +181,9 @@ export function CrusherMaintenanceForm({ onSuccess }: { onSuccess?: () => void }
       
       if (onSuccess) onSuccess();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving maintenance report:', error);
-      alert(error.message || 'Unknown error');
+      alert(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setLoading(false);
       setUploadingMedia(false);

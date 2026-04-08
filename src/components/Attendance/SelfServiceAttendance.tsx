@@ -139,7 +139,24 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toISOString();
 
+      // Check current status: Fetch the most recent record for this employee
+      const { data: latestRecord, error: activeError } = await supabase
+        .from('selfie_attendance')
+        .select('id, check_out, date')
+        .eq('employee_id', employeeId.trim().toUpperCase())
+        .order('check_in', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (activeError) throw activeError;
+
+      const hasActiveSession = latestRecord && !latestRecord.check_out;
+
       if (action === 'punch_in') {
+        if (hasActiveSession) {
+          throw new Error(`You are already Punched IN. Please Punch OUT first.`);
+        }
+
         const { error: insertError } = await supabase
           .from('selfie_attendance')
           .insert({
@@ -150,33 +167,15 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
             work_area: workArea
           });
 
-        if (insertError) {
-          if (insertError.code === '23505') { // Unique constraint violation
-            throw new Error(`You have already punched in for today (${today}). If you want to log out, use Punch Out.`);
-          }
-          throw insertError;
-        }
+        if (insertError) throw insertError;
 
         setStatus('success');
         setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerName}!`);
 
       } else {
-        // Punch out: fetch today's record first
-        const { data: existingRecord, error: fetchError } = await supabase
-          .from('selfie_attendance')
-          .select('id, check_out')
-          .eq('employee_id', employeeId.trim().toUpperCase())
-          .eq('date', today)
-          .maybeSingle();
-
-        if (fetchError) throw fetchError;
-        
-        if (!existingRecord) {
-          throw new Error(`No Punch In record found for today. Please Punch In first.`);
-        }
-        
-        if (existingRecord.check_out) {
-          throw new Error(`You have already punched out for today.`);
+        // Punch out logic
+        if (!hasActiveSession) {
+          throw new Error(`No active Punch In found. Please Punch In first.`);
         }
 
         const { error: updateError } = await supabase
@@ -186,7 +185,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
              check_out_photo: photoUrl,
              updated_at: now
           })
-          .eq('id', existingRecord.id);
+          .eq('id', latestRecord.id);
 
         if (updateError) throw updateError;
         

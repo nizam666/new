@@ -242,8 +242,8 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
       setMode('idle');
       setNotes('');
       onSaved(type);
-    } catch (err: any) {
-      alert(err?.message || 'Error saving record');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error saving record');
     } finally {
       setSaving(false);
     }

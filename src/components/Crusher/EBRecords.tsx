@@ -56,7 +56,7 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
           setLatestKwUC(uc);
           setFormData(prev => ({ ...prev, kw_uc_at_billing: String(uc) }));
         }
-      } catch (_) {
+      } catch {
         // No records yet
       }
     };
@@ -74,7 +74,7 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
         .limit(10);
 
       if (!error && data) setPastBills(data);
-    } catch (_) { }
+    } catch { /* ignore */ }
   };
 
 
@@ -118,9 +118,9 @@ export function EBRecords({ onSuccess }: EBRecordsProps) {
       });
       fetchPastBills();
       onSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Submission error:', error);
-      alert(error?.message || 'Unknown error occurred');
+      alert(error instanceof Error ? error.message : 'Unknown error occurred');
     } finally {
       setLoading(false);
     }
