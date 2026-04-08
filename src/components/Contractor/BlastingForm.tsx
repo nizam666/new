@@ -472,27 +472,48 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
           </div>
 
-          {/* Monthly Totals Footer */}
+          {/* Monthly Totals Footer - Separated to show each explosive type independently */}
           {monthlyStats.length > 0 && (
             <div className="bg-slate-900 p-4 text-white">
-              <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">Total Monthly Usage</h5>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-slate-500 uppercase">ED / EDET</span>
-                  <span className="text-sm font-bold">
-                    {monthlyStats.reduce((acc, curr) => acc + curr.ed, 0)} / {monthlyStats.reduce((acc, curr) => acc + curr.edet, 0)}
+              <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">Total Monthly Usage</h5>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="bg-white/5 p-2 rounded-lg border border-white/10 flex flex-col items-center">
+                  <span className="text-[8px] text-slate-500 uppercase font-bold tracking-wider mb-1">ED</span>
+                  <span className="text-sm font-black text-white">
+                    {monthlyStats.reduce((acc, curr) => acc + curr.ed, 0)}
+                    <span className="text-[8px] opacity-40 ml-0.5 font-normal capitalize">nos</span>
                   </span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-slate-500 uppercase">Nonel 3m / 4m</span>
-                  <span className="text-sm font-bold">
-                    {monthlyStats.reduce((acc, curr) => acc + curr.nonel_3m, 0)} / {monthlyStats.reduce((acc, curr) => acc + curr.nonel_4m, 0)}
+
+                <div className="bg-white/5 p-2 rounded-lg border border-white/10 flex flex-col items-center">
+                  <span className="text-[8px] text-slate-500 uppercase font-bold tracking-wider mb-1">EDET</span>
+                  <span className="text-sm font-black text-white">
+                    {monthlyStats.reduce((acc, curr) => acc + curr.edet, 0)}
+                    <span className="text-[8px] opacity-40 ml-0.5 font-normal capitalize">nos</span>
                   </span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-orange-500 uppercase">PG Total (Boxes)</span>
-                  <span className="text-sm font-bold text-orange-400">
-                    {monthlyStats.reduce((acc, curr) => acc + curr.pg, 0).toFixed(2)} <span className="text-[10px] font-normal opacity-60">bx</span>
+
+                <div className="bg-white/5 p-2 rounded-lg border border-white/10 flex flex-col items-center">
+                  <span className="text-[8px] text-slate-500 uppercase font-bold tracking-wider mb-1 text-center">NLO 3m</span>
+                  <span className="text-sm font-black text-white">
+                    {monthlyStats.reduce((acc, curr) => acc + curr.nonel_3m, 0)}
+                    <span className="text-[8px] opacity-40 ml-0.5 font-normal capitalize">nos</span>
+                  </span>
+                </div>
+
+                <div className="bg-white/5 p-2 rounded-lg border border-white/10 flex flex-col items-center">
+                  <span className="text-[8px] text-slate-500 uppercase font-bold tracking-wider mb-1 text-center">NLO 4m</span>
+                  <span className="text-sm font-black text-white">
+                    {monthlyStats.reduce((acc, curr) => acc + curr.nonel_4m, 0)}
+                    <span className="text-[8px] opacity-40 ml-0.5 font-normal capitalize">nos</span>
+                  </span>
+                </div>
+
+                <div className="bg-orange-600/20 p-2 rounded-lg border border-orange-600/30 flex flex-col items-center col-span-2 sm:col-span-1">
+                  <span className="text-[8px] text-orange-400 uppercase font-bold tracking-wider mb-1">PG Total</span>
+                  <span className="text-sm font-black text-orange-400">
+                    {monthlyStats.reduce((acc, curr) => acc + curr.pg, 0).toFixed(2)}
+                    <span className="text-[8px] opacity-60 ml-0.5 font-normal capitalize text-orange-400">bx</span>
                   </span>
                 </div>
               </div>
