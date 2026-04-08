@@ -69,10 +69,13 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const [rodMeasurements, setRodMeasurements] = useState<RodMeasurementsType>(initialRodState);
 
+  const today = new Date().toISOString().split('T')[0];
+
   const validateForm = () => {
     const errors: string[] = [];
     if (!formData.location) errors.push('Location is required');
     if (!formData.equipment_used) errors.push('Equipment used is required');
+    if (formData.date > today) errors.push('Date cannot be in the future');
     if (errors.length > 0) {
       setError(errors.join(', '));
       return false;
@@ -180,6 +183,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               required
+              max={today}
               className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
           </div>
@@ -229,8 +233,8 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             {/* Table header */}
             <div className="grid grid-cols-[auto_1fr_1fr] items-center bg-slate-100 border-b border-slate-200 px-4 py-3">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider w-20">Size</span>
-              <span className="text-xs font-bold text-blue-600 uppercase tracking-wider text-center">Set 1 (qty)</span>
-              <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider text-center">Set 2 (qty)</span>
+              <span className="text-xs font-bold text-blue-600 uppercase tracking-wider text-center">Set 1 (holes qty)</span>
+              <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider text-center">Set 2 (holes qty)</span>
             </div>
 
             {/* Rows */}
