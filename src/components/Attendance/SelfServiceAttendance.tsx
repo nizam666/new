@@ -199,7 +199,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           .eq('id', activeRecord.id)
           .select();
 
-        // Fallback: If primary update returned no rows but no error, try by employee_id + status
+        // Fallback: If primary update returned no rows, try by matching current open session for this employee
         if (!updateError && (!updateData || updateData.length === 0)) {
           console.warn("Primary ID update returned no rows. Attempting fallback match...");
           const fallbackResponse = await supabase
@@ -209,7 +209,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
                check_out_photo: photoUrl,
                updated_at: now
             })
-            .eq('employee_id', employeeId.trim().toUpperCase())
+            .match({ employee_id: employeeId.trim().toUpperCase() })
             .is('check_out', null)
             .select();
           
@@ -218,19 +218,19 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         }
 
         if (updateError) {
-          console.error("Error updating punch out record:", updateError);
-          throw updateError;
+          console.error("Database Update Error:", updateError);
+          throw new Error(`Database Error: ${updateError.message}`);
         }
 
         if (!updateData || updateData.length === 0) {
-          console.error("Critical: No record was updated even after fallback.", {
+          console.error("Critical: Punch Out failed to save even after fallback.", {
             emp_id: employeeId.trim().toUpperCase(),
             target_id: activeRecord.id
           });
-          throw new Error("Failed to save Punch Out data. Please ensure you are Punched IN correctly.");
+          throw new Error("Failed to save Punch Out data. If the error persists, please check your internet connection.");
         }
 
-        console.log("Successfully updated record:", updateData[0]);
+        console.log("Verified Save Success:", updateData[0]);
         
         setStatus('success');
         setStatusMessage(`Successfully Punched OUT at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Goodbye, ${workerName}!`);
