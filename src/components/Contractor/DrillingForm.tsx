@@ -13,6 +13,14 @@ const MATERIAL_TYPES_TAMIL = {
   'Soil': 'மண்'
 };
 const EQUIPMENT_OPTIONS = ['Tractor', 'Bore'];
+const ROD_STEPS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0.5];
+
+const INITIAL_ROD_STATE = ROD_STEPS.reduce((acc, step) => {
+  const key = step.toString().replace('.', '_');
+  acc[`rod${key}`] = 0;
+  acc[`rod${key}_set2`] = 0;
+  return acc;
+}, {} as Record<string, number>);
 
 function ToggleGroup({
   options,
@@ -64,19 +72,9 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const [monthlyStats, setMonthlyStats] = useState<{ date: string; totalFeet: number }[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
-  const rodSteps = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0.5];
-
-  type RodMeasurementsType = Record<string, number>;
-
-  const initialRodState = rodSteps.reduce((acc, step) => {
-    const key = step.toString().replace('.', '_');
-    acc[`rod${key}`] = 0;
-    acc[`rod${key}_set2`] = 0;
-    return acc;
-  }, {} as RodMeasurementsType);
-
-  const [rodMeasurements, setRodMeasurements] = useState<RodMeasurementsType>(initialRodState);
+  const [rodMeasurements, setRodMeasurements] = useState<Record<string, number>>(INITIAL_ROD_STATE);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -93,16 +91,17 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
     return true;
   };
 
-  const calcHoles1 = () => rodSteps.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}`] || 0), 0);
-  const calcFeet1 = () => rodSteps.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}`] || 0) * step, 0);
-  const calcHoles2 = () => rodSteps.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}_set2`] || 0), 0);
-  const calcFeet2 = () => rodSteps.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}_set2`] || 0) * step, 0);
+  const calcHoles1 = () => ROD_STEPS.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}`] || 0), 0);
+  const calcFeet1 = () => ROD_STEPS.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}`] || 0) * step, 0);
+  const calcHoles2 = () => ROD_STEPS.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}_set2`] || 0), 0);
+  const calcFeet2 = () => ROD_STEPS.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}_set2`] || 0) * step, 0);
   const totalHoles = () => calcHoles1() + calcHoles2();
   const totalFeet = () => calcFeet1() + calcFeet2();
 
   const fetchMonthlyStats = useCallback(async () => {
     if (!user) return;
     setStatsLoading(true);
+    setStatsError(null);
     try {
       const start = startOfMonth(new Date());
       const end = endOfMonth(new Date());
@@ -124,7 +123,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
         const set1 = record.rod_measurements as Record<string, number> || {};
         const set2 = record.rod_measurements_set2 as Record<string, number> || {};
 
-        rodSteps.forEach(step => {
+        ROD_STEPS.forEach(step => {
           const key = step.toString().replace('.', '_');
           dailySum += (set1[`rod${key}`] || 0) * step;
           dailySum += (set2[`rod${key}_set2`] || 0) * step;
@@ -140,10 +139,11 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
       setMonthlyStats(statsArray);
     } catch (err) {
       console.error('Error fetching stats:', err);
+      setStatsError('Failed to load summary');
     } finally {
       setStatsLoading(false);
     }
-  }, [user, rodSteps]);
+  }, [user]);
 
   useEffect(() => {
     fetchMonthlyStats();
@@ -183,7 +183,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
       if (error) throw error;
 
       setFormData({ date: new Date().toISOString().split('T')[0], location: '', material_type: '', equipment_used: '', diesel_consumed: '', notes: '' });
-      setRodMeasurements(initialRodState);
+      setRodMeasurements(INITIAL_ROD_STATE);
       toast.success('Drilling record saved successfully!');
       fetchMonthlyStats();
       if (onSuccess) onSuccess();
@@ -316,7 +316,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
             {/* Rows */}
             <div className="divide-y divide-slate-100">
-              {rodSteps.map((num) => {
+              {ROD_STEPS.map((num: number) => {
                 const k1 = `rod${num.toString().replace('.', '_')}`;
                 const k2 = `rod${num.toString().replace('.', '_')}_set2`;
                 const isHalf = num === 0.5;
@@ -449,6 +449,8 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
               {statsLoading ? (
                 <div className="p-4 text-center text-xs text-slate-500">Loading summary...</div>
+              ) : statsError ? (
+                <div className="p-4 text-center text-xs text-red-500">{statsError}</div>
               ) : monthlyStats.length === 0 ? (
                 <div className="p-4 text-center text-xs text-slate-500 italic">No records for this month</div>
               ) : (
