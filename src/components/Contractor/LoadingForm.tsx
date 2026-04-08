@@ -125,8 +125,10 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
 
       toast.success('Excavator breaking/loading record submitted successfully!', { position: 'top-right' });
       if (onSuccess) onSuccess();
-    } catch (error) {
-      toast.error('Error submitting loading record: ' + (error instanceof Error ? error.message : 'Unknown error'), { position: 'top-right' });
+    } catch (error: any) {
+      console.error('Loading record submission error:', error);
+      const detail = error.message || error.details || 'Check your internet connection or permissions.';
+      toast.error(`Failed to save record: ${detail}`, { position: 'top-right' });
     } finally {
       setLoading(false);
     }
