@@ -25,8 +25,7 @@ const MATERIAL_TYPES_SHORT = {
 };
 
 const VEHICLE_TYPES = [
-  'EX140',
-  '120'
+  'govindarajEX140'
 ];
 
 const BREAKER_BUCKET_OPTIONS = [
@@ -41,13 +40,21 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
     date: new Date().toISOString().split('T')[0],
     material_type: '',
     vehicle_used: '',
-    vehicle_owner_name: '',
-    destination: '',
+    diesel: '',
     breaker_bucket: '',
     starting_hours: '',
     ending_hours: '',
     notes: ''
   });
+
+  const getRunningHours = () => {
+    const start = parseFloat(formData.starting_hours);
+    const end = parseFloat(formData.ending_hours);
+    if (!isNaN(start) && !isNaN(end) && end >= start) {
+      return (end - start).toFixed(1);
+    }
+    return '0.0';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,8 +75,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
             date: formData.date,
             material_type: formData.material_type,
             vehicle_used: formData.vehicle_used,
-            vehicle_owner_name: formData.vehicle_owner_name,
-            destination: formData.destination,
+            destination: formData.diesel,
             breaker_bucket: formData.breaker_bucket,
             starting_hours: parseFloat(formData.starting_hours) || 0,
             ending_hours: parseFloat(formData.ending_hours) || 0,
@@ -84,8 +90,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
         date: new Date().toISOString().split('T')[0],
         material_type: '',
         vehicle_used: '',
-        vehicle_owner_name: '',
-        destination: '',
+        diesel: '',
         breaker_bucket: '',
         starting_hours: '',
         ending_hours: '',
@@ -198,33 +203,17 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         </div>
 
-        {/* Vehicle Owner Name */}
+        {/* Diesel */}
         <div>
           <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3">
-            Vehicle Owner Name
+            Diesel (Liters)
           </label>
           <input
             type="text"
-            value={formData.vehicle_owner_name}
-            onChange={(e) => setFormData({ ...formData, vehicle_owner_name: e.target.value })}
-            required
+            value={formData.diesel}
+            onChange={(e) => setFormData({ ...formData, diesel: e.target.value })}
             className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg sm:rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            placeholder="Enter vehicle owner name"
-          />
-        </div>
-
-        {/* Destination */}
-        <div>
-          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3">
-            Destination
-          </label>
-          <input
-            type="text"
-            value={formData.destination}
-            onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-            required
-            className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg sm:rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            placeholder="Enter destination location"
+            placeholder="Enter diesel quantity"
           />
         </div>
 
@@ -260,6 +249,16 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
               className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg sm:rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
               placeholder="0.0"
             />
+          </div>
+        </div>
+
+        {/* Calculated Running Hours Display */}
+        <div className="bg-emerald-50 border border-emerald-100 rounded-lg sm:rounded-2xl p-4 text-center">
+          <div className="text-[10px] sm:text-xs text-emerald-600 uppercase font-bold tracking-widest mb-1">
+            Running Hours Result
+          </div>
+          <div className="text-xl sm:text-3xl font-black text-emerald-700 leading-none">
+            {getRunningHours()} <span className="text-xs sm:text-sm font-normal opacity-70">hrs</span>
           </div>
         </div>
 
