@@ -88,6 +88,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
   }[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   const [rodMeasurements, setRodMeasurements] = useState<Record<string, number>>(INITIAL_ROD_STATE);
 
@@ -456,27 +457,38 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             <span className="sm:hidden">{loading ? 'Saving...' : 'Save'}</span>
           </button>
         </div>
-
+        </div>
+        
         {/* ── Monthly Summary Section ── */}
         <div className="pt-6">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
-                <Calendar className="w-4 h-4 text-slate-600" />
+            <button 
+              type="button"
+              onClick={() => setShowSummary(!showSummary)}
+              className="flex items-center gap-2 group"
+            >
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${showSummary ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'}`}>
+                <Calendar className="w-4 h-4" />
               </div>
-              <h4 className="text-sm font-bold text-slate-900">Monthly Summary</h4>
-            </div>
+              <div className="text-left">
+                <h4 className="text-sm font-bold text-slate-900">Monthly Summary</h4>
+                <p className="text-[10px] text-slate-500 font-medium">
+                  {showSummary ? 'Click to hide details' : 'Click to view monthly totals'}
+                </p>
+              </div>
+            </button>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded">
               {format(new Date(), 'MMMM yyyy')}
             </span>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-[10px] sm:text-xs">
-            <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-200 px-2 sm:px-4 py-2 font-bold text-slate-500 uppercase tracking-wider text-center">
-              <span className="text-left">Date</span>
-              <span>Good Boulders</span>
-              <span className="text-right">Weathered Rock</span>
-            </div>
+          {showSummary && (
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-[10px] sm:text-xs animate-in slide-in-from-top-2 duration-200">
+              <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-200 px-2 sm:px-4 py-2 font-bold text-slate-500 uppercase tracking-wider text-center">
+                <span className="text-left">Date</span>
+                <span>Good Boulders</span>
+                <span className="text-right">Weathered Rock</span>
+              </div>
 
             <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
               {statsLoading ? (
@@ -526,11 +538,11 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                     );
                   })}
                 </div>
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </div>
     </form>
   );
 }

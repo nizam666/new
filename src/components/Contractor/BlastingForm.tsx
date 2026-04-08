@@ -53,6 +53,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
   }[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -398,105 +399,116 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
       {/* ── Monthly Summary Section ── */}
       <div className="pt-6 border-t border-slate-200">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-              <Calendar className="w-4 h-4 text-orange-600" />
+          <button 
+            type="button"
+            onClick={() => setShowSummary(!showSummary)}
+            className="flex items-center gap-2 group"
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${showSummary ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-600 group-hover:bg-orange-200'}`}>
+              <Calendar className="w-4 h-4" />
             </div>
-            <h4 className="text-sm font-bold text-slate-900">Monthly Usage Summary</h4>
-          </div>
+            <div className="text-left">
+              <h4 className="text-sm font-bold text-slate-900">Monthly Usage Summary</h4>
+              <p className="text-[10px] text-slate-500 font-medium">
+                {showSummary ? 'Click to hide details' : 'Click to view monthly totals'}
+              </p>
+            </div>
+          </button>
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded">
             {format(new Date(), 'MMMM yyyy')}
           </span>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
-            {statsLoading ? (
-              <div className="p-4 text-center text-xs text-slate-500">Loading summary...</div>
-            ) : statsError ? (
-              <div className="p-4 text-center text-xs text-red-500">{statsError}</div>
-            ) : monthlyStats.length === 0 ? (
-              <div className="p-4 text-center text-xs text-slate-500 italic">No records for this month</div>
-            ) : (
-              monthlyStats.map((stat, idx) => (
-                <div key={`${stat.date}-${stat.material_type}-${idx}`} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <div className="text-sm font-bold text-slate-900">{safeFormat(stat.date, 'dd MMM')}</div>
-                      <div className="text-[10px] text-slate-500 capitalize">{safeFormat(stat.date, 'EEEE')}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] sm:text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">
-                        {MATERIAL_TYPES_TAMIL[stat.material_type as keyof typeof MATERIAL_TYPES_TAMIL] || stat.material_type}
+        {showSummary && (
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden animate-in slide-in-from-top-2 duration-200">
+            <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+              {statsLoading ? (
+                <div className="p-4 text-center text-xs text-slate-500">Loading summary...</div>
+              ) : statsError ? (
+                <div className="p-4 text-center text-xs text-red-500">{statsError}</div>
+              ) : monthlyStats.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500 italic">No records for this month</div>
+              ) : (
+                monthlyStats.map((stat, idx) => (
+                  <div key={`${stat.date}-${stat.material_type}-${idx}`} className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="text-sm font-bold text-slate-900">{safeFormat(stat.date, 'dd MMM')}</div>
+                        <div className="text-[10px] text-slate-500 capitalize">{safeFormat(stat.date, 'EEEE')}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] sm:text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">
+                          {MATERIAL_TYPES_TAMIL[stat.material_type as keyof typeof MATERIAL_TYPES_TAMIL] || stat.material_type}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Explosives breakdown chips */}
-                  <div className="flex flex-wrap gap-2">
-                    {stat.ed > 0 && (
-                      <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
-                        <span className="text-slate-400 mr-1">ED:</span>
-                        <span className="font-bold text-slate-700">{stat.ed}</span>
-                      </div>
-                    )}
-                    {stat.edet > 0 && (
-                      <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
-                        <span className="text-slate-400 mr-1">EDET:</span>
-                        <span className="font-bold text-slate-700">{stat.edet}</span>
-                      </div>
-                    )}
-                    {stat.nonel_3m > 0 && (
-                      <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
-                        <span className="text-slate-400 mr-1">NLO 3m:</span>
-                        <span className="font-bold text-slate-700">{stat.nonel_3m}</span>
-                      </div>
-                    )}
-                    {stat.nonel_4m > 0 && (
-                      <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
-                        <span className="text-slate-400 mr-1">NLO 4m:</span>
-                        <span className="font-bold text-slate-700">{stat.nonel_4m}</span>
-                      </div>
-                    )}
-                    {stat.pg > 0 && (
-                      <div className="bg-orange-50 border border-orange-200 rounded px-2 py-0.5 text-[10px]">
-                        <span className="text-orange-400 mr-1 font-bold">PG:</span>
-                        <span className="font-bold text-orange-700">{stat.pg.toFixed(2)} bx</span>
-                      </div>
-                    )}
+                    {/* Explosives breakdown chips */}
+                    <div className="flex flex-wrap gap-2">
+                      {stat.ed > 0 && (
+                        <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
+                          <span className="text-slate-400 mr-1">ED:</span>
+                          <span className="font-bold text-slate-700">{stat.ed}</span>
+                        </div>
+                      )}
+                      {stat.edet > 0 && (
+                        <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
+                          <span className="text-slate-400 mr-1">EDET:</span>
+                          <span className="font-bold text-slate-700">{stat.edet}</span>
+                        </div>
+                      )}
+                      {stat.nonel_3m > 0 && (
+                        <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
+                          <span className="text-slate-400 mr-1">NLO 3m:</span>
+                          <span className="font-bold text-slate-700">{stat.nonel_3m}</span>
+                        </div>
+                      )}
+                      {stat.nonel_4m > 0 && (
+                        <div className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-[10px]">
+                          <span className="text-slate-400 mr-1">NLO 4m:</span>
+                          <span className="font-bold text-slate-700">{stat.nonel_4m}</span>
+                        </div>
+                      )}
+                      {stat.pg > 0 && (
+                        <div className="bg-orange-50 border border-orange-200 rounded px-2 py-0.5 text-[10px]">
+                          <span className="text-orange-400 mr-1 font-bold">PG:</span>
+                          <span className="font-bold text-orange-700">{stat.pg.toFixed(2)} bx</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
+                ))
+              )}
+            </div>
 
-          {/* Monthly Totals Footer */}
-          {monthlyStats.length > 0 && (
-            <div className="bg-slate-900 p-4 text-white">
-              <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">Total Monthly Usage</h5>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-slate-500 uppercase">ED / EDET</span>
-                  <span className="text-sm font-bold">
-                    {monthlyStats.reduce((acc, curr) => acc + curr.ed, 0)} / {monthlyStats.reduce((acc, curr) => acc + curr.edet, 0)}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-slate-500 uppercase">Nonel 3m / 4m</span>
-                  <span className="text-sm font-bold">
-                    {monthlyStats.reduce((acc, curr) => acc + curr.nonel_3m, 0)} / {monthlyStats.reduce((acc, curr) => acc + curr.nonel_4m, 0)}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-orange-500 uppercase">PG Total (Boxes)</span>
-                  <span className="text-sm font-bold text-orange-400">
-                    {monthlyStats.reduce((acc, curr) => acc + curr.pg, 0).toFixed(2)} <span className="text-[10px] font-normal opacity-60">bx</span>
-                  </span>
+            {/* Monthly Totals Footer */}
+            {monthlyStats.length > 0 && (
+              <div className="bg-slate-900 p-4 text-white">
+                <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">Total Monthly Usage</h5>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] text-slate-500 uppercase">ED / EDET</span>
+                    <span className="text-sm font-bold">
+                      {monthlyStats.reduce((acc, curr) => acc + curr.ed, 0)} / {monthlyStats.reduce((acc, curr) => acc + curr.edet, 0)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] text-slate-500 uppercase">Nonel 3m / 4m</span>
+                    <span className="text-sm font-bold">
+                      {monthlyStats.reduce((acc, curr) => acc + curr.nonel_3m, 0)} / {monthlyStats.reduce((acc, curr) => acc + curr.nonel_4m, 0)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] text-orange-500 uppercase">PG Total (Boxes)</span>
+                    <span className="text-sm font-bold text-orange-400">
+                      {monthlyStats.reduce((acc, curr) => acc + curr.pg, 0).toFixed(2)} <span className="text-[10px] font-normal opacity-60">bx</span>
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </form>
   );
