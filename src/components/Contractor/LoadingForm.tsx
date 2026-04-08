@@ -77,6 +77,12 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
   }, [user]);
 
   useEffect(() => {
+    if (VEHICLE_TYPES.length === 1 && !formData.vehicle_used) {
+      setFormData(prev => ({ ...prev, vehicle_used: VEHICLE_TYPES[0] }));
+    }
+  }, [formData.vehicle_used]);
+
+  useEffect(() => {
     if (formData.vehicle_used) {
       fetchLastEndingHours(formData.vehicle_used);
     }
@@ -127,8 +133,13 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
       if (onSuccess) onSuccess();
     } catch (error: any) {
       console.error('Loading record submission error:', error);
-      const detail = error.message || error.details || 'Check your internet connection or permissions.';
-      toast.error(`Failed to save record: ${detail}`, { position: 'top-right' });
+      const detail = error.message || error.details || 'Check internet/permissions';
+      const hint = error.hint ? ` (Hint: ${error.hint})` : '';
+      const code = error.code ? ` [${error.code}]` : '';
+      toast.error(`Save Failed: ${detail}${hint}${code}`, { 
+        position: 'top-right',
+        autoClose: 10000 // Show longer so user can read it
+      });
     } finally {
       setLoading(false);
     }
