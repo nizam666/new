@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Drill, Save, AlertCircle } from 'lucide-react';
+import { Drill, Save, AlertCircle, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 const LOCATIONS = ['Site 1', 'Storage Bay'];
 const MATERIAL_TYPES = ['Good Boulders', 'Weathered Rocks', 'Soil'];
@@ -61,6 +62,9 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
     notes: ''
   });
 
+  const [monthlyStats, setMonthlyStats] = useState<{ date: string; totalFeet: number }[]>([]);
+  const [statsLoading, setStatsLoading] = useState(false);
+
   const rodSteps = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0.5];
 
   type RodMeasurementsType = Record<string, number>;
@@ -95,6 +99,55 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
   const calcFeet2 = () => rodSteps.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}_set2`] || 0) * step, 0);
   const totalHoles = () => calcHoles1() + calcHoles2();
   const totalFeet = () => calcFeet1() + calcFeet2();
+
+  const fetchMonthlyStats = useCallback(async () => {
+    if (!user) return;
+    setStatsLoading(true);
+    try {
+      const start = startOfMonth(new Date());
+      const end = endOfMonth(new Date());
+
+      const { data, error } = await supabase
+        .from('drilling_records')
+        .select('date, rod_measurements, rod_measurements_set2')
+        .eq('contractor_id', user.id)
+        .gte('date', format(start, 'yyyy-MM-dd'))
+        .lte('date', format(end, 'yyyy-MM-dd'))
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      // Group and sum by date
+      const statsMap = new Map<string, number>();
+      data?.forEach(record => {
+        let dailySum = 0;
+        const set1 = record.rod_measurements as Record<string, number> || {};
+        const set2 = record.rod_measurements_set2 as Record<string, number> || {};
+
+        rodSteps.forEach(step => {
+          const key = step.toString().replace('.', '_');
+          dailySum += (set1[`rod${key}`] || 0) * step;
+          dailySum += (set2[`rod${key}_set2`] || 0) * step;
+        });
+
+        statsMap.set(record.date, (statsMap.get(record.date) || 0) + dailySum);
+      });
+
+      const statsArray = Array.from(statsMap.entries()).map(([date, totalFeet]) => ({
+        date,
+        totalFeet
+      }));
+      setMonthlyStats(statsArray);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [user, rodSteps]);
+
+  useEffect(() => {
+    fetchMonthlyStats();
+  }, [fetchMonthlyStats]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,6 +185,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
       setFormData({ date: new Date().toISOString().split('T')[0], location: '', material_type: '', equipment_used: '', diesel_consumed: '', notes: '' });
       setRodMeasurements(initialRodState);
       toast.success('Drilling record saved successfully!');
+      fetchMonthlyStats();
       if (onSuccess) onSuccess();
     } catch (err) {
       console.error('Drilling save error:', err);
@@ -360,7 +414,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end pt-2 pb-6">
+        <div className="flex justify-end pt-2 pb-6 border-b border-slate-200">
           <button
             type="submit"
             disabled={loading}
@@ -370,6 +424,63 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             <span className="hidden sm:inline">{loading ? 'Saving...' : 'Save Drilling Record'}</span>
             <span className="sm:hidden">{loading ? 'Saving...' : 'Save'}</span>
           </button>
+        </div>
+
+        {/* ── Monthly Summary Section ── */}
+        <div className="pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                <Calendar className="w-4 h-4 text-slate-600" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900">Monthly Summary</h4>
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded">
+              {format(new Date(), 'MMMM yyyy')}
+            </span>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="grid grid-cols-2 bg-slate-50 border-b border-slate-200 px-4 py-2">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Total Feet</span>
+            </div>
+
+            <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+              {statsLoading ? (
+                <div className="p-4 text-center text-xs text-slate-500">Loading summary...</div>
+              ) : monthlyStats.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500 italic">No records for this month</div>
+              ) : (
+                monthlyStats.map((stat) => (
+                  <div key={stat.date} className="grid grid-cols-2 px-4 py-3 items-center hover:bg-slate-50/50 transition-colors">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-slate-900">
+                        {format(new Date(stat.date), 'dd MMM')}
+                      </span>
+                      <span className="text-[10px] text-slate-500">{format(new Date(stat.date), 'EEEE')}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-sm font-bold border border-blue-100">
+                        {stat.totalFeet.toFixed(1)} <span className="ml-1 text-[10px] font-medium opacity-70">ft</span>
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Monthly Total Footer */}
+            {monthlyStats.length > 0 && (
+              <div className="bg-slate-900 px-4 py-3 flex justify-between items-center text-white">
+                <span className="text-[10px] font-semibold uppercase tracking-wider opacity-60">Month Total</span>
+                <span className="text-lg font-bold">
+                  {monthlyStats.reduce((acc, curr) => acc + curr.totalFeet, 0).toFixed(1)}
+                  <span className="ml-1 text-xs font-medium opacity-60">ft</span>
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </form>
