@@ -51,41 +51,58 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     };
   }, [startCamera]);
 
+  const formatErrorMessage = (err: unknown) => {
+    if (err instanceof Error) return err.message;
+    if (typeof err === 'string') return err;
+    if (typeof err === 'object' && err !== null) {
+      const e = err as any;
+      return e.message || e.error_description || e.error || e.details || e.hint || e.msg || JSON.stringify(err);
+    }
+    return String(err);
+  };
+
   const capturePhoto = useCallback((): Blob | null => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      // Set canvas dimensions to match video dimensions
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      const width = video.videoWidth || 640;
+      const height = video.videoHeight || 480;
+      if (width === 0 || height === 0) {
+        throw new Error('Camera feed is not ready yet. Please wait a moment and try again.');
+      }
+
+      canvas.width = width;
+      canvas.height = height;
       
       const context = canvas.getContext('2d');
-      if (context) {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Preview
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        setCapturedPhoto(dataUrl);
-
-        // For upload
-        const data = dataUrl.split(',')[1];
-        const bytes = atob(data);
-        const array = new Uint8Array(bytes.length);
-        for (let i = 0; i < bytes.length; i++) {
-          array[i] = bytes.charCodeAt(i);
-        }
-        return new Blob([array], { type: 'image/jpeg' });
+      if (!context) {
+        throw new Error('Cannot access camera canvas context.');
       }
+
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Preview
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      setCapturedPhoto(dataUrl);
+
+      // For upload
+      const data = dataUrl.split(',')[1];
+      const bytes = atob(data);
+      const array = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) {
+        array[i] = bytes.charCodeAt(i);
+      }
+      return new Blob([array], { type: 'image/jpeg' });
     }
-    return null;
+    throw new Error('Camera or canvas is unavailable.');
   }, []);
 
   const uploadPhoto = async (blob: Blob, empId: string, action: ActionType): Promise<string> => {
     const timestamp = new Date().getTime();
     const fileName = `${empId}_${action}_${timestamp}.jpg`;
     
-    const { error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('attendance-photos')
       .upload(fileName, blob, {
         contentType: 'image/jpeg',
@@ -93,15 +110,23 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         upsert: false
       });
 
-    if (error) {
-      console.error("Storage Error Detail:", error);
-      throw new Error(`Storage Upload Error: ${error.message}`);
+    if (uploadError) {
+      console.error('Storage Upload Error Detail:', uploadError);
+      throw new Error(`Storage Upload Error: ${formatErrorMessage(uploadError)}`);
     }
     
-    // Get public URL
-    const { data: publicData } = supabase.storage
+    const { data: publicData, error: publicUrlError } = supabase.storage
       .from('attendance-photos')
       .getPublicUrl(fileName);
+
+    if (publicUrlError) {
+      console.error('Storage Public URL Error Detail:', publicUrlError);
+      throw new Error(`Storage URL Error: ${formatErrorMessage(publicUrlError)}`);
+    }
+
+    if (!publicData?.publicUrl) {
+      throw new Error('Unable to generate public URL for attendance photo.');
+    }
       
     return publicData.publicUrl;
   };
@@ -249,24 +274,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       }, 5000);
 
     } catch (err: unknown) {
-      console.error("Attendance Process Error:", err);
+      console.error('Attendance Process Error:', err);
       setStatus('error');
-      
-      let message = "An unexpected error occurred.";
-      
-      if (err instanceof Error) {
-        message = err.message;
-      } else if (typeof err === 'object' && err !== null) {
-        // Try to extract any possible message or stringify the whole object
-        const e = err as any;
-        message = e.message || e.error_description || e.error || e.msg || JSON.stringify(err);
-      } else if (typeof err === 'string') {
-        message = err;
-      } else {
-        message = String(err);
-      }
-      
-      setStatusMessage(message);
+      setStatusMessage(formatErrorMessage(err) || 'An unexpected error occurred.');
     }
   };
 
