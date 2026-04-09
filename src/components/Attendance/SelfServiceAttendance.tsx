@@ -253,12 +253,17 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       setStatus('error');
       
       let message = "An unexpected error occurred.";
+      
       if (err instanceof Error) {
         message = err.message;
-      } else if (typeof err === 'object' && err !== null && 'message' in err) {
-        message = String((err as any).message);
+      } else if (typeof err === 'object' && err !== null) {
+        // Try to extract any possible message or stringify the whole object
+        const e = err as any;
+        message = e.message || e.error_description || e.error || e.msg || JSON.stringify(err);
       } else if (typeof err === 'string') {
         message = err;
+      } else {
+        message = String(err);
       }
       
       setStatusMessage(message);
