@@ -97,43 +97,33 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
       return;
     }
 
-    if (!formData.material_type || !formData.vehicle_used || !formData.breaker_bucket) {
+    if (!formData.material_type || !formData.vehicle_used || !formData.breaker_bucket || !formData.diesel.trim()) {
       const missing = [];
       if (!formData.material_type) missing.push('Material Type');
       if (!formData.vehicle_used) missing.push('Vehicle');
       if (!formData.breaker_bucket) missing.push('Equipment Setting (Breaker/Bucket)');
+      if (!formData.diesel.trim()) missing.push('Diesel Refilled');
       
-      toast.error(`Please select: ${missing.join(', ')}`, { position: 'top-right' });
+      toast.error(`Please fill: ${missing.join(', ')}`, { position: 'top-right' });
       return;
     }
 
     setLoading(true);
     try {
-      const insertData: any = {
+      const insertData = {
         contractor_id: user.id,
         date: formData.date,
         material_type: formData.material_type,
         vehicle_used: formData.vehicle_used,
+        quantity_loaded: parseFloat(formData.diesel) || 0, // Store diesel in quantity_loaded temporarily
         breaker_bucket: formData.breaker_bucket,
         starting_hours: parseFloat(formData.starting_hours) || 0,
         ending_hours: parseFloat(formData.ending_hours) || 0,
+        destination: formData.notes.trim() || null, // Store notes in destination temporarily
         status: 'pending'
       };
 
-      // Add notes if the field exists in the database
-      let notesContent = formData.notes.trim();
-
-      // Add diesel info to notes if provided
-      if (formData.diesel.trim()) {
-        const dieselNote = `Diesel refilled: ${formData.diesel} liters`;
-        notesContent = notesContent
-          ? `${notesContent}\n${dieselNote}`
-          : dieselNote;
-      }
-
-      if (notesContent) {
-        insertData.notes = notesContent;
-      }
+      console.log('Inserting data:', insertData);
 
       const { error } = await supabase
         .from('loading_records')
