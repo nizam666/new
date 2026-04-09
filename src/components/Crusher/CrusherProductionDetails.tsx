@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Factory, Calendar, TrendingUp, Clock, AlertCircle } from 'lucide-react';
+import { Factory, Calendar, TrendingUp, Clock, AlertCircle, Play, Pause, AlertTriangle } from 'lucide-react';
 
 interface ProductionRecord {
   id: string;
@@ -19,14 +19,71 @@ interface ProductionRecord {
   created_at: string;
 }
 
+interface CrusherSession {
+  crusher_type: 'jaw' | 'vsi';
+  mode: 'idle' | 'production' | 'breakdown';
+  production_start: string | null;
+  production_end: string | null;
+  breakdown_start: string | null;
+  material_source: string | null;
+  notes: string | null;
+  updated_at: string;
+  updated_by: string | null;
+}
+
 export function CrusherProductionDetails() {
   const [records, setRecords] = useState<ProductionRecord[]>([]);
+  const [crusherSessions, setCrusherSessions] = useState<CrusherSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<ProductionRecord | null>(null);
+  const [runningTime, setRunningTime] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     fetchRecords();
+    fetchCrusherSessions();
+
+    // Subscribe to real-time changes
+    const sessionsSubscription = supabase
+      .channel('crusher_sessions')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'crusher_active_sessions'
+      }, (payload) => {
+        console.log('Crusher session change:', payload);
+        fetchCrusherSessions();
+      })
+      .subscribe();
+
+    return () => {
+      sessionsSubscription.unsubscribe();
+    };
   }, []);
+
+  // Update running timers every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newRunningTime: { [key: string]: string } = {};
+
+      crusherSessions.forEach(session => {
+        if (session.mode === 'production' && session.production_start) {
+          const startTime = new Date(session.production_start);
+          const now = new Date();
+          const diff = now.getTime() - startTime.getTime();
+
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+          newRunningTime[session.crusher_type] = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+      });
+
+      setRunningTime(newRunningTime);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [crusherSessions]);
 
   const fetchRecords = async () => {
     try {
@@ -41,6 +98,19 @@ export function CrusherProductionDetails() {
       console.error('Error fetching production records:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCrusherSessions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('crusher_active_sessions')
+        .select('*');
+
+      if (error) throw error;
+      setCrusherSessions(data || []);
+    } catch (error) {
+      console.error('Error fetching crusher sessions:', error);
     }
   };
 
@@ -67,6 +137,32 @@ export function CrusherProductionDetails() {
     return { totalInput, totalOutput, totalHours, avgEfficiency };
   };
 
+  const getCrusherStatusColor = (mode: string) => {
+    switch (mode) {
+      case 'production':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'breakdown':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'idle':
+        return 'bg-slate-100 text-slate-800 border-slate-200';
+      default:
+        return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
+  };
+
+  const getCrusherIcon = (mode: string) => {
+    switch (mode) {
+      case 'production':
+        return <Play className="w-5 h-5 text-green-600" />;
+      case 'breakdown':
+        return <AlertTriangle className="w-5 h-5 text-red-600" />;
+      case 'idle':
+        return <Pause className="w-5 h-5 text-slate-600" />;
+      default:
+        return <Factory className="w-5 h-5 text-slate-600" />;
+    }
+  };
+
   const stats = calculateStats();
 
   if (loading) {
@@ -79,6 +175,86 @@ export function CrusherProductionDetails() {
 
   return (
     <div className="space-y-6">
+      {/* Active Crusher Sessions - Real-time */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+            <Factory className="w-4 h-4 text-blue-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">Active Crusher Sessions</h3>
+          <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+            Real-time • {crusherSessions.length} active
+          </span>
+        </div>
+
+        {crusherSessions.length === 0 ? (
+          <div className="text-center py-8">
+            <Factory className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+            <p className="text-slate-600">No active crusher sessions</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {crusherSessions.map((session) => (
+              <div
+                key={session.crusher_type}
+                className={`p-4 rounded-lg border-2 transition-all ${getCrusherStatusColor(session.mode)}`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    {getCrusherIcon(session.mode)}
+                    <div>
+                      <h4 className="font-semibold text-lg capitalize">
+                        {session.crusher_type.toUpperCase()} Crusher
+                      </h4>
+                      <p className="text-sm opacity-75 capitalize">{session.mode}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-mono font-bold">
+                      {runningTime[session.crusher_type] || '00:00:00'}
+                    </div>
+                    {session.mode === 'production' && (
+                      <div className="text-xs opacity-75">Running</div>
+                    )}
+                  </div>
+                </div>
+
+                {session.material_source && (
+                  <div className="mb-2">
+                    <span className="text-sm font-medium">Source: </span>
+                    <span className="text-sm">{session.material_source}</span>
+                  </div>
+                )}
+
+                {session.production_start && session.mode === 'production' && (
+                  <div className="mb-2">
+                    <span className="text-sm font-medium">Started: </span>
+                    <span className="text-sm">
+                      {new Date(session.production_start).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {session.breakdown_start && session.mode === 'breakdown' && (
+                  <div className="mb-2">
+                    <span className="text-sm font-medium">Breakdown: </span>
+                    <span className="text-sm">
+                      {new Date(session.breakdown_start).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {session.notes && (
+                  <div className="text-sm opacity-75 italic">
+                    "{session.notes}"
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
           <div className="flex items-center gap-3">
