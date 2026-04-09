@@ -65,6 +65,7 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
   );
   const [notes, setNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'connecting' | 'synced' | 'error'>('connecting');
 
   const productionStartRef = useRef<Date | null>(null);
   const productionEndRef   = useRef<Date | null>(null);
@@ -77,13 +78,20 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
   };
 
   const updateRemoteSession = async (newData: Partial<ActiveSession>) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('crusher_active_sessions').upsert({
-      crusher_type: type,
-      updated_by: user?.id,
-      updated_at: new Date().toISOString(),
-      ...newData
-    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from('crusher_active_sessions').upsert({
+        crusher_type: type,
+        updated_by: user?.id,
+        updated_at: new Date().toISOString(),
+        ...newData
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      console.error('Remote sync update failed:', err);
+      // We don't use toast here to avoid spamming, but we'll show it on the status indicator
+      setSyncStatus('error');
+    }
   };
 
   const applySession = (session: ActiveSession) => {
@@ -124,10 +132,16 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
         (payload) => {
           if (payload.new && Object.keys(payload.new).length > 0 && isMounted) {
             applySession(payload.new as ActiveSession);
+            setSyncStatus('synced');
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (isMounted) {
+          if (status === 'SUBSCRIBED') setSyncStatus('synced');
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setSyncStatus('error');
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -319,6 +333,18 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
           <Icon className={`w-4 h-4 ${accentClasses.headerIcon}`} />
         </div>
         <span className={`font-bold text-sm ${accentClasses.headerIcon}`}>{label}</span>
+        
+        {/* Sync Indicator */}
+        <div className="flex items-center gap-1.5 ml-2">
+          <div className={`w-1.5 h-1.5 rounded-full ${
+            syncStatus === 'synced' ? 'bg-green-500' : 
+            syncStatus === 'error' ? 'bg-red-500' : 'bg-amber-400 animate-pulse'
+          }`} />
+          <span className="text-[9px] font-bold text-slate-400 tracking-tighter uppercase">
+            {syncStatus === 'synced' ? 'Synced' : syncStatus === 'error' ? 'Sync Error' : 'Connecting'}
+          </span>
+        </div>
+
         {isRunning && (
           <div className={`ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider animate-pulse ${
             mode === 'production' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
