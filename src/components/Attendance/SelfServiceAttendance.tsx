@@ -93,7 +93,10 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         upsert: false
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Storage Error Detail:", error);
+      throw new Error(`Storage Upload Error: ${error.message}`);
+    }
     
     // Get public URL
     const { data: publicData } = supabase.storage
@@ -121,7 +124,8 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       });
 
       if (verifyError || !verifyResult || !verifyResult.success) {
-        throw new Error(verifyResult?.error || `Employee ID ${employeeId} not found.`);
+        const errorMsg = verifyError?.message || verifyResult?.error || `Employee ID "${employeeId}" not found or inactive.`;
+        throw new Error(errorMsg);
       }
 
       const workerName = verifyResult.name;
@@ -151,8 +155,8 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         .maybeSingle();
 
       if (activeError) {
-        console.error("Error fetching active session:", activeError);
-        throw activeError;
+        console.error("Database Fetch Error:", activeError);
+        throw new Error(`Database Fetch Error: ${activeError.message}`);
       }
 
       // If we are punching in, we must not have an active session
@@ -173,8 +177,8 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           });
 
         if (insertError) {
-          console.error("Error inserting punch in record:", insertError);
-          throw insertError;
+          console.error("Database Insert Error:", insertError);
+          throw new Error(`Database Insert Error: ${insertError.message}`);
         }
 
         setStatus('success');
@@ -245,9 +249,19 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       }, 5000);
 
     } catch (err: unknown) {
-      console.error(err);
+      console.error("Attendance Process Error:", err);
       setStatus('error');
-      setStatusMessage(err instanceof Error ? err.message : "An unexpected error occurred.");
+      
+      let message = "An unexpected error occurred.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'object' && err !== null && 'message' in err) {
+        message = String((err as any).message);
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      
+      setStatusMessage(message);
     }
   };
 
