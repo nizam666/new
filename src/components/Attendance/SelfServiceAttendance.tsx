@@ -115,14 +115,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       throw new Error(`Storage Upload Error: ${formatErrorMessage(uploadError)}`);
     }
     
-    const { data: publicData, error: publicUrlError } = supabase.storage
+    const { data: publicData } = supabase.storage
       .from('attendance-photos')
       .getPublicUrl(fileName);
-
-    if (publicUrlError) {
-      console.error('Storage Public URL Error Detail:', publicUrlError);
-      throw new Error(`Storage URL Error: ${formatErrorMessage(publicUrlError)}`);
-    }
 
     if (!publicData?.publicUrl) {
       throw new Error('Unable to generate public URL for attendance photo.');
