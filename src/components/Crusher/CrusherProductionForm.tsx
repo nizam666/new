@@ -44,34 +44,14 @@ interface MachinePanelProps {
 
 // ─── MachinePanel ─────────────────────────────────────────────────────────────
 
-// ─── localStorage helpers ─────────────────────────────────────────────────────
-
-const SESSION_KEY = (t: string) => `crusher_session_${t}`;
-
-interface PersistedSession {
+interface ActiveSession {
+  crusher_type: 'jaw' | 'vsi';
   mode: SessionMode;
-  productionStart: string | null;
-  productionEnd: string | null;
-  breakdownStart: string | null;
-  notes: string;
-  materialSource: string;
-}
-
-function saveSession(type: string, data: PersistedSession) {
-  localStorage.setItem(SESSION_KEY(type), JSON.stringify(data));
-}
-
-function loadSession(type: string): PersistedSession | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY(type));
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function clearSession(type: string) {
-  localStorage.removeItem(SESSION_KEY(type));
+  production_start: string | null;
+  production_end: string | null;
+  breakdown_start: string | null;
+  material_source: string | null;
+  notes: string | null;
 }
 
 // ─── MachinePanel ─────────────────────────────────────────────────────────────
@@ -96,23 +76,64 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
     onModeChange(m);
   };
 
-  // ── Restore session from localStorage on first mount ──────────────────────
+  const updateRemoteSession = async (newData: Partial<ActiveSession>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('crusher_active_sessions').upsert({
+      crusher_type: type,
+      updated_by: user?.id,
+      updated_at: new Date().toISOString(),
+      ...newData
+    });
+  };
+
+  const applySession = (session: ActiveSession) => {
+    // Only update if there is a meaningful state change. We don't want to disrupt an ongoing local tick
+    // unnecessarily, but we MUST respect the remote master timestamps.
+    productionStartRef.current = session.production_start ? new Date(session.production_start) : null;
+    productionEndRef.current   = session.production_end   ? new Date(session.production_end)   : null;
+    breakdownStartRef.current  = session.breakdown_start  ? new Date(session.breakdown_start)  : null;
+
+    if (session.notes) setNotes(session.notes);
+    if (session.material_source) setMaterialSource(session.material_source);
+
+    setModeLocal(session.mode);
+    onModeChange(session.mode);
+  };
+
+  // ── Sync session from Supabase on mount and listen to changes ────────────────
   useEffect(() => {
-    const saved = loadSession(type);
-    if (saved && saved.mode !== 'idle') {
-      productionStartRef.current = saved.productionStart ? new Date(saved.productionStart) : null;
-      productionEndRef.current   = saved.productionEnd   ? new Date(saved.productionEnd)   : null;
-      breakdownStartRef.current  = saved.breakdownStart  ? new Date(saved.breakdownStart)  : null;
+    let isMounted = true;
 
-      if (saved.notes) setNotes(saved.notes);
-      if (saved.materialSource) setMaterialSource(saved.materialSource);
+    const fetchSession = async () => {
+      const { data } = await supabase
+        .from('crusher_active_sessions')
+        .select('*')
+        .eq('crusher_type', type)
+        .maybeSingle();
 
-      // Changing mode triggers the timer useEffect which will compute elapsed from the refs.
-      setModeLocal(saved.mode);
-      onModeChange(saved.mode);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      if (data && isMounted) {
+        applySession(data as ActiveSession);
+      }
+    };
+    fetchSession();
+
+    const channel = supabase.channel(`machine_sync_${type}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'crusher_active_sessions', filter: `crusher_type=eq.${type}` },
+        (payload) => {
+          if (payload.new && Object.keys(payload.new).length > 0 && isMounted) {
+            applySession(payload.new as ActiveSession);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [type, onModeChange]);
 
   // Sync materialSource when sources load
   useEffect(() => {
@@ -147,43 +168,47 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [mode]);
 
-  const handleProduction = () => {
+  const handleProduction = async () => {
     if (mode !== 'idle') return;
     if (otherMachineMode === 'production') {
       alert(`Cannot start Production: the other crusher is already running in production mode.`);
       return;
     }
     const now = new Date();
+    // Optimistic local update
     productionStartRef.current = now;
     productionEndRef.current   = null;
     breakdownStartRef.current  = null;
-    saveSession(type, {
-      mode: 'production',
-      productionStart: now.toISOString(),
-      productionEnd: null,
-      breakdownStart: null,
-      notes,
-      materialSource,
-    });
     setMode('production');
+
+    await updateRemoteSession({
+      mode: 'production',
+      production_start: now.toISOString(),
+      production_end: null,
+      breakdown_start: null,
+      notes,
+      material_source: materialSource,
+    });
   };
 
-  const handleBreakdown = () => {
+  const handleBreakdown = async () => {
     if (mode === 'breakdown') return;
     const now = new Date();
     if (mode === 'production') {
       productionEndRef.current = now;
     }
     breakdownStartRef.current = now;
-    saveSession(type, {
-      mode: 'breakdown',
-      productionStart: productionStartRef.current?.toISOString() ?? null,
-      productionEnd: productionEndRef.current?.toISOString() ?? null,
-      breakdownStart: now.toISOString(),
-      notes,
-      materialSource,
-    });
+    // Optimistic local update
     setMode('breakdown');
+    
+    await updateRemoteSession({
+      mode: 'breakdown',
+      production_start: productionStartRef.current?.toISOString() ?? null,
+      production_end: productionEndRef.current?.toISOString() ?? null,
+      breakdown_start: now.toISOString(),
+      notes,
+      material_source: materialSource,
+    });
   };
 
   const handleStop = async () => {
@@ -234,7 +259,15 @@ function MachinePanel({ type, date, materialSources, onSaved, otherMachineMode, 
 
       if (error) throw error;
 
-      clearSession(type);   // ← remove the persisted session now that it's saved
+      // Reset the distributed session back to idle
+      await updateRemoteSession({
+        mode: 'idle',
+        production_start: null,
+        production_end: null,
+        breakdown_start: null,
+        notes: '',
+      });
+
       alert(`${type === 'jaw' ? 'Jaw Crusher' : 'VSI'} record saved!`);
       productionStartRef.current = null;
       productionEndRef.current   = null;
