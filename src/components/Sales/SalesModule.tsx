@@ -114,14 +114,11 @@ export function SalesModule() {
         <div className="flex gap-3">
           {activeTab === 'investors' ? (
             <button
-              onClick={() => {
-                // Link to Production Stock for new inventory as requested
-                window.location.hash = '#production-stock';
-              }}
+              onClick={() => setShowInvestorForm(true)}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
             >
               <Plus className="w-5 h-5" />
-              Manage Inventory
+              Add New Rate
             </button>
           ) : activeTab === 'invoices' ? (
             <button
@@ -140,11 +137,10 @@ export function SalesModule() {
           <div className="flex overflow-x-auto">
             <button
               onClick={() => setActiveTab('invoices')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${
-                activeTab === 'invoices'
+              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'invoices'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
@@ -153,11 +149,10 @@ export function SalesModule() {
             </button>
             <button
               onClick={() => setActiveTab('customers')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${
-                activeTab === 'customers'
+              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'customers'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
@@ -166,11 +161,10 @@ export function SalesModule() {
             </button>
             <button
               onClick={() => setActiveTab('investors')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${
-                activeTab === 'investors'
+              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'investors'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" />
@@ -179,11 +173,10 @@ export function SalesModule() {
             </button>
             <button
               onClick={() => setActiveTab('attendance')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${
-                activeTab === 'attendance'
+              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'attendance'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
@@ -199,12 +192,9 @@ export function SalesModule() {
           )}
 
           {activeTab === 'investors' && (
-            <MaterialInvestorsDetails 
-              onEdit={handleEditInvestor} 
-              onAddNew={() => {
-                // Link to Production Stock for new inventory as requested
-                window.location.hash = '#production-stock';
-              }} 
+            <MaterialInvestorsDetails
+              onEdit={handleEditInvestor}
+              onAddNew={() => setShowInvestorForm(true)}
             />
           )}
 
@@ -223,7 +213,7 @@ export function SalesModule() {
                     className="w-full pl-10 pr-4 py-2 border-2 border-slate-50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
                   />
                 </div>
-                <button 
+                <button
                   onClick={() => (window.location.hash = 'customer-form')}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
                   title="Add New Customer"

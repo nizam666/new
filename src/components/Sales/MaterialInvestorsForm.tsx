@@ -42,7 +42,7 @@ interface MaterialInvestorsFormProps {
 export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: MaterialInvestorsFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState<InvestorData>({
     product_type: initialData?.product_type || PRODUCT_TYPES[0],
     sales_price: initialData?.sales_price || '',
@@ -55,7 +55,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
   const calculateRates = () => {
     const enteredPrice = parseFloat(String(formData.sales_price)) || 0;
     const gstRate = formData.gst_rate / 100;
-    
+
     let basePrice = 0;
     let totalPrice = 0;
 
@@ -134,12 +134,12 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
   return (
     <div className="min-h-[90vh] bg-slate-100/30 flex flex-col p-4 md:p-8 lg:p-12 animate-in fade-in zoom-in-95 duration-500">
       <div className="w-full max-w-6xl mx-auto flex flex-col gap-8">
-        
+
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-6">
-            <button 
-              onClick={onCancel} 
+            <button
+              onClick={onCancel}
               className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-xl shadow-indigo-100/50 hover:bg-indigo-50 transition-all active:scale-95 border border-slate-100"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -159,7 +159,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
 
         {/* Dashboard Form Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
+
           <div className="lg:col-span-8 space-y-8">
             {/* Product Header Card */}
             <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white relative overflow-hidden group">
@@ -189,40 +189,38 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
                 </div>
                 <h2 className="text-xl font-black text-indigo-950 tracking-tight">Pricing & Taxes</h2>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
                 {/* Sales Rate Input with Inclusive/Exclusive Toggle */}
                 <div className="md:col-span-2">
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-black text-slate-400 uppercase tracking-widest">Sales Rate</label>
-                    
+
                     {/* Tax Inclusive Toggle Buttons */}
                     <div className="flex bg-slate-100 p-1 rounded-full scale-90 origin-right">
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, is_tax_inclusive: false })}
-                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                          !formData.is_tax_inclusive 
-                          ? 'bg-white text-indigo-600 shadow-sm' 
-                          : 'text-slate-400 hover:text-slate-600'
-                        }`}
+                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${!formData.is_tax_inclusive
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
+                          }`}
                       >
                         Excluding GST
                       </button>
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, is_tax_inclusive: true })}
-                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                          formData.is_tax_inclusive 
-                          ? 'bg-white text-indigo-600 shadow-sm' 
-                          : 'text-slate-400 hover:text-slate-600'
-                        }`}
+                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${formData.is_tax_inclusive
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
+                          }`}
                       >
                         Including GST
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
                     <span className="text-xl font-bold text-slate-400 group-focus-within:text-indigo-600 transition-colors">₹</span>
                     <input
@@ -287,7 +285,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
             {/* Unit Price Audit Card */}
             <div className="bg-indigo-900 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-900/30 relative overflow-hidden group">
               <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl transition-all group-hover:scale-110" />
-              
+
               <div className="relative z-10 space-y-8">
                 <div className="flex items-center justify-between opacity-60">
                   <span className="text-[10px] font-black uppercase tracking-widest">Pricing Audit</span>
@@ -342,7 +340,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
               >
                 Save & Add Next
               </button>
-              
+
               <button
                 type="button"
                 onClick={onCancel}
@@ -360,21 +358,21 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
 
 function Save(props: any) {
   return (
-    <svg 
-      {...props} 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"/>
-      <polyline points="17 21 17 13 7 13 7 21"/>
-      <polyline points="7 3 7 8 15 8"/>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
     </svg>
   );
 }
