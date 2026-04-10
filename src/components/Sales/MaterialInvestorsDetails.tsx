@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Search, User, Phone, Calendar, Mail, FileText, AlertCircle, TrendingUp, Filter, Pencil, Trash2, Weight, Sliders, Plus, Settings, Check } from 'lucide-react';
-import { format } from 'date-fns';
+import { Search, FileText, Filter, Pencil, Trash2, Sliders, Plus, Settings } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface Investor {
@@ -31,21 +30,15 @@ export function MaterialInvestorsDetails({ onEdit, onAddNew }: MaterialInvestors
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'closed'>('all');
 
   const fetchInvestors = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('material_investors')
         .select('*')
         .order('created_at', { ascending: false });
-
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
-
-      const { data, error } = await query;
+        
       if (error) throw error;
 
       let filtered = data || [];
@@ -63,14 +56,14 @@ export function MaterialInvestorsDetails({ onEdit, onAddNew }: MaterialInvestors
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchInvestors();
   }, [fetchInvestors]);
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to remove this record?`)) return;
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to remove this record?')) return;
 
     try {
       const { error } = await supabase
@@ -182,7 +175,7 @@ export function MaterialInvestorsDetails({ onEdit, onAddNew }: MaterialInvestors
                   <Pencil className="w-5 h-5" />
                 </button>
                 <button 
-                  onClick={() => handleDelete(investor.id, investor.product_type)}
+                  onClick={() => handleDelete(investor.id)}
                   className="p-2 text-slate-300 hover:text-red-500 border border-slate-50 rounded-lg hover:bg-slate-50 transition-all"
                 >
                   <Trash2 className="w-5 h-5" />
