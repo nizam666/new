@@ -437,11 +437,11 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 lg:p-6 bg-slate-50 min-h-screen">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 flex flex-col min-h-screen p-4 sm:p-6 lg:p-8 bg-slate-50">
        <div className="text-center">
-            <h2 className="text-3xl font-bold text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
               {workArea === 'quarry' ? 'Quarry' : workArea === 'crusher' ? 'Crusher' : ''} Attendance Terminal
-            </h2>
+            </h1>
             {workArea !== 'general' && (
               <span className={`inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full ${
                 workArea === 'quarry' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
@@ -449,12 +449,12 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
                 {workArea === 'quarry' ? '⛏ Quarry Work' : '🏭 Crusher Work'}
               </span>
             )}
-            <p className="text-slate-600 mt-2">Position your face in the camera and enter your Employee ID</p>
+            <p className="text-sm text-slate-600 mt-2 max-w-sm mx-auto">Position your face in the camera and enter your Employee ID</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
             {/* Camera View */}
-            <div className="bg-black rounded-2xl overflow-hidden shadow-lg relative aspect-video md:aspect-square flex items-center justify-center">
+            <div className="bg-black rounded-2xl overflow-hidden shadow-lg relative aspect-square md:aspect-video flex items-center justify-center">
                 {hasCameraAccess === false ? (
                      <div className="text-white text-center p-6 text-sm">
                         <AlertCircle className="w-12 h-12 mx-auto text-red-500 mb-4" />
@@ -481,7 +481,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
                         
                         {!capturedPhoto && status === 'idle' && (
                             <div className="absolute inset-x-0 bottom-4 text-center pointer-events-none">
-                                <span className="text-xs bg-black/50 text-white px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-2">
+                                <span className="text-[10px] sm:text-xs bg-black/50 text-white px-3 py-1 rounded-full uppercase tracking-widest inline-flex items-center gap-2">
                                     <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                                     Live Feed
                                 </span>
@@ -492,27 +492,27 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
             </div>
 
             {/* Controls */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col justify-center">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 flex flex-col justify-center">
                 
                 {status === 'success' ? (
-                     <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
-                         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                            <CheckCircle className="w-10 h-10 text-green-600" />
+                     <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300 py-4">
+                         <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                            <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-green-600" />
                          </div>
-                         <h3 className="text-2xl font-bold text-slate-900">Success!</h3>
-                         <p className="text-lg text-slate-600">{statusMessage}</p>
-                         <p className="text-sm text-slate-400 mt-4">Resetting in a few seconds...</p>
+                         <h3 className="text-xl sm:text-2xl font-bold text-slate-900">Success!</h3>
+                         <p className="text-base sm:text-lg text-slate-600">{statusMessage}</p>
+                         <p className="text-[10px] sm:text-xs text-slate-400 mt-4">Resetting in a few seconds...</p>
                      </div>
                 ) : (
-                    <div className="space-y-6">
+                    <div className="space-y-5 sm:space-y-6">
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Employee ID</label>
+                            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Employee ID</label>
                             <input 
                                 type="text"
                                 value={employeeId}
                                 onChange={(e) => setEmployeeId(e.target.value)}
                                 placeholder="e.g. EMP001"
-                                className="w-full text-center text-3xl tracking-widest font-mono uppercase px-4 py-4 border-2 border-slate-200 rounded-xl focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition-all outline-none"
+                                className="w-full text-center text-2xl sm:text-3xl tracking-widest font-mono uppercase px-3 py-3 sm:px-4 sm:py-4 border-2 border-slate-200 rounded-xl focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition-all outline-none"
                                 disabled={status === 'loading'}
                                 onKeyDown={(e) => {
                                     if(e.key === 'Enter') handleAttendance('punch_in');
@@ -521,33 +521,33 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
                         </div>
 
                         {status === 'error' && (
-                            <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm flex gap-3 animate-in slide-in-from-top-2">
-                                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                            <div className="p-3 sm:p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs sm:text-sm flex gap-3 animate-in slide-in-from-top-2">
+                                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                                 <p>{statusMessage}</p>
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-4 pt-4">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-2">
                             <button
                                 onClick={() => handleAttendance('punch_in')}
                                 disabled={status === 'loading' || !hasCameraAccess}
-                                className="flex flex-col items-center justify-center p-6 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-95"
+                                className="flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-95"
                             >
                                 {status === 'loading' ? (
-                                    <RefreshCw className="w-8 h-8 animate-spin mb-3" />
+                                    <RefreshCw className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mb-2 sm:mb-3" />
                                 ) : (
-                                    <LogIn className="w-8 h-8 mb-3" />
+                                    <LogIn className="w-6 h-6 sm:w-8 sm:h-8 mb-2 sm:mb-3" />
                                 )}
-                                <span className="font-semibold text-lg">PUNCH IN</span>
+                                <span className="font-semibold text-sm sm:text-lg">PUNCH IN</span>
                             </button>
                             
                             <button
                                 onClick={() => handleAttendance('punch_out')}
                                 disabled={status === 'loading' || !hasCameraAccess}
-                                className="flex flex-col items-center justify-center p-6 bg-white outline outline-2 outline-slate-200 text-slate-800 rounded-2xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-95 shadow-sm"
+                                className="flex flex-col items-center justify-center p-4 sm:p-6 bg-white outline outline-2 outline-slate-200 text-slate-800 rounded-2xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-95 shadow-sm"
                             >
-                                <LogOut className="w-8 h-8 mb-3 text-slate-600" />
-                                <span className="font-semibold text-lg">PUNCH OUT</span>
+                                <LogOut className="w-6 h-6 sm:w-8 sm:h-8 mb-2 sm:mb-3 text-slate-600" />
+                                <span className="font-semibold text-sm sm:text-lg">PUNCH OUT</span>
                             </button>
                         </div>
                     </div>
