@@ -409,17 +409,22 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         });
 
       if (approvalError) {
-        console.error("Workflow Error:", approvalError);
+        console.error("CRITICAL: Failed to create approval workflow entry. This check RLS policies on approval_workflows table.", approvalError);
+        throw new Error(`Permission requested but could not be sent to Director: ${approvalError.message}`);
       }
 
-      // 3. Create notification for Director
+      // 4. Create notification for Director
       if (director) {
-        await supabase.from('notifications').insert({
+        const { error: notifyError } = await supabase.from('notifications').insert({
           user_id: director.id,
           title: 'Extra Punch Permission Requested',
           message: `Employee ${employeeId.trim().toUpperCase()} is requesting an extra punch for today: "${requestReason}"`,
           type: 'approval'
         });
+
+        if (notifyError) {
+          console.warn("Notification Error (Continuing...):", notifyError);
+        }
       }
 
       setShowPermissionModal(false);
