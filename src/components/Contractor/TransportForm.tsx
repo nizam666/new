@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Truck, Save, Calendar, ChevronDown, Package, Fuel, TrendingUp, Clock } from 'lucide-react';
+import { Truck, Save, Calendar, ChevronDown, Clock } from 'lucide-react';
 
 const vehicleTypes = [
   'Truck',
@@ -707,8 +707,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                   <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider border-l border-slate-200">Soil</th>
                   <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">W.Rock</th>
                   <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">Agg.Reh</th>
-                  <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Diesel</th>
-                  <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tons</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -725,8 +723,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                     <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium border-l border-slate-100">{row.soil || '-'}</td>
                     <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.wr || '-'}</td>
                     <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.ar || '-'}</td>
-                    <td className="px-3 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.fuel.toFixed(1)}</td>
-                    <td className="px-3 py-3 text-xs text-right font-bold text-purple-700">{row.qty.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -741,8 +737,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                   <td className="px-2 py-3 text-center text-xs font-bold text-blue-800 border-l border-purple-100">{(summaryTotals as any).soil}</td>
                   <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{(summaryTotals as any).wr}</td>
                   <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{(summaryTotals as any).ar}</td>
-                  <td className="px-3 py-3 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.fuel.toFixed(1)}</td>
-                  <td className="px-3 py-3 text-right text-xs font-black text-purple-900">{summaryTotals.quantity.toFixed(2)}</td>
                 </tr>
               </tfoot>
             </table>
