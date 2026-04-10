@@ -292,7 +292,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         quantity: '',
         number_of_trips: '1',
         notes: '',
-        trip_ref: generateTripRef()
+        trip_ref: ''
       });
 
       alert('Transport record submitted successfully!');
