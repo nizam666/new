@@ -17,7 +17,6 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
     end_time: '',
     total_hours: '',
     fuel_consumed: '',
-    diesel_given_hours: '',
     work_description: '',
     notes: ''
   });
@@ -27,7 +26,7 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
   const [summaryYear, setSummaryYear] = useState(now.getFullYear());
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryRows, setSummaryRows] = useState<any[]>([]);
-  const [summaryTotals, setSummaryTotals] = useState({ hours: 0, fuel: 0, dieselHours: 0, records: 0 });
+  const [summaryTotals, setSummaryTotals] = useState({ hours: 0, fuel: 0, records: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
   const [initialNameSet, setInitialNameSet] = useState(false);
 
@@ -52,7 +51,7 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
 
       const { data, error } = await supabase
         .from('jcb_operations')
-        .select('date, total_hours, fuel_consumed, diesel_given_hours')
+        .select('date, total_hours, fuel_consumed')
         .eq('contractor_id', user.id)
         .gte('date', fromStr)
         .lte('date', toStr)
@@ -97,25 +96,44 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
         setSummaryTotals({
           hours: totalHours,
           fuel: totalFuel,
-          dieselHours: totalDiesel,
           records: totalRecords
         });
       } else {
         setSummaryRows([]);
-        setSummaryTotals({ hours: 0, fuel: 0, dieselHours: 0, records: 0 });
+        setSummaryTotals({ hours: 0, fuel: 0, records: 0 });
       }
     } catch (err) {
       console.error('Error fetching JCB monthly summary:', err);
       setSummaryRows([]);
-      setSummaryTotals({ hours: 0, fuel: 0, dieselHours: 0, records: 0 });
+      setSummaryTotals({ hours: 0, fuel: 0, records: 0 });
     } finally {
       setSummaryLoading(false);
+    }
+  };
+
+  const fetchLastReading = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('jcb_operations')
+        .select('end_time')
+        .eq('contractor_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+      if (data && data.length > 0) {
+        setFormData(prev => ({ ...prev, start_time: data[0].end_time.toString() }));
+      }
+    } catch (err) {
+      console.error('Error fetching last JCB reading:', err);
     }
   };
 
   useEffect(() => {
     if (user) {
       fetchSummary();
+      fetchLastReading();
     }
   }, [user, summaryMonth, summaryYear, refreshKey]);
 
@@ -221,7 +239,6 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
         end_time: '',
         total_hours: '',
         fuel_consumed: '',
-        diesel_given_hours: '',
         work_description: '',
         notes: ''
       });
@@ -390,21 +407,6 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Diesel Given Hours
-          </label>
-          <input
-            type="number"
-            name="diesel_given_hours"
-            value={formData.diesel_given_hours}
-            onChange={handleChange}
-            min="0"
-            step="0.1"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            placeholder="Machine hours"
-          />
-        </div>
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -494,11 +496,10 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
         <table className="min-w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-700">
             <tr>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Hours</th>
-              <th className="px-4 py-3">Fuel (L)</th>
-              <th className="px-4 py-3">Diesel Hours</th>
-              <th className="px-4 py-3">Records</th>
+              <th className="px-4 py-3 text-slate-700">Date</th>
+              <th className="px-4 py-3 text-center">Hours</th>
+              <th className="px-4 py-3 text-right">Fuel (L)</th>
+              <th className="px-4 py-3 text-center text-slate-500 uppercase tracking-wider">Records</th>
             </tr>
           </thead>
           <tbody>
@@ -506,15 +507,14 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
               summaryRows.map((row) => (
                 <tr key={row.date} className="border-t border-slate-200">
                   <td className="px-4 py-3 font-medium text-slate-900">{row.date}</td>
-                  <td className="px-4 py-3 text-slate-700">{row.hours.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-slate-700">{row.fuel.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-slate-700">{row.dieselHours.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-slate-700">{row.records}</td>
+                  <td className="px-4 py-3 text-center text-slate-700">{row.hours.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right text-slate-700">{row.fuel.toFixed(1)}</td>
+                  <td className="px-4 py-3 text-center text-slate-700">{row.records}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
                   {summaryLoading ? 'Loading monthly summary...' : 'No JCB operations found for this month.'}
                 </td>
               </tr>
@@ -523,11 +523,14 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
           {summaryRows.length > 0 && (
             <tfoot className="bg-slate-50 text-slate-900 font-semibold">
               <tr>
-                <td className="px-4 py-3">Total</td>
-                <td className="px-4 py-3"><span className="inline-flex items-center gap-1"><TrendingUp className="w-4 h-4 text-amber-500" />{summaryTotals.hours.toFixed(2)}</span></td>
-                <td className="px-4 py-3"><span className="inline-flex items-center gap-1"><Fuel className="w-4 h-4 text-red-500" />{summaryTotals.fuel.toFixed(2)}</span></td>
-                <td className="px-4 py-3">{summaryTotals.dieselHours.toFixed(2)}</td>
-                <td className="px-4 py-3">{summaryTotals.records}</td>
+                <td className="px-4 py-3 text-slate-900 uppercase font-black">Total</td>
+                <td className="px-4 py-3 text-center text-slate-900 font-bold border-l border-slate-100">
+                  <span className="inline-flex items-center gap-1"><TrendingUp className="w-4 h-4 text-amber-500" />{summaryTotals.hours.toFixed(2)}</span>
+                </td>
+                <td className="px-4 py-3 text-right text-slate-900 font-bold border-l border-slate-100">
+                  <span className="inline-flex items-center gap-1"><Fuel className="w-4 h-4 text-red-500" />{summaryTotals.fuel.toFixed(1)}</span>
+                </td>
+                <td className="px-4 py-3 text-center text-slate-900 font-bold border-l border-slate-100">{summaryTotals.records}</td>
               </tr>
             </tfoot>
           )}

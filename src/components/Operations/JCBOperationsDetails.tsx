@@ -14,7 +14,6 @@ type JCBRecord = {
   end_time: string;
   total_hours: number;
   fuel_consumed: number;
-  diesel_given_hours: number | null;
   licence_number: string | null;
   work_description: string | null;
   notes: string | null;
@@ -184,9 +183,6 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
                     Diesel (L)
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Diesel Hours
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
@@ -232,11 +228,6 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
                         <div className="text-sm text-slate-900">
                           {record.fuel_consumed} L
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-900">
-                        {record.diesel_given_hours ? `${record.diesel_given_hours} h` : '-'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
