@@ -11,8 +11,15 @@ import { BlastingForm } from './components/Contractor/BlastingForm';
 import { LoadingForm } from './components/Contractor/LoadingForm';
 import { TransportForm } from './components/Contractor/TransportForm';
 import { MediaForm } from './components/Contractor/MediaForm';
-import { InventoryForm } from './components/Inventory/InventoryForm';
-import { AttendanceForm } from './components/Contractor/AttendanceForm';
+import { 
+  Users, 
+  Settings, 
+  FileText, 
+  TrendingUp, 
+  Package, 
+  BarChart3, 
+  ChevronRight 
+} from 'lucide-react';
 import { FuelForm } from './components/Fuel/FuelForm';
 import { SafetyForm } from './components/Safety/SafetyForm';
 import { MobileOperations } from './components/Contractor/MobileOperations';
@@ -103,14 +110,6 @@ function AppContent() {
             </div>
 
             <div className="grid grid-cols-1 gap-8">
-              {/* Quick Attendance Entry for All Staff */}
-              <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 p-8">
-                <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-indigo-500" />
-                  Quick Attendance Entry
-                </h3>
-                <AttendanceForm title="Daily Team Log" />
-              </div>
 
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-400 font-medium">
                 Select a module from the sidebar to view detailed operations
