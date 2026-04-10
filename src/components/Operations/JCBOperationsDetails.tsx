@@ -124,8 +124,15 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
             className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
           />
           <button
+            onClick={() => window.location.hash = `${workArea}-jcb-operations`}
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition-colors font-medium flex items-center gap-2 whitespace-nowrap"
+          >
+            <HardHat className="w-4 h-4" />
+            Add New Record
+          </button>
+          <button
             onClick={handleRefresh}
-            className="px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition-colors"
+            className="px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition-colors whitespace-nowrap"
           >
             Refresh
           </button>
@@ -216,9 +223,9 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Clock className="h-4 w-4 text-slate-400 mr-2" />
-                        <div className="text-sm text-slate-900 font-medium">
-                          {parseFloat(record.start_time).toFixed(2)} - {parseFloat(record.end_time).toFixed(2)}
-                          <div className="text-xs text-slate-500 mt-0.5">{record.total_hours.toFixed(1)} hours contributed</div>
+                        <div className="text-sm text-slate-900">
+                          {formatTime(record.start_time)} - {formatTime(record.end_time)}
+                          <div className="text-xs text-slate-500">{record.total_hours.toFixed(1)} hours</div>
                         </div>
                       </div>
                     </td>

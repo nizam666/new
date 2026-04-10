@@ -221,11 +221,10 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
         end_time: formData.end_time,
         total_hours: parseFloat(formData.total_hours) || 0,
         fuel_consumed: parseFloat(formData.fuel_consumed) || 0,
-        licence_number: null,
         work_description: formData.work_description || null,
         notes: formData.notes || null,
         status: 'pending',
-        work_area: workArea || null,
+        ...(workArea === 'quarry' || workArea === 'crusher' ? { work_area: workArea } : {}),
         created_at: new Date().toISOString()
       };
 
