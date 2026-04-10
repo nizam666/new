@@ -120,6 +120,7 @@ function AppContent() {
         return <MobileOperations />;
 
       case 'sales':
+      case 'material-investors':
         return <SalesModule />;
 
       case 'approvals':

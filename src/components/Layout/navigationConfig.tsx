@@ -77,8 +77,9 @@ export const DIRECTOR_NAV: MenuItem[] = [
         name: 'Sales & Customers',
         icon: ShoppingCart,
         children: [
-            { name: 'Sales',     icon: ShoppingCart, href: '#sales' },
-            { name: 'Customers', icon: Users,        href: '#customers' },
+            { name: 'Sales',              icon: ShoppingCart, href: '#sales' },
+            { name: 'Customers',          icon: Users,        href: '#customers' },
+            { name: 'Material Investors', icon: TrendingUp,   href: '#material-investors' },
         ]
     },
     { name: 'Permits',       icon: FileText, href: '#new-permit' },
