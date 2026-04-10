@@ -188,11 +188,10 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       const now = new Date().toISOString();
       const currentLocation = await getCurrentLocation();
 
-      // Check current status: Fetch the most recent Open record for this employee
-      // We look for any record where check_out is NULL, ordered by check_in desc
+      // Check current status: Fetch the most recent Active/Pending record for this employee
       const { data: activeRecord, error: activeError } = await supabase
         .from('selfie_attendance')
-        .select('id, check_out, date')
+        .select('id, check_out, date, punch_status')
         .eq('employee_id', employeeId.trim().toUpperCase())
         .is('check_out', null)
         .order('check_in', { ascending: false })
@@ -208,59 +207,78 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       // If we are punching out, we MUST have an active session
       if (action === 'punch_in') {
         if (activeRecord) {
+          if (activeRecord.punch_status === 'pending') {
+            throw new Error(`Your extra punch request is pending. Please wait for the Director to approve it.`);
+          }
           throw new Error(`You are already Punched IN. Please Punch OUT first.`);
         }
 
         // --- Extra Punch Check ---
-        // Check if there's already a completed record for today
+        // Check if there's already a completed shift today
         const { data: completedRecord } = await supabase
           .from('selfie_attendance')
-          .select('id, punch_status')
+          .select('id')
           .eq('employee_id', employeeId.trim().toUpperCase())
           .eq('date', today)
           .not('check_out', 'is', null)
-          .order('check_in', { ascending: false })
           .limit(1)
           .maybeSingle();
 
         if (completedRecord) {
-          // If we have a completed shift, we need to check if there's an approved extra punch request
-          const { data: approvedRequest } = await supabase
+           // If we have a completed shift, we check if there's an approved permission waiting for check-in
+           const { data: permissionRecord } = await supabase
+             .from('selfie_attendance')
+             .select('id, punch_status')
+             .eq('employee_id', employeeId.trim().toUpperCase())
+             .eq('date', today)
+             .is('check_in', null) // specifically looking for the pre-authorized record
+             .limit(1)
+             .maybeSingle();
+
+           if (!permissionRecord || permissionRecord.punch_status !== 'approved') {
+              if (permissionRecord?.punch_status === 'pending') {
+                throw new Error(`Your extra punch request is pending. Please wait for the Director to approve it.`);
+              }
+              setShowPermissionModal(true);
+              setStatus('idle');
+              return;
+           }
+
+           // If we reach here, we have an approved permissionRecord that hasn't been used yet
+           // We UPDATE that record instead of inserting a new one
+           const { error: updateError } = await supabase
+             .from('selfie_attendance')
+             .update({
+               check_in: now,
+               check_in_photo: photoUrl,
+               location_in: currentLocation,
+               updated_at: now
+             })
+             .eq('id', permissionRecord.id);
+
+           if (updateError) throw updateError;
+
+           setStatus('success');
+           setStatusMessage(`Successfully Punched IN (Authorized) at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome back, ${workerName}!`);
+         } else {
+          // Standard first punch of the day
+          const { error: insertError } = await supabase
             .from('selfie_attendance')
-            .select('id')
-            .eq('employee_id', employeeId.trim().toUpperCase())
-            .eq('date', today)
-            .eq('punch_status', 'approved')
-            .is('check_out', null)
-            .maybeSingle();
+            .insert({
+              employee_id: employeeId.trim().toUpperCase(),
+              date: today,
+              check_in: now,
+              check_in_photo: photoUrl,
+              work_area: workArea,
+              location_in: currentLocation,
+              punch_status: 'approved'
+            });
 
-          if (!approvedRequest) {
-             // Trigger permission modal
-             setShowPermissionModal(true);
-             setStatus('idle');
-             return;
-          }
+          if (insertError) throw insertError;
+
+          setStatus('success');
+          setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerName}!`);
         }
-
-        const { error: insertError } = await supabase
-          .from('selfie_attendance')
-          .insert({
-            employee_id: employeeId.trim().toUpperCase(),
-            date: today,
-            check_in: now,
-            check_in_photo: photoUrl,
-            work_area: workArea,
-            location_in: currentLocation
-          });
-
-        if (insertError) {
-          console.error("Database Insert Error:", insertError);
-          throw new Error(`Database Insert Error: ${insertError.message}`);
-        }
-
-        setStatus('success');
-        setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerName}!`);
-
       } else {
         // Punch out logic: must have an active session
         if (!activeRecord) {
@@ -346,6 +364,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       const now = new Date().toISOString();
 
       // 1. Create a pending attendance record
+      // NOTE: We do NOT set check_in yet. The user will punch in after approval.
       const { data: newRecord, error: insertError } = await supabase
         .from('selfie_attendance')
         .insert({
@@ -353,8 +372,8 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           date: today,
           punch_status: 'pending',
           request_reason: requestReason.trim(),
-          check_in: now, // We record the attempted check-in time
-          check_in_photo: capturedPhoto, // Use the photo we already captured
+          check_in: null, // Critical: Only authorized to check in later
+          check_in_photo: capturedPhoto, 
           work_area: workArea
         })
         .select()
