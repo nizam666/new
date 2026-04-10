@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Weight, Info, Calendar } from 'lucide-react';
+import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Info, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const PRODUCT_TYPES = [
@@ -22,11 +22,10 @@ const GST_OPTIONS = [
 interface InvestorData {
   id?: string;
   product_type: string;
-  quantity_mt: string | number;
   sales_price: string | number;
+  is_tax_inclusive: boolean;
   gst_rate: number;
   hsn: string;
-  investment_date: string;
   status: 'active' | 'inactive' | 'closed';
 }
 
@@ -42,13 +41,32 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
   
   const [formData, setFormData] = useState<InvestorData>({
     product_type: initialData?.product_type || PRODUCT_TYPES[0],
-    quantity_mt: initialData?.quantity_mt || '',
     sales_price: initialData?.sales_price || '',
+    is_tax_inclusive: initialData?.is_tax_inclusive || false, // Default to Excluding GST
     gst_rate: initialData?.gst_rate || 5,
     hsn: initialData?.hsn || '',
-    investment_date: initialData?.investment_date || new Date().toISOString().split('T')[0],
     status: initialData?.status || 'active'
   });
+
+  const calculateRates = () => {
+    const enteredPrice = parseFloat(String(formData.sales_price)) || 0;
+    const gstRate = formData.gst_rate / 100;
+    
+    let basePrice = 0;
+    let totalPrice = 0;
+
+    if (formData.is_tax_inclusive) {
+      // Entered Price is the Total (Inclusive)
+      totalPrice = enteredPrice;
+      basePrice = enteredPrice / (1 + gstRate);
+    } else {
+      // Entered Price is the Base (Exclusive)
+      basePrice = enteredPrice;
+      totalPrice = enteredPrice * (1 + gstRate);
+    }
+
+    return { basePrice, totalPrice };
+  };
 
   const handleSubmit = async (e: React.FormEvent, isSaveAndNew = false) => {
     if (e) e.preventDefault();
@@ -59,12 +77,15 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
       return;
     }
 
+    const { basePrice, totalPrice } = calculateRates();
+
     setLoading(true);
     try {
       const payload = {
         ...formData,
-        quantity_mt: parseFloat(String(formData.quantity_mt)) || 0,
-        investment_amount: (parseFloat(String(formData.quantity_mt)) || 0) * (parseFloat(String(formData.sales_price)) || 0) * (1 + formData.gst_rate/100),
+        // We store the 'basePrice' in sales_price column for consistency, 
+        // or we store exactly what was entered. Let's store what was entered.
+        investment_amount: totalPrice,
         updated_by: user.id
       };
 
@@ -88,11 +109,10 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
       if (isSaveAndNew) {
         setFormData({
           product_type: PRODUCT_TYPES[0],
-          quantity_mt: '',
           sales_price: '',
+          is_tax_inclusive: false,
           gst_rate: 5,
           hsn: '',
-          investment_date: new Date().toISOString().split('T')[0],
           status: 'active'
         });
       } else if (onSuccess) {
@@ -105,13 +125,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     }
   };
 
-  const calculateGrandTotal = () => {
-    const qty = parseFloat(String(formData.quantity_mt)) || 0;
-    const rate = parseFloat(String(formData.sales_price)) || 0;
-    const net = qty * rate;
-    const tax = (net * formData.gst_rate) / 100;
-    return net + tax;
-  };
+  const rates = calculateRates();
 
   return (
     <div className="min-h-[90vh] bg-slate-100/30 flex flex-col p-4 md:p-8 lg:p-12 animate-in fade-in zoom-in-95 duration-500">
@@ -127,8 +141,8 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-3xl font-black text-indigo-950 tracking-tight">Material Inventory</h1>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Add Product & Stock Details</p>
+              <h1 className="text-3xl font-black text-indigo-950 tracking-tight">Material Price Master</h1>
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Configure Product Rates & Taxes</p>
             </div>
           </div>
 
@@ -163,109 +177,101 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
               </div>
             </div>
 
-            {/* Main Information Sections */}
-            <div className="grid grid-cols-1 gap-8">
-              {/* Pricing & GST Section */}
-              <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white">
-                <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
-                    <IndianRupee className="w-4 h-4 text-indigo-600" />
-                  </div>
-                  <h2 className="text-xl font-black text-indigo-950 tracking-tight">Pricing & Taxes</h2>
+            {/* Pricing & GST Section */}
+            <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white">
+              <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
+                  <IndianRupee className="w-4 h-4 text-indigo-600" />
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-                  <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Sales Price</label>
-                    <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
-                      <span className="text-xl font-bold text-slate-400 group-focus-within:text-indigo-600 transition-colors">₹</span>
-                      <input
-                        type="number"
-                        value={formData.sales_price}
-                        onChange={(e) => setFormData({ ...formData, sales_price: e.target.value })}
-                        className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">GST Rate (Standard)</label>
-                    <div className="relative border-b-2 border-slate-100 bg-slate-50/50 px-2 rounded-t-lg">
-                      <select
-                        value={formData.gst_rate}
-                        disabled
-                        className="w-full py-3 bg-transparent text-lg font-bold text-slate-500 outline-none appearance-none cursor-not-allowed"
-                      >
-                        {GST_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Unit</label>
-                    <div className="flex items-center border-b-2 border-slate-100">
-                      <input
-                        type="text"
-                        value="MTON (Metric Tons)"
-                        disabled
-                        className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-400 outline-none"
-                      />
-                      <Package className="w-5 h-5 text-slate-300" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">HSN Code</label>
-                    <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
-                      <input
-                        type="text"
-                        value={formData.hsn}
-                        onChange={(e) => setFormData({ ...formData, hsn: e.target.value })}
-                        className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
-                        placeholder="Ex: 2517"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <h2 className="text-xl font-black text-indigo-950 tracking-tight">Pricing & Taxes</h2>
               </div>
-
-              {/* Stock Details Section */}
-              <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white">
-                <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
-                    <Weight className="w-4 h-4 text-indigo-600" />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                {/* Sales Rate Input with Inclusive/Exclusive Toggle */}
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest">Sales Rate</label>
+                    
+                    {/* Tax Inclusive Toggle Buttons */}
+                    <div className="flex bg-slate-100 p-1 rounded-full scale-90 origin-right">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, is_tax_inclusive: false })}
+                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                          !formData.is_tax_inclusive 
+                          ? 'bg-white text-indigo-600 shadow-sm' 
+                          : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        Excluding GST
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, is_tax_inclusive: true })}
+                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                          formData.is_tax_inclusive 
+                          ? 'bg-white text-indigo-600 shadow-sm' 
+                          : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        Including GST
+                      </button>
+                    </div>
                   </div>
-                  <h2 className="text-xl font-black text-indigo-950 tracking-tight">Inventory & Stock</h2>
+                  
+                  <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
+                    <span className="text-xl font-bold text-slate-400 group-focus-within:text-indigo-600 transition-colors">₹</span>
+                    <input
+                      type="number"
+                      value={formData.sales_price}
+                      onChange={(e) => setFormData({ ...formData, sales_price: e.target.value })}
+                      className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
+                      placeholder="0.00"
+                    />
+                    <div className="flex items-center gap-2 text-indigo-600 text-[10px] font-black uppercase tracking-tight px-3 py-1 bg-indigo-50 rounded-full border border-indigo-100">
+                      {formData.is_tax_inclusive ? 'Tax Inclusive' : 'Tax Exclusive'}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                  <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Opening Stock Quantity</label>
-                    <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
-                      <input
-                        type="number"
-                        value={formData.quantity_mt}
-                        onChange={(e) => setFormData({ ...formData, quantity_mt: e.target.value })}
-                        className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
-                        placeholder="0.00"
-                      />
-                      <span className="text-lg font-black text-indigo-400">MT</span>
-                    </div>
+                <div>
+                  <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">GST Rate (Fixed)</label>
+                  <div className="relative border-b-2 border-slate-100 bg-slate-50/50 px-2 rounded-t-lg">
+                    <select
+                      value={formData.gst_rate}
+                      disabled
+                      className="w-full py-3 bg-transparent text-lg font-bold text-slate-500 outline-none appearance-none cursor-not-allowed"
+                    >
+                      {GST_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">As of Date</label>
-                    <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
-                      <input
-                        type="date"
-                        value={formData.investment_date}
-                        onChange={(e) => setFormData({ ...formData, investment_date: e.target.value })}
-                        className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
-                      />
-                      <Calendar className="w-5 h-5 text-slate-300" />
-                    </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Standard Unit</label>
+                  <div className="flex items-center border-b-2 border-slate-100">
+                    <input
+                      type="text"
+                      value="MTON (Metric Tons)"
+                      disabled
+                      className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-400 outline-none"
+                    />
+                    <Package className="w-5 h-5 text-slate-300" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">HSN / SAC Code</label>
+                  <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
+                    <input
+                      type="text"
+                      value={formData.hsn}
+                      onChange={(e) => setFormData({ ...formData, hsn: e.target.value })}
+                      className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
+                      placeholder="Ex: 2517"
+                    />
                   </div>
                 </div>
               </div>
@@ -274,43 +280,35 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
 
           {/* Sidebar Area */}
           <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8">
-            {/* Asset Summary Card */}
+            {/* Unit Price Audit Card */}
             <div className="bg-indigo-900 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-900/30 relative overflow-hidden group">
               <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl transition-all group-hover:scale-110" />
               
               <div className="relative z-10 space-y-8">
                 <div className="flex items-center justify-between opacity-60">
-                  <span className="text-[10px] font-black uppercase tracking-widest">Inventory Asset Audit</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Pricing Audit</span>
                   <Info className="w-4 h-4 cursor-pointer" />
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-sm font-bold text-indigo-300 uppercase tracking-widest">Total Valuation</p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-black tracking-tighter">₹{calculateGrandTotal().toLocaleString('en-IN', { minimumFractionDigits: 0 })}</span>
-                  </div>
-                  <p className="text-[10px] font-bold text-indigo-400 bg-indigo-950/40 w-fit px-3 py-1 rounded-full border border-indigo-500/20">Includes 5% Standard GST</p>
-                </div>
-
-                <div className="pt-8 border-t border-indigo-500/30 space-y-4">
-                  <div className="flex justify-between items-center bg-indigo-950/40 p-5 rounded-2xl border border-indigo-800/20">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg">
-                        <Weight className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="text-xs font-bold text-indigo-200 uppercase tracking-widest">Net Quantity</span>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-indigo-300 uppercase tracking-widest">Bill Amount (With Tax)</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-5xl font-black tracking-tighter">₹{rates.totalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-sm font-bold text-indigo-400 uppercase">/ MT</span>
                     </div>
-                    <span className="text-xl font-black">{parseFloat(String(formData.quantity_mt)) || 0} MT</span>
                   </div>
 
-                  <div className="flex justify-between items-center bg-indigo-950/40 p-5 rounded-2xl border border-indigo-800/20">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shadow-lg">
-                        <IndianRupee className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="text-xs font-bold text-indigo-200 uppercase tracking-widest">Market Rate</span>
+                  <div className="space-y-1 opacity-80 pt-4 border-t border-indigo-800">
+                    <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest">Tax Breakdown (5%)</p>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-bold text-indigo-400">Net Rate:</span>
+                      <span className="font-black text-white">₹{rates.basePrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    <span className="text-xl font-black">₹{parseFloat(String(formData.sales_price)) || 0}</span>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-bold text-indigo-400">GST Amount:</span>
+                      <span className="font-black text-emerald-400">+ ₹{(rates.totalPrice - rates.basePrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -328,7 +326,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
                 ) : (
                   <>
                     <Save className="w-6 h-6 transition-transform group-hover:scale-125" />
-                    Save Product
+                    Save Pricing
                   </>
                 )}
               </button>
@@ -338,7 +336,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
                 onClick={(e) => handleSubmit(e, true)}
                 className="w-full py-5 bg-slate-50 text-indigo-700 font-black text-sm uppercase tracking-widest rounded-3xl hover:bg-indigo-50 transition-all border border-slate-100 flex items-center justify-center gap-3"
               >
-                Save & Create Another
+                Save & Add Next
               </button>
               
               <button
