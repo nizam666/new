@@ -44,7 +44,7 @@ export function MaterialInvestorsDetails({ onEdit, onAddNew }: MaterialInvestors
       let filtered = data || [];
       if (searchTerm) {
         filtered = filtered.filter(inv => 
-          inv.product_type?.toLowerCase().includes(searchTerm.toLowerCase())
+          (inv.product_type || inv.material_type || '').toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
       
@@ -164,7 +164,7 @@ export function MaterialInvestorsDetails({ onEdit, onAddNew }: MaterialInvestors
                   <div className="flex items-start justify-between mb-8">
                     {/* Visual Icon */}
                     <div className="w-20 h-20 rounded-3xl bg-indigo-50 flex items-center justify-center font-black text-indigo-400 text-3xl shadow-inner border border-white transition-transform group-hover:rotate-6">
-                      {investor.product_type?.charAt(0).toUpperCase() || '?'}
+                      {(investor.product_type || investor.material_type || '').charAt(0).toUpperCase() || '?'}
                     </div>
                     
                     {/* Status Pill */}
@@ -180,10 +180,10 @@ export function MaterialInvestorsDetails({ onEdit, onAddNew }: MaterialInvestors
                   {/* Name and HSN */}
                   <div className="mb-8">
                     <h3 className="text-xl font-black text-indigo-950 leading-tight mb-2 group-hover:text-indigo-600 transition-colors">
-                      {investor.product_type || 'Untitled Item'}
+                      {investor.product_type || investor.material_type || 'Untitled Item'}
                     </h3>
                     <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
-                      HSN: {investor.quality_grade || '2517 (Std)'}
+                      HSN: {investor.hsn || investor.quality_grade || '2517 (Std)'}
                     </div>
                   </div>
 
@@ -199,7 +199,7 @@ export function MaterialInvestorsDetails({ onEdit, onAddNew }: MaterialInvestors
                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Sales Rate (Ex-Tax)</p>
                       <div className="flex items-baseline gap-1">
                         <span className="text-sm font-black text-indigo-600 italic">₹</span>
-                        <span className="text-2xl font-black text-slate-800">{investor.sales_price?.toLocaleString('en-IN')}</span>
+                        <span className="text-2xl font-black text-slate-800">{(investor.sales_price || investor.investment_amount || 0).toLocaleString('en-IN')}</span>
                       </div>
                     </div>
                   </div>

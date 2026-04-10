@@ -81,17 +81,24 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
       return;
     }
 
-    const { totalPrice } = calculateRates();
+    const { totalPrice, basePrice } = calculateRates();
+    console.log('Final Rates calculated:', { totalPrice, basePrice });
 
     setLoading(true);
     try {
       const payload = {
-        ...formData,
-        // We store the 'basePrice' in sales_price column for consistency, 
-        // or we store exactly what was entered. Let's store what was entered.
-        investment_amount: totalPrice,
+        product_type: formData.product_type,
+        material_type: formData.product_type, // Sync legacy column
+        sales_price: parseFloat(String(formData.sales_price)) || 0,
+        is_tax_inclusive: formData.is_tax_inclusive,
+        gst_rate: formData.gst_rate,
+        hsn: formData.hsn,
+        investment_amount: totalPrice, // Total inclusive for legacy column
+        status: formData.status,
         updated_by: user.id
       };
+
+      console.log('Submitting payload to material_investors:', payload);
 
       if (initialData?.id) {
         const { error } = await supabase
@@ -99,14 +106,20 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
           .update(payload)
           .eq('id', initialData.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase Update Error:', error);
+          throw error;
+        }
         toast.success('Updated successfully');
       } else {
         const { error } = await supabase
           .from('material_investors')
           .insert([{ ...payload, created_by: user.id }]);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase Insert Error:', error);
+          throw error;
+        }
         toast.success('Saved successfully');
       }
 
