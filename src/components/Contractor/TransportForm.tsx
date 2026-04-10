@@ -60,7 +60,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     material_transported: '',
     quantity: '',
     number_of_trips: '1',
-    notes: ''
+    notes: '',
+    trip_ref: ''
   });
 
   // Summary State
@@ -71,6 +72,16 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const [summaryRows, setSummaryRows] = useState<any[]>([]);
   const [summaryTotals, setSummaryTotals] = useState({ fuel: 0, quantity: 0, trips: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
+  
+  const generateTripRef = () => {
+    const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `TRP-${date}-${random}`;
+  };
+
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, trip_ref: generateTripRef() }));
+  }, []);
 
   const fetchSummary = async () => {
     if (!user) return;
@@ -197,6 +208,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             quantity: parseFloat(formData.quantity) || 0,
             number_of_trips: parseInt(formData.number_of_trips) || 1,
             notes: formData.notes,
+            trip_ref: formData.trip_ref,
             status: 'pending'
           }
         ]);
@@ -213,7 +225,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         material_transported: '',
         quantity: '',
         number_of_trips: '1',
-        notes: ''
+        notes: '',
+        trip_ref: generateTripRef()
       });
 
       alert('Transport record submitted successfully!');
@@ -242,6 +255,22 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="md:col-span-2 bg-slate-50 p-4 rounded-lg border border-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Trip Reference Number
+              </label>
+              <div className="text-xl font-mono font-bold text-purple-700">
+                {formData.trip_ref}
+              </div>
+            </div>
+            <div className="text-right text-xs text-slate-400 font-medium">
+              Automatically Generated
+            </div>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Date

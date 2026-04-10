@@ -26,6 +26,7 @@ interface TransportRecord {
   material_transported: string;
   quantity: number;
   number_of_trips: number;
+  trip_ref: string;
   notes: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
@@ -138,6 +139,19 @@ export function TransportDetails() {
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-2">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Package className="w-5 h-5 text-purple-600" />
+            </div>
+            <BarChart3 className="w-4 h-4 text-slate-400" />
+          </div>
+          <p className="text-lg font-bold text-slate-900 truncate">
+            {records[0]?.trip_ref || 'TRP-N/A'}
+          </p>
+          <p className="text-sm text-slate-600">Last Trip Reference</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-2">
             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
               <Package className="w-5 h-5 text-blue-600" />
             </div>
@@ -185,6 +199,9 @@ export function TransportDetails() {
                     <div>
                       <h4 className="font-semibold text-slate-900">
                         {record.vehicle_number} - {record.vehicle_type}
+                        <span className="ml-2 px-2 py-0.5 bg-slate-100 text-[10px] font-mono font-bold text-slate-500 rounded">
+                          {record.trip_ref}
+                        </span>
                       </h4>
                       <div className="flex items-center gap-1 text-sm text-slate-600 mt-0.5">
                         <Calendar className="w-4 h-4" />
