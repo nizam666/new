@@ -14,7 +14,10 @@ interface Investor {
   gst_amount: number;
   total_amount_with_gst: number;
   product_type: string;
+  material_type?: string; // Legacy column
   quality_grade: string;
+  hsn?: string; // Standard column
+  investment_amount?: number; // Legacy column
   investment_date: string;
   status: 'active' | 'inactive' | 'closed';
   notes: string | null;
