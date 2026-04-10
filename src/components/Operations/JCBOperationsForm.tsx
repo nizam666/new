@@ -303,19 +303,25 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
           />
         </div>
 
-        <div>
+        <div className="md:col-span-2">
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Work Type *
           </label>
-          <div className="flex flex-wrap gap-2">
-            {['Loading', 'Excavation', 'Leveling', 'Hammering', 'Breaking'].map((type) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {[
+              'Good borders loading',
+              'Material loading',
+              'Bunker works',
+              'Crusher works',
+              'Quarry works'
+            ].map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => setFormData(p => ({ ...p, work_type: type }))}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${formData.work_type === type
-                    ? 'bg-amber-600 text-white shadow-md'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:border-amber-500 hover:text-amber-600'
+                className={`px-3 py-3 rounded-lg border-2 transition-all transform hover:scale-[1.02] active:scale-95 text-sm ${formData.work_type === type
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-md'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-amber-400 hover:bg-amber-50'
                   }`}
               >
                 {type}
