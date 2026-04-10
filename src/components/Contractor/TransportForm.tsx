@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Truck, Save, Calendar, ChevronDown, Package, Fuel, TrendingUp } from 'lucide-react';
+import { Truck, Save, Calendar, ChevronDown, Package, Fuel, TrendingUp, Clock } from 'lucide-react';
 
 const vehicleTypes = [
   'Truck',
@@ -72,6 +72,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const [summaryRows, setSummaryRows] = useState<any[]>([]);
   const [summaryTotals, setSummaryTotals] = useState({ fuel: 0, quantity: 0, trips: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [recentVehicles, setRecentVehicles] = useState<{number: string, type: string}[]>([]);
   
   const generateTripRef = () => {
     const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
@@ -81,7 +82,39 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, trip_ref: generateTripRef() }));
-  }, []);
+    if (user) {
+      fetchRecentVehicles();
+    }
+  }, [user]);
+
+  const fetchRecentVehicles = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('transport_records')
+        .select('vehicle_number, vehicle_type')
+        .eq('contractor_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      if (data) {
+        const unique: Record<string, string> = {};
+        data.forEach(item => {
+          if (item.vehicle_number && !unique[item.vehicle_number]) {
+            unique[item.vehicle_number] = item.vehicle_type;
+          }
+        });
+        const top5 = Object.entries(unique)
+          .slice(0, 5)
+          .map(([number, type]) => ({ number, type }));
+        setRecentVehicles(top5);
+      }
+    } catch (err) {
+      console.error('Error fetching recent vehicles:', err);
+    }
+  };
 
   const fetchSummary = async () => {
     if (!user) return;
@@ -231,6 +264,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
       alert('Transport record submitted successfully!');
       setRefreshKey(prev => prev + 1);
+      fetchRecentVehicles(); // Refresh the suggestions
       if (onSuccess) onSuccess();
     } catch (error: any) {
       console.error('Error submitting transport record:', error);
@@ -315,9 +349,30 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             value={formData.vehicle_number}
             onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase() })}
             required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent uppercase"
             placeholder="e.g. TN 01 AB 1234"
           />
+          
+          {recentVehicles.length > 0 && (
+            <div className="mt-3">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Recent Vehicles
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {recentVehicles.map((v) => (
+                  <button
+                    key={v.number}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, vehicle_number: v.number, vehicle_type: v.type })}
+                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-xs font-semibold text-slate-700 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                  >
+                    <Truck className="w-3 h-3 opacity-60" />
+                    {v.number}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
