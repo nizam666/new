@@ -386,8 +386,8 @@ export function AttendanceReportModule() {
                             scrolling="no"
                             marginHeight={0}
                             marginWidth={0}
-                            src={`https://maps.google.com/maps?q=${selectedRecord.location_in}&z=15&output=embed`}
-                            className="grayscale-[20%] contrast-[110%]"
+                            src={`https://maps.google.com/maps?q=${selectedRecord.location_in}&t=k&z=18&output=embed`}
+                            className="contrast-[110%]"
                           ></iframe>
                         </div>
                       </div>
@@ -413,8 +413,8 @@ export function AttendanceReportModule() {
                             scrolling="no"
                             marginHeight={0}
                             marginWidth={0}
-                            src={`https://maps.google.com/maps?q=${selectedRecord.location_out}&z=15&output=embed`}
-                            className="grayscale-[20%] contrast-[110%]"
+                            src={`https://maps.google.com/maps?q=${selectedRecord.location_out}&t=k&z=18&output=embed`}
+                            className="contrast-[110%]"
                           ></iframe>
                         </div>
                       </div>
