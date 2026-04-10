@@ -11,7 +11,6 @@ import {
   TrendingUp,
   Calendar
 } from 'lucide-react';
-import { AttendanceForm } from './AttendanceForm';
 
 interface Stats {
   todayRecords: number;
@@ -169,18 +168,6 @@ export function ContractorDashboard() {
             </div>
           );
         })}
-      </div>
-
-      {/* Quick Attendance Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-indigo-500" />
-          Quick Attendance Logger
-        </h2>
-        <AttendanceForm 
-          onSuccess={() => loadStats()} 
-          title="Team Attendance Entry"
-        />
       </div>
 
       <div>
