@@ -62,12 +62,19 @@ export function TransportDetails() {
 
       if (error) throw error;
 
-      setRecords(data || []);
+      const transportRecords = data || [];
+      setRecords(transportRecords);
+
+      const totals = transportRecords.reduce((acc, rec) => ({
+        fuel: acc.fuel + (Number(rec.fuel_consumed) || 0),
+        quantity: acc.quantity + (Number(rec.quantity) || 0),
+        trips: acc.trips + (Number(rec.number_of_trips) || 0)
+      }), { fuel: 0, quantity: 0, trips: 0 });
 
       setStats({
-        totalFuel,
-        totalQuantity,
-        totalTrips
+        totalFuel: totals.fuel,
+        totalQuantity: totals.quantity,
+        totalTrips: totals.trips
       });
     } catch (error) {
       console.error('Error loading records:', error);

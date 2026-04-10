@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Save, AlertCircle, HardHat } from 'lucide-react';
+import { Save, AlertCircle, HardHat, Calendar, ChevronDown, TrendingUp, Fuel } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => void, workArea?: 'quarry' | 'crusher' }) {
@@ -22,6 +22,14 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
     notes: ''
   });
 
+  const now = new Date();
+  const [summaryMonth, setSummaryMonth] = useState(now.getMonth());
+  const [summaryYear, setSummaryYear] = useState(now.getFullYear());
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryRows, setSummaryRows] = useState<any[]>([]);
+  const [summaryTotals, setSummaryTotals] = useState({ hours: 0, fuel: 0, dieselHours: 0, records: 0 });
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -29,6 +37,85 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
       [name]: value
     }));
   };
+
+  const fetchSummary = async () => {
+    if (!user) return;
+    setSummaryLoading(true);
+
+    try {
+      const firstDay = new Date(summaryYear, summaryMonth, 1);
+      const lastDay = new Date(summaryYear, summaryMonth + 1, 0);
+      const fromStr = firstDay.toISOString().split('T')[0];
+      const toStr = lastDay.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('jcb_operations')
+        .select('date, total_hours, fuel_consumed, diesel_given_hours')
+        .eq('user_id', user.id)
+        .gte('date', fromStr)
+        .lte('date', toStr)
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        const grouped: Record<string, any> = {};
+        let totalHours = 0;
+        let totalFuel = 0;
+        let totalDiesel = 0;
+        let totalRecords = 0;
+
+        data.forEach((row: any) => {
+          if (!grouped[row.date]) {
+            grouped[row.date] = {
+              date: row.date,
+              hours: 0,
+              fuel: 0,
+              dieselHours: 0,
+              records: 0
+            };
+          }
+
+          const hours = parseFloat(row.total_hours) || 0;
+          const fuel = parseFloat(row.fuel_consumed) || 0;
+          const dieselHours = parseFloat(row.diesel_given_hours) || 0;
+
+          grouped[row.date].hours += hours;
+          grouped[row.date].fuel += fuel;
+          grouped[row.date].dieselHours += dieselHours;
+          grouped[row.date].records += 1;
+
+          totalHours += hours;
+          totalFuel += fuel;
+          totalDiesel += dieselHours;
+          totalRecords += 1;
+        });
+
+        setSummaryRows(Object.values(grouped));
+        setSummaryTotals({
+          hours: totalHours,
+          fuel: totalFuel,
+          dieselHours: totalDiesel,
+          records: totalRecords
+        });
+      } else {
+        setSummaryRows([]);
+        setSummaryTotals({ hours: 0, fuel: 0, dieselHours: 0, records: 0 });
+      }
+    } catch (err) {
+      console.error('Error fetching JCB monthly summary:', err);
+      setSummaryRows([]);
+      setSummaryTotals({ hours: 0, fuel: 0, dieselHours: 0, records: 0 });
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchSummary();
+    }
+  }, [user, summaryMonth, summaryYear, refreshKey]);
 
 
   const calculateHours = () => {
@@ -130,6 +217,7 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
       });
 
       toast.success('JCB operation recorded successfully!');
+      setRefreshKey(prev => prev + 1);
       if (onSuccess) onSuccess();
     } catch (error) {
       console.error('Error saving JCB operation:', error);
@@ -141,7 +229,8 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
           <div className="flex">
@@ -347,5 +436,94 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
         </button>
       </div>
     </form>
+
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-amber-500" />
+          <div>
+            <h4 className="text-lg font-semibold text-slate-900">Monthly JCB Summary</h4>
+            <p className="text-sm text-slate-600">Review monthly totals for the selected period.</p>
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="relative">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Month</label>
+            <div className="relative">
+              <select
+                value={summaryMonth}
+                onChange={(e) => setSummaryMonth(Number(e.target.value))}
+                className="w-full sm:w-auto appearance-none px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              >
+                {Array.from({ length: 12 }, (_, idx) => idx).map((month) => (
+                  <option key={month} value={month}>{new Date(0, month).toLocaleString('default', { month: 'long' })}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            </div>
+          </div>
+          <div className="relative">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Year</label>
+            <div className="relative">
+              <select
+                value={summaryYear}
+                onChange={(e) => setSummaryYear(Number(e.target.value))}
+                className="w-full sm:w-auto appearance-none px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              >
+                {Array.from({ length: 3 }, (_, idx) => now.getFullYear() - 1 + idx).map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <table className="min-w-full text-sm text-left">
+          <thead className="bg-slate-50 text-slate-700">
+            <tr>
+              <th className="px-4 py-3">Date</th>
+              <th className="px-4 py-3">Hours</th>
+              <th className="px-4 py-3">Fuel (L)</th>
+              <th className="px-4 py-3">Diesel Hours</th>
+              <th className="px-4 py-3">Records</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summaryRows.length > 0 ? (
+              summaryRows.map((row) => (
+                <tr key={row.date} className="border-t border-slate-200">
+                  <td className="px-4 py-3 font-medium text-slate-900">{row.date}</td>
+                  <td className="px-4 py-3 text-slate-700">{row.hours.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-700">{row.fuel.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-700">{row.dieselHours.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-700">{row.records}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                  {summaryLoading ? 'Loading monthly summary...' : 'No JCB operations found for this month.'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+          {summaryRows.length > 0 && (
+            <tfoot className="bg-slate-50 text-slate-900 font-semibold">
+              <tr>
+                <td className="px-4 py-3">Total</td>
+                <td className="px-4 py-3"><span className="inline-flex items-center gap-1"><TrendingUp className="w-4 h-4 text-amber-500" />{summaryTotals.hours.toFixed(2)}</span></td>
+                <td className="px-4 py-3"><span className="inline-flex items-center gap-1"><Fuel className="w-4 h-4 text-red-500" />{summaryTotals.fuel.toFixed(2)}</span></td>
+                <td className="px-4 py-3">{summaryTotals.dieselHours.toFixed(2)}</td>
+                <td className="px-4 py-3">{summaryTotals.records}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </div>
+  </div>
   );
 }

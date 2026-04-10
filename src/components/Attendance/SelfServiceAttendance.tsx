@@ -61,6 +61,27 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     return String(err);
   };
 
+  const getCurrentLocation = (): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve('Geolocation not supported');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          resolve(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          resolve('Location denied');
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    });
+  };
+
   const capturePhoto = useCallback((): Blob | null => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
@@ -162,6 +183,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       // 4. Record attendance
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toISOString();
+      const currentLocation = await getCurrentLocation();
 
       // Check current status: Fetch the most recent Open record for this employee
       // We look for any record where check_out is NULL, ordered by check_in desc
@@ -193,7 +215,8 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
             date: today,
             check_in: now,
             check_in_photo: photoUrl,
-            work_area: workArea
+            work_area: workArea,
+            location_in: currentLocation
           });
 
         if (insertError) {
@@ -218,6 +241,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           .update({
              check_out: now,
              check_out_photo: photoUrl,
+             location_out: currentLocation,
              updated_at: now
           })
           .eq('id', activeRecord.id)
@@ -229,10 +253,11 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           const fallbackResponse = await supabase
             .from('selfie_attendance')
             .update({
-               check_out: now,
-               check_out_photo: photoUrl,
-               updated_at: now
-            })
+                check_out: now,
+                check_out_photo: photoUrl,
+                location_out: currentLocation,
+                updated_at: now
+             })
             .match({ employee_id: employeeId.trim().toUpperCase() })
             .is('check_out', null)
             .select();

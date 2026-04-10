@@ -26,6 +26,12 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const YEAR_OPTIONS = [
+  new Date().getFullYear() - 1,
+  new Date().getFullYear(),
+  new Date().getFullYear() + 1
+];
+
 const getToLocationOptions = (fromLocation: string) => {
   if (!fromLocation) return ['Stockyard', 'Crusher', 'Soil dumping yard'];
 
@@ -455,7 +461,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 onChange={e => setSummaryYear(Number(e.target.value))}
                 className="appearance-none pl-4 pr-10 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
               >
-                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
