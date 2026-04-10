@@ -83,11 +83,6 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
     fetchRecords();
   };
 
-  const formatTime = (timeString: string) => {
-    if (!timeString) return '';
-    const [hours, minutes] = timeString.split(':');
-    return `${parseInt(hours, 10) % 12 || 12}:${minutes} ${parseInt(hours, 10) >= 12 ? 'PM' : 'AM'}`;
-  };
 
   return (
     <div className="space-y-6">
@@ -223,9 +218,9 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Clock className="h-4 w-4 text-slate-400 mr-2" />
-                        <div className="text-sm text-slate-900">
-                          {formatTime(record.start_time)} - {formatTime(record.end_time)}
-                          <div className="text-xs text-slate-500">{record.total_hours.toFixed(1)} hours</div>
+                        <div className="text-sm text-slate-900 font-medium">
+                          {record.start_time} - {record.end_time}
+                          <div className="text-xs text-slate-500 font-normal mt-1">Total: {parseFloat(record.total_hours.toString()).toFixed(1)} hours</div>
                         </div>
                       </div>
                     </td>

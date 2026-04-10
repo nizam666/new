@@ -398,10 +398,7 @@ function AppContent() {
             </div>
             <JCBOperationsForm 
               workArea="quarry" 
-              onSuccess={() => {
-                window.location.hash = 'quarry-jcb-operations-list';
-                window.location.reload();
-              }} 
+              onSuccess={() => window.location.reload()} 
             />
           </div>
         );
@@ -418,10 +415,7 @@ function AppContent() {
             </div>
             <JCBOperationsForm 
               workArea="crusher" 
-              onSuccess={() => {
-                window.location.hash = 'crusher-jcb-operations-list';
-                window.location.reload();
-              }} 
+              onSuccess={() => window.location.reload()} 
             />
           </div>
         );
