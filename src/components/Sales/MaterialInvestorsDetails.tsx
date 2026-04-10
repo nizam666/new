@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Search, User, IndianRupee, Phone, Calendar, Mail, FileText, AlertCircle, TrendingUp, Filter, Pencil, Trash2, Weight } from 'lucide-react';
+import { Search, User, Phone, Calendar, Mail, FileText, AlertCircle, TrendingUp, Filter, Pencil, Trash2, Weight } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 

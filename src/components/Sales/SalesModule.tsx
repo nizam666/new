@@ -41,6 +41,12 @@ export function SalesModule() {
     return () => window.removeEventListener('hashchange', handleHash);
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'customers') {
+      loadCustomers();
+    }
+  }, [activeTab]);
+
   const loadCustomers = async () => {
     setLoading(true);
     try {
