@@ -17,6 +17,7 @@ import {
   Activity,
   Layers
 } from 'lucide-react';
+import { AttendanceForm } from '../Contractor/AttendanceForm';
 
 interface DashboardStats {
   totalDrillingRecords: number;
@@ -338,6 +339,18 @@ export function DirectorDashboard() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Quick Attendance Section */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-8 animate-in slide-in-from-bottom-4 duration-700">
+        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+          <Clock className="w-5 h-5 text-indigo-500" />
+          Quick Attendance
+        </h2>
+        <AttendanceForm 
+          onSuccess={() => loadDashboardData()} 
+          title="Daily Attendance Logger"
+        />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">

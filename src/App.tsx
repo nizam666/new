@@ -11,6 +11,7 @@ import { LoadingForm } from './components/Contractor/LoadingForm';
 import { TransportForm } from './components/Contractor/TransportForm';
 import { MediaForm } from './components/Contractor/MediaForm';
 import { InventoryForm } from './components/Inventory/InventoryForm';
+import { AttendanceForm } from './components/Contractor/AttendanceForm';
 import { FuelForm } from './components/Fuel/FuelForm';
 import { SafetyForm } from './components/Safety/SafetyForm';
 import { MobileOperations } from './components/Contractor/MobileOperations';
@@ -89,13 +90,30 @@ function AppContent() {
           return <ContractorDashboard />;
         }
         return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Welcome, {user.full_name}!</h2>
-              <p className="text-slate-600 mt-1 capitalize">Role: {user.role.replace('_', ' ')}</p>
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight transition-all">Welcome, {user.full_name}!</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">Role: {user.role.replace('_', ' ')}</p>
+              </div>
+              <div className="px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-black text-indigo-600 uppercase tracking-widest shadow-sm">
+                Operational Terminal
+              </div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-              <p className="text-slate-600">Select a module from the sidebar to get started</p>
+
+            <div className="grid grid-cols-1 gap-8">
+              {/* Quick Attendance Entry for All Staff */}
+              <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 p-8">
+                <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-indigo-500" />
+                  Quick Attendance Entry
+                </h3>
+                <AttendanceForm title="Daily Team Log" />
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-400 font-medium">
+                Select a module from the sidebar to view detailed operations
+              </div>
             </div>
           </div>
         );
