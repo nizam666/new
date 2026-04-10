@@ -29,6 +29,14 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
   const [summaryRows, setSummaryRows] = useState<any[]>([]);
   const [summaryTotals, setSummaryTotals] = useState({ hours: 0, fuel: 0, dieselHours: 0, records: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [initialNameSet, setInitialNameSet] = useState(false);
+
+  useEffect(() => {
+    if (user && user.full_name && !initialNameSet && !formData.vehicle_number) {
+      setFormData(prev => ({ ...prev, vehicle_number: user.full_name }));
+      setInitialNameSet(true);
+    }
+  }, [user, initialNameSet, formData.vehicle_number]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
