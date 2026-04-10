@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Search, FileText, Filter, Pencil, Trash2, Sliders, Plus, Settings, ChevronDown } from 'lucide-react';
+import { Search, FileText, Filter, Pencil, Trash2, Plus, Settings, ChevronDown } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface Investor {
