@@ -117,7 +117,6 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
     }
   }, [user, summaryMonth, summaryYear, refreshKey]);
 
-
   const calculateHours = () => {
     if (formData.start_time && formData.end_time) {
       const start = parseFloat(formData.start_time);
@@ -306,7 +305,7 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
             </label>
             <input
               type="text"
-              name="driver_name"
+              name="vehicle_number"
               value={formData.vehicle_number}
               onChange={handleChange}
               required
