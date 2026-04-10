@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Info, Check } from 'lucide-react';
+import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const PRODUCT_TYPES = [
@@ -77,7 +77,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
       return;
     }
 
-    const { basePrice, totalPrice } = calculateRates();
+    const { totalPrice } = calculateRates();
 
     setLoading(true);
     try {
