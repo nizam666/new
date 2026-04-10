@@ -357,56 +357,66 @@ export function AttendanceReportModule() {
                 </div>
               </div>
 
-              {/* Location Data */}
+              {/* Location Data - Embedded Maps */}
               {(selectedRecord.location_in || selectedRecord.location_out) && (
                 <div className="space-y-4">
                   <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <MapPinIcon className="w-4 h-4 text-red-500" />
-                    Geotags
+                    <MapPinIcon className="w-4 h-4 text-rose-500" />
+                    Live Location Map
                   </h4>
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {selectedRecord.location_in && (
-                      <div className="flex items-center justify-between p-3 bg-red-50/50 border border-red-100 rounded-xl group/loc">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">
-                             <MapPinIcon className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-red-400 uppercase">Login Location</p>
-                            <p className="text-sm font-mono font-medium text-red-900">{selectedRecord.location_in}</p>
-                          </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Login Location</p>
+                          <a 
+                            href={`https://www.google.com/maps?q=${selectedRecord.location_in}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                          >
+                            Open Maps <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
                         </div>
-                        <a 
-                          href={`https://www.google.com/maps?q=${selectedRecord.location_in}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
-                          title="View on Google Maps"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
+                        <div className="aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                          <iframe
+                            width="100%"
+                            height="100%"
+                            frameBorder="0"
+                            scrolling="no"
+                            marginHeight={0}
+                            marginWidth={0}
+                            src={`https://maps.google.com/maps?q=${selectedRecord.location_in}&z=15&output=embed`}
+                            className="grayscale-[20%] contrast-[110%]"
+                          ></iframe>
+                        </div>
                       </div>
                     )}
                     {selectedRecord.location_out && (
-                      <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl group/loc">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-600">
-                             <MapPinIcon className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">Logout Location</p>
-                            <p className="text-sm font-mono font-medium text-slate-900">{selectedRecord.location_out}</p>
-                          </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Logout Location</p>
+                          <a 
+                            href={`https://www.google.com/maps?q=${selectedRecord.location_out}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                          >
+                            Open Maps <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
                         </div>
-                        <a 
-                          href={`https://www.google.com/maps?q=${selectedRecord.location_out}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors"
-                          title="View on Google Maps"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
+                        <div className="aspect-video rounded-2xl overflow-hidden border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                          <iframe
+                            width="100%"
+                            height="100%"
+                            frameBorder="0"
+                            scrolling="no"
+                            marginHeight={0}
+                            marginWidth={0}
+                            src={`https://maps.google.com/maps?q=${selectedRecord.location_out}&z=15&output=embed`}
+                            className="grayscale-[20%] contrast-[110%]"
+                          ></iframe>
+                        </div>
                       </div>
                     )}
                   </div>
