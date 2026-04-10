@@ -16,6 +16,7 @@ import {
     Wallet,
     List,
     BarChart3,
+    TrendingUp,
     Wrench,
     Receipt,
     Calculator,

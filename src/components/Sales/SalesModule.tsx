@@ -24,6 +24,12 @@ export function SalesModule() {
     return 'invoices';
   });
 
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showNewInvoice, setShowNewInvoice] = useState(false);
+  const [showInvestorForm, setShowInvestorForm] = useState(false);
+  const [editingInvestor, setEditingInvestor] = useState<any>(null);
+
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace('#', '');
