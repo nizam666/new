@@ -1,11 +1,11 @@
 
--- Create jcb_operations table
+-- Create jcb_operations table with improved column names
 CREATE TABLE IF NOT EXISTS jcb_operations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   contractor_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   date date NOT NULL,
-  operator_name text NOT NULL, -- Stores Work Type from the form
-  vehicle_number text NOT NULL, -- Stores Driver Name from the form
+  work_type text NOT NULL, -- Stores "Loading", "Excavation", etc.
+  driver_name text NOT NULL, -- Stores the name of the driver
   location text NOT NULL,
   start_time text NOT NULL, -- Machine hours start
   end_time text NOT NULL, -- Machine hours end

@@ -7,8 +7,8 @@ import { format } from 'date-fns';
 type JCBRecord = {
   id: string;
   date: string;
-  operator_name: string;
-  vehicle_number: string;
+  work_type: string;
+  driver_name: string;
   location: string;
   start_time: string;
   end_time: string;
@@ -53,8 +53,8 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
 
       if (searchTerm) {
         query = query.or(
-          `operator_name.ilike.%${searchTerm}%,
-           vehicle_number.ilike.%${searchTerm}%,
+          `work_type.ilike.%${searchTerm}%,
+           driver_name.ilike.%${searchTerm}%,
            licence_number.ilike.%${searchTerm}%,
            location.ilike.%${searchTerm}%,
            work_description.ilike.%${searchTerm}%`
@@ -165,10 +165,10 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
                     Date
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Operator
+                    Work Type
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Vehicle
+                    Driver
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Licence No
@@ -199,10 +199,10 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-900">{record.operator_name}</div>
+                      <div className="text-sm text-slate-900">{record.work_type}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-slate-900">{record.vehicle_number}</div>
+                      <div className="text-sm font-medium text-slate-900">{record.driver_name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-slate-500">{record.licence_number || '-'}</div>

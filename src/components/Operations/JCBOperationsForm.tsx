@@ -11,8 +11,8 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
-    operator_name: '',
-    vehicle_number: '',
+    work_type: '',
+    driver_name: '',
     start_time: '',
     end_time: '',
     total_hours: '',
@@ -143,11 +143,11 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
   }, [user, summaryMonth, summaryYear, refreshKey]);
 
   useEffect(() => {
-    if (user && user.full_name && !initialNameSet && !formData.vehicle_number) {
-      setFormData(prev => ({ ...prev, vehicle_number: user.full_name }));
+    if (user && user.full_name && !initialNameSet && !formData.driver_name) {
+      setFormData(prev => ({ ...prev, driver_name: user.full_name }));
       setInitialNameSet(true);
     }
-  }, [user, initialNameSet, formData.vehicle_number]);
+  }, [user, initialNameSet, formData.driver_name]);
 
   const calculateHours = () => {
     if (formData.start_time && formData.end_time) {
@@ -172,10 +172,11 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
   const validateForm = () => {
     const errors: string[] = [];
 
-    if (!formData.operator_name) {
-      errors.push('Work Type is required');
+    if (!formData.work_type) {
+      setError('Work Type is required');
+      return false;
     }
-    if (!formData.vehicle_number) {
+    if (!formData.driver_name) {
       errors.push('Driver Name is required');
     }
     if (!formData.start_time) {
@@ -213,8 +214,8 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
       const jcbData = {
         contractor_id: user?.id,
         date: formData.date,
-        operator_name: formData.operator_name,
-        vehicle_number: formData.vehicle_number,
+        work_type: formData.work_type,
+        driver_name: formData.driver_name,
         location: workArea === 'quarry' ? 'Quarry' : workArea === 'crusher' ? 'Crusher' : 'Site',
         start_time: formData.start_time,
         end_time: formData.end_time,
@@ -237,8 +238,8 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
       // Reset form
       setFormData({
         date: new Date().toISOString().split('T')[0],
-        operator_name: '',
-        vehicle_number: '',
+        work_type: '',
+        driver_name: '',
         start_time: '',
         end_time: '',
         total_hours: '',
@@ -306,28 +307,27 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Work Type *
           </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {[
-              'Good borders loading',
-              'Material loading',
-              'Bunker works',
-              'Crusher works',
-              'Quarry works'
-            ].map((workType) => (
+          <div className="flex flex-wrap gap-2">
+            {['Loading', 'Excavation', 'Leveling', 'Hammering', 'Breaking'].map((type) => (
               <button
-                key={workType}
+                key={type}
                 type="button"
-                onClick={() => setFormData({ ...formData, operator_name: workType })}
-                className={`px-3 py-3 rounded-lg border-2 transition-all transform hover:scale-[1.02] active:scale-95 text-sm ${
-                  formData.operator_name === workType
-                    ? 'bg-amber-600 text-white border-amber-600 shadow-md'
-                    : 'bg-white text-slate-700 border-slate-300 hover:border-amber-400 hover:bg-amber-50'
-                }`}
+                onClick={() => setFormData(p => ({ ...p, work_type: type }))}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${formData.work_type === type
+                    ? 'bg-amber-600 text-white shadow-md'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:border-amber-500 hover:text-amber-600'
+                  }`}
               >
-                {workType}
+                {type}
               </button>
             ))}
           </div>
+          <input
+            type="hidden"
+            name="work_type"
+            value={formData.work_type}
+            required
+          />
         </div>
 
         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -337,12 +337,13 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
             </label>
             <input
               type="text"
-              name="vehicle_number"
-              value={formData.vehicle_number}
+              name="driver_name"
+              value={formData.driver_name}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              placeholder="Enter driver name"
+              readOnly
+              className="w-full px-4 py-2 border border-slate-300 bg-slate-50 rounded-lg font-medium text-slate-900"
+              placeholder="Driver name"
             />
           </div>
 
