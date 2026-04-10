@@ -183,8 +183,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       // 3. Upload photo
       const photoUrl = await uploadPhoto(photoBlob, employeeId.trim().toUpperCase(), action);
 
-      // 4. Record attendance
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA'); // Local date in YYYY-MM-DD format
       const now = new Date().toISOString();
       const currentLocation = await getCurrentLocation();
 
