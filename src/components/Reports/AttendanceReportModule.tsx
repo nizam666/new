@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Clock, Search, Calendar, RefreshCw, Users, AlertCircle } from 'lucide-react';
+import { Clock, Search, Calendar, RefreshCw, Users, AlertCircle, X, MapPin as MapPinIcon, ExternalLink, Image as ImageIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 type WorkAreaFilter = 'all' | 'quarry' | 'crusher' | 'general';
@@ -8,11 +8,14 @@ type WorkAreaFilter = 'all' | 'quarry' | 'crusher' | 'general';
 type AttendanceRecord = {
   id: string;
   employee_id: string;
+  employee_name: string;
   date: string;
   check_in: string | null;
   check_out: string | null;
   check_in_photo: string | null;
   check_out_photo: string | null;
+  location_in: string | null;
+  location_out: string | null;
   work_area: string | null;
   created_at: string;
 };
@@ -43,13 +46,14 @@ export function AttendanceReportModule() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       let query = supabase
-        .from('selfie_attendance')
+        .from('attendance_details_view')
         .select('*')
         .order('date', { ascending: false })
         .order('check_in', { ascending: false });
@@ -60,7 +64,7 @@ export function AttendanceReportModule() {
       if (dateFrom) query = query.gte('date', dateFrom);
       if (dateTo) query = query.lte('date', dateTo);
       if (searchTerm) {
-        query = query.ilike('employee_id', `%${searchTerm}%`);
+        query = query.or(`employee_id.ilike.%${searchTerm}%,employee_name.ilike.%${searchTerm}%`);
       }
 
       const { data, error } = await query.limit(200);
@@ -215,7 +219,7 @@ export function AttendanceReportModule() {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Date', 'Employee ID', 'Work Area', 'Check In', 'Check Out', 'Hours Worked', 'Status'].map(h => (
+                  {['Date', 'Employee', 'Work Area', 'Check In', 'Check Out', 'Hours Worked', 'Status'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       {h}
                     </th>
@@ -231,8 +235,18 @@ export function AttendanceReportModule() {
                       <td className="px-5 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
                         {record.date ? format(parseISO(record.date), 'dd MMM yyyy') : '—'}
                       </td>
-                      <td className="px-5 py-3 whitespace-nowrap font-mono text-sm text-slate-800 font-semibold">
-                        {record.employee_id}
+                      <td 
+                        className="px-5 py-4 whitespace-nowrap cursor-pointer hover:bg-slate-100 group transition-all"
+                        onClick={() => setSelectedRecord(record)}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-900 group-hover:text-indigo-600">
+                             {record.employee_name}
+                          </span>
+                          <span className="text-xs font-mono text-slate-500 uppercase tracking-wider">
+                            {record.employee_id}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-5 py-3 whitespace-nowrap">
                         {getWorkAreaBadge(record.work_area)}
@@ -264,6 +278,151 @@ export function AttendanceReportModule() {
           <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-400">
             Showing {records.length} record{records.length !== 1 ? 's' : ''}
             {completedCount > 0 && ` · ${completedCount} completed`}
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {selectedRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">{selectedRecord.employee_name}</h3>
+                  <p className="text-sm text-slate-500 uppercase tracking-widest font-mono font-semibold">{selectedRecord.employee_id}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedRecord(null)}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-8">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-4 h-4 text-emerald-500" />
+                    <span className="text-xs font-semibold text-slate-500 uppercase">Punch In</span>
+                  </div>
+                  <p className="text-lg font-bold text-slate-900 italic">{formatTime(selectedRecord.check_in)}</p>
+                  <p className="text-xs text-slate-400 mt-1">{selectedRecord.date ? format(parseISO(selectedRecord.date), 'dd MMM yyyy') : ''}</p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-4 h-4 text-rose-500" />
+                    <span className="text-xs font-semibold text-slate-500 uppercase">Punch Out</span>
+                  </div>
+                  <p className="text-lg font-bold text-slate-900 italic">{formatTime(selectedRecord.check_out) || 'Active Shift'}</p>
+                  <p className="text-xs text-slate-400 mt-1">{calcHours(selectedRecord.check_in, selectedRecord.check_out) !== '—' ? `Total: ${calcHours(selectedRecord.check_in, selectedRecord.check_out)}` : 'In Progress'}</p>
+                </div>
+              </div>
+
+              {/* Photos Grid */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-indigo-500" />
+                  Visual Logs
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Check-in Photo</p>
+                    <div className="aspect-square rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shadow-inner">
+                      {selectedRecord.check_in_photo ? (
+                        <img src={selectedRecord.check_in_photo} alt="Punch In" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">No Photo</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Check-out Photo</p>
+                    <div className="aspect-square rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shadow-inner">
+                      {selectedRecord.check_out_photo ? (
+                        <img src={selectedRecord.check_out_photo} alt="Punch Out" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">No Photo</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location Data */}
+              {(selectedRecord.location_in || selectedRecord.location_out) && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <MapPinIcon className="w-4 h-4 text-red-500" />
+                    Geotags
+                  </h4>
+                  <div className="grid grid-cols-1 gap-3">
+                    {selectedRecord.location_in && (
+                      <div className="flex items-center justify-between p-3 bg-red-50/50 border border-red-100 rounded-xl group/loc">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">
+                             <MapPinIcon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-red-400 uppercase">Login Location</p>
+                            <p className="text-sm font-mono font-medium text-red-900">{selectedRecord.location_in}</p>
+                          </div>
+                        </div>
+                        <a 
+                          href={`https://www.google.com/maps?q=${selectedRecord.location_in}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
+                          title="View on Google Maps"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                    )}
+                    {selectedRecord.location_out && (
+                      <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl group/loc">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-600">
+                             <MapPinIcon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase">Logout Location</p>
+                            <p className="text-sm font-mono font-medium text-slate-900">{selectedRecord.location_out}</p>
+                          </div>
+                        </div>
+                        <a 
+                          href={`https://www.google.com/maps?q=${selectedRecord.location_out}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors"
+                          title="View on Google Maps"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
+               <button 
+                onClick={() => setSelectedRecord(null)}
+                className="w-full py-3 px-4 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 hover:bg-slate-100 transition-all shadow-sm"
+               >
+                 Close Details
+               </button>
+            </div>
           </div>
         </div>
       )}
