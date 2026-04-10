@@ -210,7 +210,56 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           throw new Error(`You are already Punched IN. Please Punch OUT first.`);
         }
 
-        // 2. Check if there was a previous session today that is ALREADY completed
+        // 1. Check for an APPROVED EXTRA PUNCH record today
+        // We look for any record that is 'approved' but has no check_in time yet
+        const { data: approvedRequest } = await supabase
+          .from('selfie_attendance')
+          .select('id, punch_status')
+          .eq('employee_id', employeeId.trim().toUpperCase())
+          .eq('date', today)
+          .eq('punch_status', 'approved')
+          .is('check_in', null)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (approvedRequest) {
+           console.log("Found approved authorization! Updating record:", approvedRequest.id);
+           const { error: updateError } = await supabase
+             .from('selfie_attendance')
+             .update({
+               check_in: now,
+               check_in_photo: photoUrl,
+               location_in: currentLocation,
+               updated_at: now
+             })
+             .eq('id', approvedRequest.id);
+
+           if (updateError) throw updateError;
+
+           setStatus('success');
+           setStatusMessage(`Successfully Punched IN (Authorized) at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome back, ${workerName}!`);
+           return;
+        }
+
+        // 2. Check for a PENDING EXTRA PUNCH record today
+        const { data: pendingRequest } = await supabase
+          .from('selfie_attendance')
+          .select('id, punch_status')
+          .eq('employee_id', employeeId.trim().toUpperCase())
+          .eq('date', today)
+          .eq('punch_status', 'pending')
+          .is('check_in', null)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (pendingRequest) {
+           console.log("Found pending request, blocking.");
+           throw new Error(`Your extra punch request is pending. Please wait for the Director to approve it.`);
+        }
+
+        // 3. Check if they ALREADY completed a shift today (to show request modal)
         const { data: completedRecord } = await supabase
           .from('selfie_attendance')
           .select('id')
@@ -221,88 +270,31 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           .maybeSingle();
 
         if (completedRecord) {
-           console.log("Found completed shift today:", completedRecord);
-           // EXTRA PUNCH WORKFLOW
-           // Check for an existing authorization record (check_in is null)
-           const { data: requestRecord } = await supabase
-             .from('selfie_attendance')
-             .select('id, punch_status')
-             .eq('employee_id', employeeId.trim().toUpperCase())
-             .eq('date', today)
-             .is('check_in', null) // specifically looking for the placeholder
-             .order('created_at', { ascending: false }) // Prioritize the latest request
-             .limit(1)
-             .maybeSingle();
-
-           console.log("Search for placeholder request found:", requestRecord);
-
-           if (!requestRecord) {
-              console.log("No request found, showing modal.");
-              // No request exists yet for the second shift
-              setShowPermissionModal(true);
-              setStatus('idle');
-              return;
-           }
-
-           if (requestRecord.punch_status === 'pending') {
-              throw new Error(`Your extra punch request is pending. Please wait for the Director to approve it.`);
-           }
-
-           if (requestRecord.punch_status === 'approved') {
-              // Authorized Extra Punch! We update the authorization record.
-              const { error: updateError } = await supabase
-                .from('selfie_attendance')
-                .update({
-                  check_in: now,
-                  check_in_photo: photoUrl,
-                  location_in: currentLocation,
-                  updated_at: now
-                })
-                .eq('id', requestRecord.id);
-
-              if (updateError) throw updateError;
-
-              setStatus('success');
-              setStatusMessage(`Successfully Punched IN (Authorized) at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome back, ${workerName}!`);
-              return; // End punch_in logic
-           }
+           console.log("Found completed shift today, but no approval. Showing modal.");
+           setShowPermissionModal(true);
+           setStatus('idle');
+           return;
         }
         
-        // STANDARD FIRST PUNCH OF THE DAY (or no completed/pending records)
-        // Check if they already have any record today at all to be safe
-        const { data: anyRecord } = await supabase
+        // 4. STANDARD FIRST PUNCH OF THE DAY 
+        // We only reach here if no approved/pending/completed records exist for today
+        console.log("Proceeding with standard first punch insert.");
+        const { error: insertError } = await supabase
           .from('selfie_attendance')
-          .select('id, punch_status, check_in')
-          .eq('employee_id', employeeId.trim().toUpperCase())
-          .eq('date', today)
-          .order('id', { ascending: false }) // Check latest record
-          .limit(1)
-          .maybeSingle();
-        
-        console.log("Fallback status check (anyRecord):", anyRecord);
+          .insert({
+            employee_id: employeeId.trim().toUpperCase(),
+            date: today,
+            check_in: now,
+            check_in_photo: photoUrl,
+            work_area: workArea,
+            location_in: currentLocation,
+            punch_status: 'approved'
+          });
 
-        if (!anyRecord || (anyRecord.check_in !== null && !completedRecord)) {
-          console.log("Proceeding with standard first punch insert.");
-          const { error: insertError } = await supabase
-            .from('selfie_attendance')
-            .insert({
-              employee_id: employeeId.trim().toUpperCase(),
-              date: today,
-              check_in: now,
-              check_in_photo: photoUrl,
-              work_area: workArea,
-              location_in: currentLocation,
-              punch_status: 'approved'
-            });
-
-          if (insertError) throw insertError;
-
-          setStatus('success');
-          setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerName}!`);
-          return;
-        } else if (anyRecord.punch_status === 'pending') {
-           throw new Error(`Your request is pending. Please wait for the Director to approve it.`);
-        }
+        if (insertError) throw insertError;
+        setStatus('success');
+        setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerName}!`);
+        return;
       } else {
         // PUNCH OUT LOGIC: must have an active session
         if (!activeSession) {
