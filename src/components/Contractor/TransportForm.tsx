@@ -65,6 +65,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     empty_vehicle_weight: '',
     gross_weight: ''
   });
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Summary State
   const now = new Date();
@@ -139,7 +140,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         .select('vehicle_number, vehicle_type')
         .eq('contractor_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
 
@@ -150,10 +151,10 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             unique[item.vehicle_number] = item.vehicle_type;
           }
         });
-        const top5 = Object.entries(unique)
-          .slice(0, 5)
+        const top20 = Object.entries(unique)
+          .slice(0, 20)
           .map(([number, type]) => ({ number, type }));
-        setRecentVehicles(top5);
+        setRecentVehicles(top20);
       }
     } catch (err) {
       console.error('Error fetching recent vehicles:', err);
@@ -428,14 +429,41 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Vehicle Number *
           </label>
-          <input
-            type="text"
-            value={formData.vehicle_number}
-            onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase().replace(/\s/g, '') })}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent uppercase"
-            placeholder="e.g. TN 01 AB 1234"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={formData.vehicle_number}
+              onChange={(e) => {
+                setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase().replace(/\s/g, '') });
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              required
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent uppercase"
+              placeholder="Search or enter number"
+            />
+            {showSuggestions && formData.vehicle_number && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                {recentVehicles
+                  .filter(v => v.number.includes(formData.vehicle_number))
+                  .map(v => (
+                    <button
+                      key={v.number}
+                      type="button"
+                      className="w-full px-4 py-3 text-left hover:bg-purple-50 flex items-center justify-between border-b border-slate-50 last:border-0"
+                      onClick={() => {
+                        setFormData({ ...formData, vehicle_number: v.number, vehicle_type: v.type });
+                        setShowSuggestions(false);
+                      }}
+                    >
+                      <span className="font-bold text-slate-900">{v.number}</span>
+                      <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase">{v.type}</span>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
           
           {recentVehicles.length > 0 && (
             <div className="mt-3">
@@ -443,7 +471,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 <Clock className="w-3 h-3" /> Recent Vehicles
               </p>
               <div className="flex flex-wrap gap-2">
-                {recentVehicles.map((v) => (
+                {recentVehicles.slice(0, 5).map((v) => (
                   <button
                     key={v.number}
                     type="button"
