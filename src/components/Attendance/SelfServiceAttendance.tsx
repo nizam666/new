@@ -531,6 +531,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         />
       )}
     </div>
+  </div>
   );
 }
 
