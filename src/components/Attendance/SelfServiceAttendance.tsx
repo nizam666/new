@@ -221,14 +221,15 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         if (completedRecord) {
            // EXTRA PUNCH WORKFLOW
            // Check for an existing authorization record (check_in is null)
-           const { data: requestRecord } = await supabase
-             .from('selfie_attendance')
-             .select('id, punch_status')
-             .eq('employee_id', employeeId.trim().toUpperCase())
-             .eq('date', today)
-             .is('check_in', null) 
-             .limit(1)
-             .maybeSingle();
+            const { data: requestRecord } = await supabase
+              .from('selfie_attendance')
+              .select('id, punch_status')
+              .eq('employee_id', employeeId.trim().toUpperCase())
+              .eq('date', today)
+              .is('check_in', null) 
+              .order('created_at', { ascending: false }) // Prioritize the latest request
+              .limit(1)
+              .maybeSingle();
 
            if (!requestRecord) {
               // No request exists yet for the second shift
@@ -268,6 +269,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           .select('id, punch_status')
           .eq('employee_id', employeeId.trim().toUpperCase())
           .eq('date', today)
+          .order('created_at', { ascending: false }) // Check latest status first
           .limit(1)
           .maybeSingle();
         
