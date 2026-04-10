@@ -415,9 +415,10 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       setStatusMessage("Your request for an extra punch has been submitted to the Director. Please wait for approval.");
       setRequestReason('');
       
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error requesting permission:", err);
-      alert("Failed to submit request: " + (err instanceof Error ? err.message : "Connect error"));
+      const errorMsg = err.message || err.details || (typeof err === 'string' ? err : "Connect error");
+      alert("Failed to submit request: " + errorMsg);
     } finally {
       setIsSubmittingRequest(false);
     }
@@ -571,18 +572,18 @@ function PermissionModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
       <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-        {/* Header matching image */}
-        <div className="bg-[#FFF8E1] p-6 border-b border-[#FFE082] flex flex-col items-center text-center">
+        {/* Header - Light Blue Theme */}
+        <div className="bg-blue-50 p-6 border-b border-blue-100 flex flex-col items-center text-center">
            <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center mb-3">
-             <span className="text-2xl">🔒</span>
+             <span className="text-2xl">🛡️</span>
            </div>
            <h3 className="text-xl font-bold text-slate-900">Permission Required</h3>
         </div>
 
         {/* Content */}
         <div className="p-8 space-y-6">
-           <p className="text-center text-slate-600 leading-relaxed">
-             You have already completed your attendance today. To punch in again, you need permission from the Admin.
+           <p className="text-center text-slate-600 leading-relaxed text-sm">
+             You have already completed your attendance today. To punch in again, you need permission from the <span className="font-semibold text-blue-600">Director</span>.
            </p>
 
            <div className="space-y-3">
@@ -590,8 +591,8 @@ function PermissionModal({
              <textarea 
                value={reason}
                onChange={(e) => setReason(e.target.value)}
-               placeholder="Explain why you need to work more today..."
-               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all resize-none h-28"
+               placeholder="Why do you need to work more today?"
+               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none h-28"
                disabled={loading}
              />
            </div>
@@ -599,9 +600,9 @@ function PermissionModal({
            <button 
              onClick={onSubmit}
              disabled={loading || !reason.trim()}
-             className="w-full py-4 bg-[#FFC107] hover:bg-[#FFB300] disabled:opacity-50 text-slate-900 font-bold rounded-2xl shadow-lg shadow-amber-200 flex items-center justify-center gap-2 transition-all transform active:scale-95"
+             className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-all transform active:scale-95"
            >
-             {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <span>🚀</span>}
+             {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : null}
              {loading ? 'Submitting...' : 'Request Permission'}
            </button>
 
