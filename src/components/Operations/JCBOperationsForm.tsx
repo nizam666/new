@@ -51,7 +51,7 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
 
       const { data, error } = await supabase
         .from('jcb_operations')
-        .select('date, total_hours, fuel_consumed')
+        .select('date, start_time, end_time, total_hours, fuel_consumed')
         .eq('contractor_id', user.id)
         .gte('date', fromStr)
         .lte('date', toStr)
@@ -63,32 +63,37 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
         const grouped: Record<string, any> = {};
         let totalHours = 0;
         let totalFuel = 0;
-        let totalDiesel = 0;
         let totalRecords = 0;
 
         data.forEach((row: any) => {
           if (!grouped[row.date]) {
             grouped[row.date] = {
               date: row.date,
+              start: row.start_time,
+              end: row.end_time,
               hours: 0,
               fuel: 0,
-              dieselHours: 0,
               records: 0
             };
           }
 
+          // Track min start and max end for the day
+          if (parseFloat(row.start_time) < parseFloat(grouped[row.date].start)) {
+            grouped[row.date].start = row.start_time;
+          }
+          if (parseFloat(row.end_time) > parseFloat(grouped[row.date].end)) {
+            grouped[row.date].end = row.end_time;
+          }
+
           const hours = parseFloat(row.total_hours) || 0;
           const fuel = parseFloat(row.fuel_consumed) || 0;
-          const dieselHours = parseFloat(row.diesel_given_hours) || 0;
 
           grouped[row.date].hours += hours;
           grouped[row.date].fuel += fuel;
-          grouped[row.date].dieselHours += dieselHours;
           grouped[row.date].records += 1;
 
           totalHours += hours;
           totalFuel += fuel;
-          totalDiesel += dieselHours;
           totalRecords += 1;
         });
 
@@ -496,9 +501,10 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
           <thead className="bg-slate-50 text-slate-700">
             <tr>
               <th className="px-4 py-3 text-slate-700">Date</th>
-              <th className="px-4 py-3 text-center">Hours</th>
-              <th className="px-4 py-3 text-right">Fuel (L)</th>
-              <th className="px-4 py-3 text-center text-slate-500 uppercase tracking-wider">Records</th>
+              <th className="px-4 py-3 text-center">Start (Hrs)</th>
+              <th className="px-4 py-3 text-center">End (Hrs)</th>
+              <th className="px-4 py-3 text-center">Total Hrs</th>
+              <th className="px-4 py-3 text-right">Diesel (L)</th>
             </tr>
           </thead>
           <tbody>
@@ -506,14 +512,15 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
               summaryRows.map((row) => (
                 <tr key={row.date} className="border-t border-slate-200">
                   <td className="px-4 py-3 font-medium text-slate-900">{row.date}</td>
-                  <td className="px-4 py-3 text-center text-slate-700">{row.hours.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-right text-slate-700">{row.fuel.toFixed(1)}</td>
-                  <td className="px-4 py-3 text-center text-slate-700">{row.records}</td>
+                  <td className="px-4 py-3 text-center text-slate-600 border-l border-slate-100">{parseFloat(row.start).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-center text-slate-600 border-l border-slate-100">{parseFloat(row.end).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-center text-slate-900 font-bold border-l border-slate-100">{row.hours.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right text-slate-700 border-l border-slate-100">{row.fuel.toFixed(1)}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
                   {summaryLoading ? 'Loading monthly summary...' : 'No JCB operations found for this month.'}
                 </td>
               </tr>
@@ -523,13 +530,14 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
             <tfoot className="bg-slate-50 text-slate-900 font-semibold">
               <tr>
                 <td className="px-4 py-3 text-slate-900 uppercase font-black">Total</td>
+                <td className="px-4 py-3 border-l border-slate-100"></td>
+                <td className="px-4 py-3 border-l border-slate-100"></td>
                 <td className="px-4 py-3 text-center text-slate-900 font-bold border-l border-slate-100">
                   <span className="inline-flex items-center gap-1"><TrendingUp className="w-4 h-4 text-amber-500" />{summaryTotals.hours.toFixed(2)}</span>
                 </td>
                 <td className="px-4 py-3 text-right text-slate-900 font-bold border-l border-slate-100">
                   <span className="inline-flex items-center gap-1"><Fuel className="w-4 h-4 text-red-500" />{summaryTotals.fuel.toFixed(1)}</span>
                 </td>
-                <td className="px-4 py-3 text-center text-slate-900 font-bold border-l border-slate-100">{summaryTotals.records}</td>
               </tr>
             </tfoot>
           )}
