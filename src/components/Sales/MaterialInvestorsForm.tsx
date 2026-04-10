@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Weight, Info, Calendar, User, Phone } from 'lucide-react';
+import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Weight, Info, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const PRODUCT_TYPES = [
@@ -22,15 +22,11 @@ const GST_OPTIONS = [
 interface InvestorData {
   id?: string;
   product_type: string;
-  investor_name: string;
-  contact_number: string;
-  email: string;
   quantity_mt: string | number;
   sales_price: string | number;
   gst_rate: number;
   hsn: string;
   investment_date: string;
-  notes: string;
   status: 'active' | 'inactive' | 'closed';
 }
 
@@ -46,15 +42,11 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
   
   const [formData, setFormData] = useState<InvestorData>({
     product_type: initialData?.product_type || PRODUCT_TYPES[0],
-    investor_name: initialData?.investor_name || '',
-    contact_number: initialData?.contact_number || '',
-    email: initialData?.email || '',
     quantity_mt: initialData?.quantity_mt || '',
     sales_price: initialData?.sales_price || '',
     gst_rate: initialData?.gst_rate || 5,
     hsn: initialData?.hsn || '',
     investment_date: initialData?.investment_date || new Date().toISOString().split('T')[0],
-    notes: initialData?.notes || '',
     status: initialData?.status || 'active'
   });
 
@@ -96,15 +88,11 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
       if (isSaveAndNew) {
         setFormData({
           product_type: PRODUCT_TYPES[0],
-          investor_name: '',
-          contact_number: '',
-          email: '',
           quantity_mt: '',
           sales_price: '',
           gst_rate: 5,
           hsn: '',
           investment_date: new Date().toISOString().split('T')[0],
-          notes: '',
           status: 'active'
         });
       } else if (onSuccess) {
@@ -140,7 +128,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
             </button>
             <div>
               <h1 className="text-3xl font-black text-indigo-950 tracking-tight">Material Inventory</h1>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Add Product & Investment Details</p>
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Add Product & Stock Details</p>
             </div>
           </div>
 
@@ -159,7 +147,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
             <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-full -mr-16 -mt-16 transition-all group-within:bg-indigo-600" />
               <div className="relative z-10">
-                <label className="block text-xs font-black text-indigo-500 uppercase tracking-widest mb-4 font-black">Select Product / Material <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-black text-indigo-500 uppercase tracking-widest mb-4">Select Product / Material <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <select
                     value={formData.product_type}
@@ -278,52 +266,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
                       />
                       <Calendar className="w-5 h-5 text-slate-300" />
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Investor Details Section */}
-              <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white">
-                <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
-                    <User className="w-4 h-4 text-indigo-600" />
-                  </div>
-                  <h2 className="text-xl font-black text-indigo-950 tracking-tight">Partner / Investor Details</h2>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-                  <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Investor Name</label>
-                    <input
-                      type="text"
-                      value={formData.investor_name}
-                      onChange={(e) => setFormData({ ...formData, investor_name: e.target.value })}
-                      className="w-full py-3 border-b-2 border-slate-100 focus:border-indigo-600 bg-transparent text-lg font-bold text-slate-800 outline-none transition-all"
-                      placeholder="Name of the capital provider"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Investor Phone</label>
-                    <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
-                      <input
-                        type="tel"
-                        value={formData.contact_number}
-                        onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                        className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
-                        placeholder="+91"
-                      />
-                      <Phone className="w-5 h-5 text-slate-300" />
-                    </div>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Additional Remarks</label>
-                    <textarea
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      rows={3}
-                      className="w-full py-4 border-2 border-slate-50 bg-slate-50/50 rounded-2xl focus:border-indigo-600 focus:bg-white text-lg font-medium text-slate-800 outline-none transition-all resize-none px-4 shadow-inner"
-                      placeholder="Specify return terms or material grade specifics..."
-                    />
                   </div>
                 </div>
               </div>
