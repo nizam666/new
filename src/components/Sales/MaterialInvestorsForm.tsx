@@ -7,12 +7,16 @@ import { toast } from 'react-toastify';
 const PRODUCT_TYPES = [
   'Aggregate 20mm',
   'Aggregate 40mm',
+  'Aggregate 12mm',
+  'Aggregate 6mm',
   'GSB (Granular Sub Base)',
   'M-Sand',
   'P-Sand',
   'Dust',
-  'Boulders',
-  'Others'
+  'All mix',
+  'Wet mix',
+  'Q-Boulders',
+  'S-boulders'
 ];
 
 const GST_OPTIONS = [
