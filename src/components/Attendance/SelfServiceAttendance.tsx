@@ -379,26 +379,29 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         .single();
 
       if (insertError) throw insertError;
+      if (!newRecord) throw new Error("Failed to create attendance record.");
 
-      // 2. Create approval workflow request for Director
-      // We'll find one director to notify
+      // 2. Find a Director to notify
       const { data: director } = await supabase
         .from('users')
         .select('id')
         .eq('role', 'director')
         .limit(1)
-        .single();
+        .maybeSingle();
 
+      // 3. Create approval workflow request
       const { error: approvalError } = await supabase
         .from('approval_workflows')
         .insert({
           record_type: 'extra_punch',
           record_id: newRecord.id,
-          submitted_by: (await supabase.auth.getUser()).data.user?.id || director?.id, // Fallback to director if kiosk
+          submitted_by: (await supabase.auth.getUser()).data.user?.id || director?.id || null, 
           status: 'pending'
         });
 
-      if (approvalError) throw approvalError;
+      if (approvalError) {
+        console.error("Workflow Error:", approvalError);
+      }
 
       // 3. Create notification for Director
       if (director) {
