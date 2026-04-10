@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Weight, Info } from 'lucide-react';
+import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Weight, Info, Calendar, User, Phone } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const PRODUCT_TYPES = [
@@ -18,8 +18,6 @@ const PRODUCT_TYPES = [
 const GST_OPTIONS = [
   { label: 'GST @ 5%', value: 5 }
 ];
-
-type ActiveTab = 'Pricing' | 'Stock' | 'Other';
 
 interface InvestorData {
   id?: string;
@@ -45,7 +43,6 @@ interface MaterialInvestorsFormProps {
 export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: MaterialInvestorsFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('Pricing');
   
   const [formData, setFormData] = useState<InvestorData>({
     product_type: initialData?.product_type || PRODUCT_TYPES[0],
@@ -110,7 +107,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
           notes: '',
           status: 'active'
         });
-        setActiveTab('Pricing');
       } else if (onSuccess) {
         onSuccess();
       }
@@ -118,147 +114,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
       toast.error(error.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'Pricing':
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 animate-in fade-in duration-300">
-            {/* Sales Price */}
-            <div>
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Sales Price</label>
-              <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
-                <span className="text-xl font-bold text-slate-400 group-focus-within:text-indigo-600 transition-colors">₹</span>
-                <input
-                  type="number"
-                  value={formData.sales_price}
-                  onChange={(e) => setFormData({ ...formData, sales_price: e.target.value })}
-                  className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
-                  placeholder="0.00"
-                />
-                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-tighter px-3 py-1 bg-slate-50 rounded-full border border-slate-100 transition-all hover:bg-slate-100 cursor-pointer">
-                  Without Tax <ChevronDown className="w-3 h-3" />
-                </div>
-              </div>
-            </div>
-
-            {/* GST */}
-            <div>
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">GST Rate</label>
-              <div className="relative border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
-                <select
-                  value={formData.gst_rate}
-                  onChange={(e) => setFormData({ ...formData, gst_rate: parseInt(e.target.value) })}
-                  className="w-full py-3 bg-transparent text-lg font-bold text-slate-800 outline-none appearance-none cursor-pointer"
-                >
-                  {GST_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-400 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Unit */}
-            <div>
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Unit</label>
-              <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
-                <input
-                  type="text"
-                  value="MTON (Metric Tons)"
-                  disabled
-                  className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-500 outline-none"
-                />
-                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
-                  <Package className="w-4 h-4 text-slate-400" />
-                </div>
-              </div>
-            </div>
-
-            {/* HSN */}
-            <div>
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">HSN Code</label>
-              <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
-                <input
-                  type="text"
-                  value={formData.hsn}
-                  onChange={(e) => setFormData({ ...formData, hsn: e.target.value })}
-                  className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
-                  placeholder="Ex: 2517 (Aggregates HSN)"
-                />
-                <Settings className="w-5 h-5 text-indigo-400 cursor-pointer hover:rotate-90 transition-all" />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'Stock':
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in fade-in duration-300">
-            <div>
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Opening Stock Quantity</label>
-              <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
-                <input
-                  type="number"
-                  value={formData.quantity_mt}
-                  onChange={(e) => setFormData({ ...formData, quantity_mt: e.target.value })}
-                  className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
-                  placeholder="0.00"
-                />
-                <span className="text-lg font-black text-indigo-400">MT</span>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">As of Date</label>
-              <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
-                <input
-                  type="date"
-                  value={formData.investment_date}
-                  onChange={(e) => setFormData({ ...formData, investment_date: e.target.value })}
-                  className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'Other':
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 animate-in fade-in duration-300">
-            <div>
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Investor Name</label>
-              <input
-                type="text"
-                value={formData.investor_name}
-                onChange={(e) => setFormData({ ...formData, investor_name: e.target.value })}
-                className="w-full py-3 border-b-2 border-slate-100 focus:border-indigo-600 bg-transparent text-lg font-bold text-slate-800 outline-none transition-all"
-                placeholder="Name of the capital provider"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Investor Phone</label>
-              <input
-                type="tel"
-                value={formData.contact_number}
-                onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                className="w-full py-3 border-b-2 border-slate-100 focus:border-indigo-600 bg-transparent text-lg font-bold text-slate-800 outline-none transition-all"
-                placeholder="+91"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Additional Remarks / Returns Policy</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={3}
-                className="w-full py-4 border-2 border-slate-50 bg-slate-50/50 rounded-2xl focus:border-indigo-600 focus:bg-white text-lg font-medium text-slate-800 outline-none transition-all resize-none px-4 shadow-inner"
-                placeholder="Specify return terms, partnership percentage, or material grade specifics..."
-              />
-            </div>
-          </div>
-        );
     }
   };
 
@@ -274,7 +129,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     <div className="min-h-[90vh] bg-slate-100/30 flex flex-col p-4 md:p-8 lg:p-12 animate-in fade-in zoom-in-95 duration-500">
       <div className="w-full max-w-6xl mx-auto flex flex-col gap-8">
         
-        {/* Top Navigation & Header */}
+        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-6">
             <button 
@@ -284,8 +139,8 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-3xl font-black text-indigo-950 tracking-tight">Create New Item</h1>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Inventory Management System</p>
+              <h1 className="text-3xl font-black text-indigo-950 tracking-tight">Material Inventory</h1>
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Add Product & Investment Details</p>
             </div>
           </div>
 
@@ -296,15 +151,15 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
           </div>
         </div>
 
-        {/* Form Body - Grid Layout */}
+        {/* Dashboard Form Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           <div className="lg:col-span-8 space-y-8">
-            {/* Header Field - High Focus */}
+            {/* Product Header Card */}
             <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-full -mr-16 -mt-16 transition-all group-within:bg-indigo-600" />
               <div className="relative z-10">
-                <label className="block text-xs font-black text-indigo-500 uppercase tracking-widest mb-4">Select Product / Material <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-black text-indigo-500 uppercase tracking-widest mb-4 font-black">Select Product / Material <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <select
                     value={formData.product_type}
@@ -320,76 +175,206 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
               </div>
             </div>
 
-            {/* Tabbed Navigation Container */}
-            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white overflow-hidden min-h-[500px] flex flex-col">
-              <div className="flex border-b border-slate-50 bg-slate-50/30">
-                {(['Pricing', 'Stock', 'Other'] as ActiveTab[]).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 px-8 py-6 text-xs font-black uppercase tracking-widest transition-all relative ${
-                      activeTab === tab ? 'text-indigo-600 bg-white' : 'text-slate-400 hover:text-indigo-400'
-                    }`}
-                  >
-                    {tab}
-                    {activeTab === tab && (
-                      <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600" />
-                    )}
-                  </button>
-                ))}
+            {/* Main Information Sections */}
+            <div className="grid grid-cols-1 gap-8">
+              {/* Pricing & GST Section */}
+              <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white">
+                <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
+                    <IndianRupee className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <h2 className="text-xl font-black text-indigo-950 tracking-tight">Pricing & Taxes</h2>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Sales Price</label>
+                    <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
+                      <span className="text-xl font-bold text-slate-400 group-focus-within:text-indigo-600 transition-colors">₹</span>
+                      <input
+                        type="number"
+                        value={formData.sales_price}
+                        onChange={(e) => setFormData({ ...formData, sales_price: e.target.value })}
+                        className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">GST Rate (Standard)</label>
+                    <div className="relative border-b-2 border-slate-100 bg-slate-50/50 px-2 rounded-t-lg">
+                      <select
+                        value={formData.gst_rate}
+                        disabled
+                        className="w-full py-3 bg-transparent text-lg font-bold text-slate-500 outline-none appearance-none cursor-not-allowed"
+                      >
+                        {GST_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Unit</label>
+                    <div className="flex items-center border-b-2 border-slate-100">
+                      <input
+                        type="text"
+                        value="MTON (Metric Tons)"
+                        disabled
+                        className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-400 outline-none"
+                      />
+                      <Package className="w-5 h-5 text-slate-300" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">HSN Code</label>
+                    <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
+                      <input
+                        type="text"
+                        value={formData.hsn}
+                        onChange={(e) => setFormData({ ...formData, hsn: e.target.value })}
+                        className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
+                        placeholder="Ex: 2517"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-12 flex-1">
-                {renderTabContent()}
+              {/* Stock Details Section */}
+              <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white">
+                <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
+                    <Weight className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <h2 className="text-xl font-black text-indigo-950 tracking-tight">Inventory & Stock</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Opening Stock Quantity</label>
+                    <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
+                      <input
+                        type="number"
+                        value={formData.quantity_mt}
+                        onChange={(e) => setFormData({ ...formData, quantity_mt: e.target.value })}
+                        className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
+                        placeholder="0.00"
+                      />
+                      <span className="text-lg font-black text-indigo-400">MT</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">As of Date</label>
+                    <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
+                      <input
+                        type="date"
+                        value={formData.investment_date}
+                        onChange={(e) => setFormData({ ...formData, investment_date: e.target.value })}
+                        className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
+                      />
+                      <Calendar className="w-5 h-5 text-slate-300" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Investor Details Section */}
+              <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white">
+                <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
+                    <User className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <h2 className="text-xl font-black text-indigo-950 tracking-tight">Partner / Investor Details</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Investor Name</label>
+                    <input
+                      type="text"
+                      value={formData.investor_name}
+                      onChange={(e) => setFormData({ ...formData, investor_name: e.target.value })}
+                      className="w-full py-3 border-b-2 border-slate-100 focus:border-indigo-600 bg-transparent text-lg font-bold text-slate-800 outline-none transition-all"
+                      placeholder="Name of the capital provider"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Investor Phone</label>
+                    <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
+                      <input
+                        type="tel"
+                        value={formData.contact_number}
+                        onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                        className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
+                        placeholder="+91"
+                      />
+                      <Phone className="w-5 h-5 text-slate-300" />
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Additional Remarks</label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      rows={3}
+                      className="w-full py-4 border-2 border-slate-50 bg-slate-50/50 rounded-2xl focus:border-indigo-600 focus:bg-white text-lg font-medium text-slate-800 outline-none transition-all resize-none px-4 shadow-inner"
+                      placeholder="Specify return terms or material grade specifics..."
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Sidebar Summary & Actions */}
-          <div className="lg:col-span-4 space-y-8">
-            {/* Live Pricing Summary Sidebar */}
+          {/* Sidebar Area */}
+          <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8">
+            {/* Asset Summary Card */}
             <div className="bg-indigo-900 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-900/30 relative overflow-hidden group">
               <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl transition-all group-hover:scale-110" />
               
               <div className="relative z-10 space-y-8">
                 <div className="flex items-center justify-between opacity-60">
-                  <span className="text-[10px] font-black uppercase tracking-widest">Pricing Overview</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Inventory Asset Audit</span>
                   <Info className="w-4 h-4 cursor-pointer" />
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-sm font-bold text-indigo-300">Total Asset Value</p>
+                  <p className="text-sm font-bold text-indigo-300 uppercase tracking-widest">Total Valuation</p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black">₹{calculateGrandTotal().toLocaleString('en-IN', { minimumFractionDigits: 0 })}</span>
-                    <span className="text-sm font-bold opacity-60">incl. tax</span>
+                    <span className="text-5xl font-black tracking-tighter">₹{calculateGrandTotal().toLocaleString('en-IN', { minimumFractionDigits: 0 })}</span>
                   </div>
+                  <p className="text-[10px] font-bold text-indigo-400 bg-indigo-950/40 w-fit px-3 py-1 rounded-full border border-indigo-500/20">Includes 5% Standard GST</p>
                 </div>
 
                 <div className="pt-8 border-t border-indigo-500/30 space-y-4">
-                  <div className="flex justify-between items-center bg-indigo-950/40 p-4 rounded-2xl">
+                  <div className="flex justify-between items-center bg-indigo-950/40 p-5 rounded-2xl border border-indigo-800/20">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center">
-                        <Weight className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg">
+                        <Weight className="w-5 h-5 text-white" />
                       </div>
-                      <span className="text-xs font-bold text-indigo-200">Total Quantity</span>
+                      <span className="text-xs font-bold text-indigo-200 uppercase tracking-widest">Net Quantity</span>
                     </div>
-                    <span className="text-lg font-black">{parseFloat(String(formData.quantity_mt)) || 0} MT</span>
+                    <span className="text-xl font-black">{parseFloat(String(formData.quantity_mt)) || 0} MT</span>
                   </div>
 
-                  <div className="flex justify-between items-center bg-indigo-950/40 p-4 rounded-2xl">
+                  <div className="flex justify-between items-center bg-indigo-950/40 p-5 rounded-2xl border border-indigo-800/20">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center">
-                        <IndianRupee className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shadow-lg">
+                        <IndianRupee className="w-5 h-5 text-white" />
                       </div>
-                      <span className="text-xs font-bold text-indigo-200">Sales Rate</span>
+                      <span className="text-xs font-bold text-indigo-200 uppercase tracking-widest">Market Rate</span>
                     </div>
-                    <span className="text-lg font-black">₹{parseFloat(String(formData.sales_price)) || 0}</span>
+                    <span className="text-xl font-black">₹{parseFloat(String(formData.sales_price)) || 0}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Desktop Action Sidebar */}
+            {/* Action Card */}
             <div className="bg-white rounded-[2.5rem] p-4 shadow-xl shadow-slate-200/50 border border-white flex flex-col gap-3">
               <button
                 onClick={(e) => handleSubmit(e)}
