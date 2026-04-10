@@ -16,12 +16,7 @@ const PRODUCT_TYPES = [
 ];
 
 const GST_OPTIONS = [
-  { label: 'None', value: 0 },
-  { label: 'GST @ 5%', value: 5 },
-  { label: 'GST @ 12%', value: 12 },
-  { label: 'GST @ 18%', value: 18 },
-  { label: 'GST @ 28%', value: 28 },
-  { label: 'Exempted', value: 0 }
+  { label: 'GST @ 5%', value: 5 }
 ];
 
 type ActiveTab = 'Pricing' | 'Stock' | 'Other';
