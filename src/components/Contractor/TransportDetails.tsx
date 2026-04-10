@@ -133,7 +133,7 @@ export function TransportDetails() {
             <BarChart3 className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.totalFuel.toFixed(1)} L</p>
-          <p className="text-sm text-slate-600">Total Fuel</p>
+          <p className="text-sm text-slate-600">Total Diesel</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -221,7 +221,7 @@ export function TransportDetails() {
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Fuel className="w-4 h-4 text-red-600" />
-                      <span className="text-xs font-medium text-slate-600">Fuel</span>
+                      <span className="text-xs font-medium text-slate-600">Diesel</span>
                     </div>
                     <p className="text-sm font-bold text-slate-900">{record.fuel_consumed} L</p>
                   </div>

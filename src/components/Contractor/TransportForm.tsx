@@ -284,7 +284,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Fuel Consumed (liters)
+            Diesel
           </label>
           <input
             type="number"
@@ -486,7 +486,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Trips</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Fuel (L)</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Diesel (L)</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-purple-700 uppercase tracking-wider">Quantity (tons)</th>
                 </tr>
               </thead>
@@ -517,7 +517,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                       </span>
                       <span className="flex items-center gap-1 text-sm font-semibold text-slate-700">
                         <Fuel className="w-4 h-4 text-red-500" />
-                        {summaryTotals.fuel.toFixed(1)} L
+                        {summaryTotals.fuel.toFixed(1)} L Diesel
                       </span>
                       <span className="flex items-center gap-1 text-sm font-bold text-purple-900">
                         <Package className="w-4 h-4 text-purple-600" />
