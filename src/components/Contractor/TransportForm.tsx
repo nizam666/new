@@ -573,7 +573,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         )}
 
-        {!['Weather Rocks', 'Soil'].includes(formData.material_transported) && (
+        {!['Weather Rocks', 'Soil', "Aggregate's Rehandling"].includes(formData.material_transported) && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Quantity (tons) {formData.material_transported === 'Good Boulders' && '(Computed)'}
