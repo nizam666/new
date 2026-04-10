@@ -188,13 +188,13 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       const now = new Date().toISOString();
       const currentLocation = await getCurrentLocation();
 
-      // Check current status: Fetch the most recent Active/Pending record for this employee
-      const { data: activeRecord, error: activeError } = await supabase
+      // 1. Fetch any TRUE active session (clocked in, but not clocked out)
+      const { data: activeSession, error: activeError } = await supabase
         .from('selfie_attendance')
         .select('id, check_out, date, punch_status')
         .eq('employee_id', employeeId.trim().toUpperCase())
         .is('check_out', null)
-        .order('check_in', { ascending: false })
+        .not('check_in', 'is', null) // Must have a check_in time to be an active session
         .limit(1)
         .maybeSingle();
 
@@ -203,18 +203,12 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         throw new Error(`Database Fetch Error: ${activeError.message}`);
       }
 
-      // If we are punching in, we must not have an active session
-      // If we are punching out, we MUST have an active session
       if (action === 'punch_in') {
-        if (activeRecord) {
-          if (activeRecord.punch_status === 'pending') {
-            throw new Error(`Your extra punch request is pending. Please wait for the Director to approve it.`);
-          }
+        if (activeSession) {
           throw new Error(`You are already Punched IN. Please Punch OUT first.`);
         }
 
-        // --- Extra Punch Check ---
-        // Check if there's already a completed shift today
+        // 2. Check if there was a previous session today that is ALREADY completed
         const { data: completedRecord } = await supabase
           .from('selfie_attendance')
           .select('id')
@@ -225,43 +219,59 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           .maybeSingle();
 
         if (completedRecord) {
-           // If we have a completed shift, we check if there's an approved permission waiting for check-in
-           const { data: permissionRecord } = await supabase
+           // EXTRA PUNCH WORKFLOW
+           // Check for an existing authorization record (check_in is null)
+           const { data: requestRecord } = await supabase
              .from('selfie_attendance')
              .select('id, punch_status')
              .eq('employee_id', employeeId.trim().toUpperCase())
              .eq('date', today)
-             .is('check_in', null) // specifically looking for the pre-authorized record
+             .is('check_in', null) 
              .limit(1)
              .maybeSingle();
 
-           if (!permissionRecord || permissionRecord.punch_status !== 'approved') {
-              if (permissionRecord?.punch_status === 'pending') {
-                throw new Error(`Your extra punch request is pending. Please wait for the Director to approve it.`);
-              }
+           if (!requestRecord) {
+              // No request exists yet for the second shift
               setShowPermissionModal(true);
               setStatus('idle');
               return;
            }
 
-           // If we reach here, we have an approved permissionRecord that hasn't been used yet
-           // We UPDATE that record instead of inserting a new one
-           const { error: updateError } = await supabase
-             .from('selfie_attendance')
-             .update({
-               check_in: now,
-               check_in_photo: photoUrl,
-               location_in: currentLocation,
-               updated_at: now
-             })
-             .eq('id', permissionRecord.id);
+           if (requestRecord.punch_status === 'pending') {
+              throw new Error(`Your extra punch request is pending. Please wait for the Director to approve it.`);
+           }
 
-           if (updateError) throw updateError;
+           if (requestRecord.punch_status === 'approved') {
+              // Authorized Extra Punch! We update the authorization record.
+              const { error: updateError } = await supabase
+                .from('selfie_attendance')
+                .update({
+                  check_in: now,
+                  check_in_photo: photoUrl,
+                  location_in: currentLocation,
+                  updated_at: now
+                })
+                .eq('id', requestRecord.id);
 
-           setStatus('success');
-           setStatusMessage(`Successfully Punched IN (Authorized) at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome back, ${workerName}!`);
-         } else {
-          // Standard first punch of the day
+              if (updateError) throw updateError;
+
+              setStatus('success');
+              setStatusMessage(`Successfully Punched IN (Authorized) at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome back, ${workerName}!`);
+              return; // End punch_in logic
+           }
+        }
+        
+        // STANDARD FIRST PUNCH OF THE DAY (or no completed/pending records)
+        // Check if they already have any record today at all to be safe
+        const { data: anyRecord } = await supabase
+          .from('selfie_attendance')
+          .select('id, punch_status')
+          .eq('employee_id', employeeId.trim().toUpperCase())
+          .eq('date', today)
+          .limit(1)
+          .maybeSingle();
+        
+        if (!anyRecord) {
           const { error: insertError } = await supabase
             .from('selfie_attendance')
             .insert({
@@ -278,14 +288,17 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
 
           setStatus('success');
           setStatusMessage(`Successfully Punched IN at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Welcome, ${workerName}!`);
+          return;
+        } else if (anyRecord.punch_status === 'pending') {
+           throw new Error(`Your request is pending. Please wait for the Director to approve it.`);
         }
       } else {
-        // Punch out logic: must have an active session
-        if (!activeRecord) {
+        // PUNCH OUT LOGIC: must have an active session
+        if (!activeSession) {
           throw new Error(`No active Punch In found. Please Punch In first.`);
         }
 
-        console.log("Preparing to update record:", activeRecord);
+        console.log("Preparing to update record:", activeSession);
 
         // Try primary update by ID
         let { data: updateData, error: updateError } = await supabase
@@ -296,7 +309,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
              location_out: currentLocation,
              updated_at: now
           })
-          .eq('id', activeRecord.id)
+          .eq('id', activeSession.id)
           .select();
 
         // Fallback: If primary update returned no rows, try by matching current open session for this employee
@@ -319,20 +332,14 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         }
 
         if (updateError) {
-          console.error("Database Update Error:", updateError);
-          throw new Error(`Database Error: ${updateError.message}`);
+          console.error("Punch Out Error:", updateError);
+          throw new Error(`Punch Out Error: ${updateError.message}`);
         }
 
         if (!updateData || updateData.length === 0) {
-          console.error("Critical: Punch Out failed to save even after fallback.", {
-            emp_id: employeeId.trim().toUpperCase(),
-            target_id: activeRecord.id
-          });
-          throw new Error("Failed to save Punch Out data. If the error persists, please check your internet connection.");
+          throw new Error("Failed to record Punch Out. Please contact support.");
         }
 
-        console.log("Verified Save Success:", updateData[0]);
-        
         setStatus('success');
         setStatusMessage(`Successfully Punched OUT at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Goodbye, ${workerName}!`);
       }
