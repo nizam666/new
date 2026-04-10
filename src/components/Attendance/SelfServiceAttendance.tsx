@@ -204,7 +204,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       }
 
       if (action === 'punch_in') {
+        console.log("Checking status for Punch In...", { employeeId, today });
         if (activeSession) {
+          console.log("Found active session:", activeSession);
           throw new Error(`You are already Punched IN. Please Punch OUT first.`);
         }
 
@@ -219,19 +221,23 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           .maybeSingle();
 
         if (completedRecord) {
+           console.log("Found completed shift today:", completedRecord);
            // EXTRA PUNCH WORKFLOW
            // Check for an existing authorization record (check_in is null)
-            const { data: requestRecord } = await supabase
-              .from('selfie_attendance')
-              .select('id, punch_status')
-              .eq('employee_id', employeeId.trim().toUpperCase())
-              .eq('date', today)
-              .is('check_in', null) 
-              .order('created_at', { ascending: false }) // Prioritize the latest request
-              .limit(1)
-              .maybeSingle();
+           const { data: requestRecord } = await supabase
+             .from('selfie_attendance')
+             .select('id, punch_status')
+             .eq('employee_id', employeeId.trim().toUpperCase())
+             .eq('date', today)
+             .is('check_in', null) // specifically looking for the placeholder
+             .order('created_at', { ascending: false }) // Prioritize the latest request
+             .limit(1)
+             .maybeSingle();
+
+           console.log("Search for placeholder request found:", requestRecord);
 
            if (!requestRecord) {
+              console.log("No request found, showing modal.");
               // No request exists yet for the second shift
               setShowPermissionModal(true);
               setStatus('idle');
@@ -266,14 +272,17 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         // Check if they already have any record today at all to be safe
         const { data: anyRecord } = await supabase
           .from('selfie_attendance')
-          .select('id, punch_status')
+          .select('id, punch_status, check_in')
           .eq('employee_id', employeeId.trim().toUpperCase())
           .eq('date', today)
-          .order('created_at', { ascending: false }) // Check latest status first
+          .order('id', { ascending: false }) // Check latest record
           .limit(1)
           .maybeSingle();
         
-        if (!anyRecord) {
+        console.log("Fallback status check (anyRecord):", anyRecord);
+
+        if (!anyRecord || (anyRecord.check_in !== null && !completedRecord)) {
+          console.log("Proceeding with standard first punch insert.");
           const { error: insertError } = await supabase
             .from('selfie_attendance')
             .insert({
