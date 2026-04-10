@@ -200,7 +200,7 @@ export function TransportDetails() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-slate-900">
-                        {record.vehicle_number} - {record.vehicle_type}
+                        {record.vehicle_number.replace(/\s/g, '')} - {record.vehicle_type}
                         <span className="ml-2 px-2 py-0.5 bg-slate-100 text-[10px] font-mono font-bold text-slate-500 rounded">
                           {record.trip_ref}
                         </span>

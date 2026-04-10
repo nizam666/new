@@ -396,7 +396,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           <input
             type="text"
             value={formData.vehicle_number}
-            onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase() })}
+            onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase().replace(/\s/g, '') })}
             required
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent uppercase"
             placeholder="e.g. TN 01 AB 1234"
@@ -540,7 +540,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         {formData.material_transported === 'Good Boulders' && (
-          <>
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Empty Vehicle (tons)
@@ -570,26 +570,28 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 placeholder="0.00"
               />
             </div>
-          </>
+          </div>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Quantity (tons) {formData.material_transported === 'Good Boulders' && '(Computed)'}
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.quantity}
-            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-            min="0"
-            disabled={formData.material_transported === 'Good Boulders'}
-            className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-              formData.material_transported === 'Good Boulders' ? 'bg-slate-50 text-slate-500 font-bold' : ''
-            }`}
-            placeholder="0.00"
-          />
-        </div>
+        {!['Weather Rocks', 'Soil'].includes(formData.material_transported) && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Quantity (tons) {formData.material_transported === 'Good Boulders' && '(Computed)'}
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+              min="0"
+              disabled={formData.material_transported === 'Good Boulders'}
+              className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                formData.material_transported === 'Good Boulders' ? 'bg-slate-50 text-slate-500 font-bold' : ''
+              }`}
+              placeholder="0.00"
+            />
+          </div>
+        )}
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-slate-700 mb-2">
