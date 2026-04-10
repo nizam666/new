@@ -396,7 +396,13 @@ function AppContent() {
               <h2 className="text-2xl font-bold text-slate-900">Quarry JCB Operations</h2>
               <p className="text-slate-600 mt-1">Manage Quarry JCB operations and maintenance</p>
             </div>
-            <JCBOperationsForm workArea="quarry" onSuccess={() => window.location.hash = 'quarry-jcb-operations-list'} />
+            <JCBOperationsForm 
+              workArea="quarry" 
+              onSuccess={() => {
+                window.location.hash = 'quarry-jcb-operations-list';
+                window.location.reload();
+              }} 
+            />
           </div>
         );
 
@@ -410,7 +416,13 @@ function AppContent() {
               <h2 className="text-2xl font-bold text-slate-900">Crusher JCB Operations</h2>
               <p className="text-slate-600 mt-1">Manage Crusher JCB operations and maintenance</p>
             </div>
-            <JCBOperationsForm workArea="crusher" onSuccess={() => window.location.hash = 'crusher-jcb-operations-list'} />
+            <JCBOperationsForm 
+              workArea="crusher" 
+              onSuccess={() => {
+                window.location.hash = 'crusher-jcb-operations-list';
+                window.location.reload();
+              }} 
+            />
           </div>
         );
 
