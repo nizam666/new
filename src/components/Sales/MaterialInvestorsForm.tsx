@@ -4,6 +4,17 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Settings, ArrowLeft, ChevronDown, Check, Package, IndianRupee, Weight, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 
+const PRODUCT_TYPES = [
+  'Aggregate 20mm',
+  'Aggregate 40mm',
+  'GSB (Granular Sub Base)',
+  'M-Sand',
+  'P-Sand',
+  'Dust',
+  'Boulders',
+  'Others'
+];
+
 const GST_OPTIONS = [
   { label: 'None', value: 0 },
   { label: 'GST @ 5%', value: 5 },
@@ -17,7 +28,7 @@ type ActiveTab = 'Pricing' | 'Stock' | 'Other';
 
 interface InvestorData {
   id?: string;
-  item_name: string; // Product Name
+  product_type: string;
   item_type: 'Product' | 'Service';
   investor_name: string;
   contact_number: string;
@@ -44,7 +55,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
   const [activeTab, setActiveTab] = useState<ActiveTab>('Pricing');
   
   const [formData, setFormData] = useState<InvestorData>({
-    item_name: initialData?.product_type || initialData?.item_name || '',
+    product_type: initialData?.product_type || PRODUCT_TYPES[0],
     item_type: initialData?.item_type || 'Product',
     investor_name: initialData?.investor_name || '',
     contact_number: initialData?.contact_number || '',
@@ -63,8 +74,8 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     if (e) e.preventDefault();
     if (!user) return;
 
-    if (!formData.item_name) {
-      toast.error('Item Name is required');
+    if (!formData.product_type) {
+      toast.error('Product Type is required');
       return;
     }
 
@@ -72,7 +83,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     try {
       const payload = {
         ...formData,
-        product_type: formData.item_name,
         quantity_mt: parseFloat(String(formData.quantity_mt)) || 0,
         rate_per_mt: parseFloat(String(formData.rate_per_mt)) || 0,
         investment_amount: (parseFloat(String(formData.quantity_mt)) || 0) * (parseFloat(String(formData.rate_per_mt)) || 0) * (1 + formData.gst_rate/100),
@@ -98,7 +108,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
 
       if (isSaveAndNew) {
         setFormData({
-          item_name: '',
+          product_type: PRODUCT_TYPES[0],
           item_type: 'Product',
           investor_name: '',
           contact_number: '',
@@ -350,15 +360,19 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
             <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-full -mr-16 -mt-16 transition-all group-within:bg-indigo-600" />
               <div className="relative z-10">
-                <label className="block text-xs font-black text-indigo-500 uppercase tracking-widest mb-4">Product / Item Name <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={formData.item_name}
-                  onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
-                  className="w-full p-0 text-4xl font-black text-indigo-950 bg-transparent outline-none placeholder:text-slate-100"
-                  placeholder="Ex: Aggregates 20mm PREMIUM"
-                  autoFocus
-                />
+                <label className="block text-xs font-black text-indigo-500 uppercase tracking-widest mb-4">Select Product / Material <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <select
+                    value={formData.product_type}
+                    onChange={(e) => setFormData({ ...formData, product_type: e.target.value })}
+                    className="w-full p-0 text-4xl font-black text-indigo-950 bg-transparent outline-none appearance-none cursor-pointer pr-10"
+                  >
+                    {PRODUCT_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 text-indigo-200 pointer-events-none" />
+                </div>
               </div>
             </div>
 
