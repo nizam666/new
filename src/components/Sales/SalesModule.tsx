@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Plus, Search, FileText, Users, TrendingUp, Mail, Phone } from 'lucide-react';
+import { Plus, Search, FileText, Users, TrendingUp, Mail, Phone, Clock } from 'lucide-react';
 import { InvoiceForm } from './InvoiceForm';
 import { InvoiceDetails } from './InvoiceDetails';
 import { MaterialInvestorsForm } from './MaterialInvestorsForm';
 import { MaterialInvestorsDetails } from './MaterialInvestorsDetails';
+import { AttendanceReportModule } from '../Reports/AttendanceReportModule';
 
 interface Customer {
   id: string;
@@ -17,10 +18,11 @@ interface Customer {
 
 export function SalesModule() {
   useAuth();
-  const [activeTab, setActiveTab] = useState<'invoices' | 'customers' | 'investors'>(() => {
+  const [activeTab, setActiveTab] = useState<'invoices' | 'customers' | 'investors' | 'attendance'>(() => {
     const hash = window.location.hash.replace('#', '');
     if (hash === 'material-investors') return 'investors';
     if (hash === 'customers') return 'customers';
+    if (hash === 'attendance') return 'attendance';
     return 'invoices';
   });
 
@@ -36,6 +38,7 @@ export function SalesModule() {
       if (hash === 'material-investors') setActiveTab('investors');
       else if (hash === 'customers') setActiveTab('customers');
       else if (hash === 'sales') setActiveTab('invoices');
+      else if (hash === 'attendance') setActiveTab('attendance');
     };
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
@@ -106,21 +109,21 @@ export function SalesModule() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Sales & Operations</h2>
-          <p className="text-slate-600 mt-1">Manage invoices, customers, and material investors</p>
+          <p className="text-slate-600 mt-1">Manage invoices, customers, and team attendance</p>
         </div>
         <div className="flex gap-3">
           {activeTab === 'investors' ? (
             <button
               onClick={() => {
-                setEditingInvestor(null);
-                setShowInvestorForm(true);
+                // Link to Production Stock for new inventory as requested
+                window.location.hash = '#production-stock';
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
             >
               <Plus className="w-5 h-5" />
-              New Investor
+              Manage Inventory
             </button>
-          ) : (
+          ) : activeTab === 'invoices' ? (
             <button
               onClick={() => setShowNewInvoice(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
@@ -128,16 +131,16 @@ export function SalesModule() {
               <Plus className="w-5 h-5" />
               New Invoice
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="border-b border-slate-200 bg-slate-50/50">
-          <div className="flex">
+          <div className="flex overflow-x-auto">
             <button
               onClick={() => setActiveTab('invoices')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all ${
+              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${
                 activeTab === 'invoices'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
@@ -150,7 +153,7 @@ export function SalesModule() {
             </button>
             <button
               onClick={() => setActiveTab('customers')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all ${
+              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${
                 activeTab === 'customers'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
@@ -163,7 +166,7 @@ export function SalesModule() {
             </button>
             <button
               onClick={() => setActiveTab('investors')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all ${
+              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${
                 activeTab === 'investors'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
@@ -171,7 +174,20 @@ export function SalesModule() {
             >
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" />
-                Investors
+                Price Master
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${
+                activeTab === 'attendance'
+                  ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Attendance
               </div>
             </button>
           </div>
@@ -183,7 +199,17 @@ export function SalesModule() {
           )}
 
           {activeTab === 'investors' && (
-            <MaterialInvestorsDetails onEdit={handleEditInvestor} />
+            <MaterialInvestorsDetails 
+              onEdit={handleEditInvestor} 
+              onAddNew={() => {
+                // Link to Production Stock for new inventory as requested
+                window.location.hash = '#production-stock';
+              }} 
+            />
+          )}
+
+          {activeTab === 'attendance' && (
+            <AttendanceReportModule />
           )}
 
           {activeTab === 'customers' && (
