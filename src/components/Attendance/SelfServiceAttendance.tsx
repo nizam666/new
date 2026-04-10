@@ -380,6 +380,8 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           status: 'pending'
         });
 
+      if (approvalError) throw approvalError;
+
       // 3. Create notification for Director
       if (director) {
         await supabase.from('notifications').insert({
