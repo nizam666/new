@@ -74,18 +74,51 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [recentVehicles, setRecentVehicles] = useState<{number: string, type: string}[]>([]);
   
-  const generateTripRef = () => {
-    const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `TRP-${date}-${random}`;
-  };
-
   useEffect(() => {
-    setFormData(prev => ({ ...prev, trip_ref: generateTripRef() }));
     if (user) {
+      fetchNextTripRef();
       fetchRecentVehicles();
     }
   }, [user]);
+
+  const fetchNextTripRef = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('transport_records')
+        .select('trip_ref')
+        .eq('contractor_id', user.id)
+        .order('trip_ref', { ascending: false })
+        .limit(50); // Get a batch to find the highest numeric part
+
+      if (error) throw error;
+
+      let nextNum = 1;
+      if (data && data.length > 0) {
+        // Find the maximum number among TRP-XXX formats
+        const numbers = data
+          .map(r => {
+            if (r.trip_ref && r.trip_ref.startsWith('TRP-')) {
+              const num = parseInt(r.trip_ref.replace('TRP-', ''), 10);
+              return isNaN(num) ? 0 : num;
+            }
+            return 0;
+          })
+          .filter(n => n > 0);
+        
+        if (numbers.length > 0) {
+          nextNum = Math.max(...numbers) + 1;
+        }
+      }
+
+      const formattedRef = `TRP-${nextNum.toString().padStart(3, '0')}`;
+      setFormData(prev => ({ ...prev, trip_ref: formattedRef }));
+    } catch (err) {
+      console.error('Error fetching next trip ref:', err);
+      // Fallback
+      setFormData(prev => ({ ...prev, trip_ref: 'TRP-001' }));
+    }
+  };
 
   const fetchRecentVehicles = async () => {
     if (!user) return;
@@ -264,6 +297,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
       alert('Transport record submitted successfully!');
       setRefreshKey(prev => prev + 1);
+      fetchNextTripRef(); // Generate the next sequential ID
       fetchRecentVehicles(); // Refresh the suggestions
       if (onSuccess) onSuccess();
     } catch (error: any) {
