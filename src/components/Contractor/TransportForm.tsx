@@ -230,6 +230,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       setFormData(prev => ({
         ...prev,
         material_transported: material,
+        from_location: 'Quarry',
         to_location: 'Soil dumping yard'
       }));
     } else if (material === "Weather Rocks") {
