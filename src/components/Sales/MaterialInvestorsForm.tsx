@@ -29,7 +29,6 @@ interface InvestorData {
   contact_number: string;
   email: string;
   quantity_mt: string | number;
-  rate_per_mt: string | number; // Purchase Price
   sales_price: string | number;
   gst_rate: number;
   hsn: string;
@@ -56,7 +55,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     contact_number: initialData?.contact_number || '',
     email: initialData?.email || '',
     quantity_mt: initialData?.quantity_mt || '',
-    rate_per_mt: initialData?.rate_per_mt || '',
     sales_price: initialData?.sales_price || '',
     gst_rate: initialData?.gst_rate || 5,
     hsn: initialData?.hsn || '',
@@ -79,8 +77,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
       const payload = {
         ...formData,
         quantity_mt: parseFloat(String(formData.quantity_mt)) || 0,
-        rate_per_mt: parseFloat(String(formData.rate_per_mt)) || 0,
-        investment_amount: (parseFloat(String(formData.quantity_mt)) || 0) * (parseFloat(String(formData.rate_per_mt)) || 0) * (1 + formData.gst_rate/100),
+        investment_amount: (parseFloat(String(formData.quantity_mt)) || 0) * (parseFloat(String(formData.sales_price)) || 0) * (1 + formData.gst_rate/100),
         updated_by: user.id
       };
 
@@ -109,7 +106,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
           contact_number: '',
           email: '',
           quantity_mt: '',
-          rate_per_mt: '',
           sales_price: '',
           gst_rate: 5,
           hsn: '',
@@ -142,24 +138,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
                   type="number"
                   value={formData.sales_price}
                   onChange={(e) => setFormData({ ...formData, sales_price: e.target.value })}
-                  className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
-                  placeholder="0.00"
-                />
-                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-tighter px-3 py-1 bg-slate-50 rounded-full border border-slate-100 transition-all hover:bg-slate-100 cursor-pointer">
-                  Without Tax <ChevronDown className="w-3 h-3" />
-                </div>
-              </div>
-            </div>
-
-            {/* Purchase Price */}
-            <div>
-              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Purchase Price</label>
-              <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
-                <span className="text-xl font-bold text-slate-400 group-focus-within:text-indigo-600 transition-colors">₹</span>
-                <input
-                  type="number"
-                  value={formData.rate_per_mt}
-                  onChange={(e) => setFormData({ ...formData, rate_per_mt: e.target.value })}
                   className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
                   placeholder="0.00"
                 />
@@ -203,7 +181,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
             </div>
 
             {/* HSN */}
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">HSN Code</label>
               <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
                 <input
@@ -289,7 +267,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
 
   const calculateGrandTotal = () => {
     const qty = parseFloat(String(formData.quantity_mt)) || 0;
-    const rate = parseFloat(String(formData.rate_per_mt)) || 0;
+    const rate = parseFloat(String(formData.sales_price)) || 0;
     const net = qty * rate;
     const tax = (net * formData.gst_rate) / 100;
     return net + tax;
@@ -432,9 +410,9 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
                       <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center">
                         <IndianRupee className="w-4 h-4" />
                       </div>
-                      <span className="text-xs font-bold text-indigo-200">Unit Rate</span>
+                      <span className="text-xs font-bold text-indigo-200">Sales Rate</span>
                     </div>
-                    <span className="text-lg font-black">₹{parseFloat(String(formData.rate_per_mt)) || 0}</span>
+                    <span className="text-lg font-black">₹{parseFloat(String(formData.sales_price)) || 0}</span>
                   </div>
                 </div>
               </div>
