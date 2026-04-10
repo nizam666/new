@@ -171,7 +171,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
       const { data, error } = await supabase
         .from('transport_records')
-        .select('date, fuel_consumed, quantity, number_of_trips')
+        .select('date, fuel_consumed, quantity, number_of_trips, from_location, to_location, material_transported')
         .eq('contractor_id', user.id)
         .gte('date', fromStr)
         .lte('date', toStr)
@@ -183,10 +183,17 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         // Group by date
         const grouped: Record<string, any> = {};
         let totalFuel = 0, totalQty = 0, totalTrips = 0;
+        let totalQC = 0, totalQS = 0, totalSC = 0;
+        let totalSoil = 0, totalWR = 0, totalAR = 0;
 
         data.forEach(row => {
           if (!grouped[row.date]) {
-            grouped[row.date] = { date: row.date, fuel: 0, qty: 0, trips: 0 };
+            grouped[row.date] = { 
+              date: row.date, 
+              fuel: 0, qty: 0, trips: 0,
+              qc: 0, qs: 0, sc: 0,
+              soil: 0, wr: 0, ar: 0
+            };
           }
           const f = parseFloat(row.fuel_consumed) || 0;
           const q = parseFloat(row.quantity) || 0;
@@ -196,13 +203,40 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           grouped[row.date].qty += q;
           grouped[row.date].trips += t;
 
+          // Categorize
+          if (row.from_location === 'Quarry' && row.to_location === 'Crusher') {
+            grouped[row.date].qc += t;
+            totalQC += t;
+          } else if (row.from_location === 'Quarry' && row.to_location === 'Stockyard') {
+            grouped[row.date].qs += t;
+            totalQS += t;
+          } else if (row.from_location === 'Stockyard' && row.to_location === 'Crusher') {
+            grouped[row.date].sc += t;
+            totalSC += t;
+          }
+
+          if (row.material_transported === 'Soil') {
+            grouped[row.date].soil += t;
+            totalSoil += t;
+          } else if (row.material_transported === 'Weather Rocks') {
+            grouped[row.date].wr += t;
+            totalWR += t;
+          } else if (row.material_transported === "Aggregate's Rehandling") {
+            grouped[row.date].ar += t;
+            totalAR += t;
+          }
+
           totalFuel += f;
           totalQty += q;
           totalTrips += t;
         });
 
         setSummaryRows(Object.values(grouped));
-        setSummaryTotals({ fuel: totalFuel, quantity: totalQty, trips: totalTrips });
+        setSummaryTotals({ 
+          fuel: totalFuel, quantity: totalQty, trips: totalTrips,
+          qc: totalQC, qs: totalQS, sc: totalSC,
+          soil: totalSoil, wr: totalWR, ar: totalAR
+        } as any);
       }
     } catch (err) {
       console.error('Error fetching summary:', err);
@@ -666,47 +700,49 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             <table className="min-w-full">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Trips</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Diesel (L)</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-purple-700 uppercase tracking-wider">Quantity (tons)</th>
+                  <th className="px-3 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                  <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">Q➔C</th>
+                  <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">Q➔S</th>
+                  <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">S➔C</th>
+                  <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider border-l border-slate-200">Soil</th>
+                  <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">W.Rock</th>
+                  <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">Agg.Reh</th>
+                  <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Diesel</th>
+                  <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tons</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {summaryRows.map((row, idx) => (
                   <tr key={row.date} className={`hover:bg-slate-50 transition-colors ${idx % 2 !== 0 ? 'bg-slate-50/40' : ''}`}>
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900 whitespace-nowrap">
+                    <td className="px-3 py-3 text-xs font-medium text-slate-900 whitespace-nowrap">
                       {new Date(row.date + 'T00:00:00').toLocaleDateString('en-IN', {
-                        weekday: 'short', day: '2-digit', month: 'short',
+                        day: '2-digit', month: 'short',
                       })}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-600">{row.trips}</td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-600">{row.fuel.toFixed(1)}</td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-purple-700">{row.qty.toFixed(2)}</td>
+                    <td className="px-2 py-3 text-xs text-center text-slate-600 border-l border-slate-100">{row.qc || '-'}</td>
+                    <td className="px-2 py-3 text-xs text-center text-slate-600">{row.qs || '-'}</td>
+                    <td className="px-2 py-3 text-xs text-center text-slate-600">{row.sc || '-'}</td>
+                    <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium border-l border-slate-100">{row.soil || '-'}</td>
+                    <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.wr || '-'}</td>
+                    <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.ar || '-'}</td>
+                    <td className="px-3 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.fuel.toFixed(1)}</td>
+                    <td className="px-3 py-3 text-xs text-right font-bold text-purple-700">{row.qty.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-purple-50 border-t-2 border-purple-200">
-                  <td className="px-4 py-3 text-xs font-bold text-purple-900">
-                    MONTHLY TOTALS
+                  <td className="px-3 py-3 text-[10px] font-black text-purple-900 uppercase">
+                    TOTALS
                   </td>
-                  <td className="px-4 py-3 text-right" colSpan={3}>
-                    <div className="flex flex-wrap justify-end gap-6">
-                      <span className="flex items-center gap-1 text-sm font-semibold text-slate-700">
-                        <TrendingUp className="w-4 h-4 text-purple-500" />
-                        {summaryTotals.trips} Trips
-                      </span>
-                      <span className="flex items-center gap-1 text-sm font-semibold text-slate-700">
-                        <Fuel className="w-4 h-4 text-red-500" />
-                        {summaryTotals.fuel.toFixed(1)} L Diesel
-                      </span>
-                      <span className="flex items-center gap-1 text-sm font-bold text-purple-900">
-                        <Package className="w-4 h-4 text-purple-600" />
-                        {summaryTotals.quantity.toFixed(2)} tons
-                      </span>
-                    </div>
-                  </td>
+                  <td className="px-2 py-3 text-center text-xs font-bold text-purple-900 border-l border-purple-100">{(summaryTotals as any).qc}</td>
+                  <td className="px-2 py-3 text-center text-xs font-bold text-purple-900">{(summaryTotals as any).qs}</td>
+                  <td className="px-2 py-3 text-center text-xs font-bold text-purple-900">{(summaryTotals as any).sc}</td>
+                  <td className="px-2 py-3 text-center text-xs font-bold text-blue-800 border-l border-purple-100">{(summaryTotals as any).soil}</td>
+                  <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{(summaryTotals as any).wr}</td>
+                  <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{(summaryTotals as any).ar}</td>
+                  <td className="px-3 py-3 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.fuel.toFixed(1)}</td>
+                  <td className="px-3 py-3 text-right text-xs font-black text-purple-900">{summaryTotals.quantity.toFixed(2)}</td>
                 </tr>
               </tfoot>
             </table>
