@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Save, User, Phone, Mail, IndianRupee, Calendar, Package, FileText, X } from 'lucide-react';
+import { Save, User, Phone, Mail, IndianRupee, Calendar, Package, FileText, X, Weight, Percent } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-const MATERIAL_TYPES = [
+const PRODUCT_TYPES = [
   'Aggregate 20mm',
   'Aggregate 40mm',
   'GSB (Granular Sub Base)',
@@ -15,13 +15,28 @@ const MATERIAL_TYPES = [
   'Others'
 ];
 
+const QUALITY_GRADES = [
+  'Premium',
+  'Standard',
+  'Economy',
+  'Grade A',
+  'Grade B',
+  'Others'
+];
+
 interface InvestorData {
   id?: string;
   investor_name: string;
   contact_number: string;
   email: string;
-  investment_amount: string | number;
-  material_type: string;
+  quantity_mt: string | number;
+  rate_per_mt: string | number;
+  gst_rate: number;
+  gst_amount: number;
+  total_amount_with_gst: number;
+  product_type: string;
+  quality_grade: string;
+  location: string;
   investment_date: string;
   notes: string;
   status: 'active' | 'inactive' | 'closed';
@@ -30,7 +45,7 @@ interface InvestorData {
 interface MaterialInvestorsFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
-  initialData?: InvestorData;
+  initialData?: any;
 }
 
 export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: MaterialInvestorsFormProps) {
@@ -42,12 +57,33 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     investor_name: initialData?.investor_name || '',
     contact_number: initialData?.contact_number || '',
     email: initialData?.email || '',
-    investment_amount: initialData?.investment_amount || '',
-    material_type: initialData?.material_type || 'Aggregate 20mm',
+    quantity_mt: initialData?.quantity_mt || '',
+    rate_per_mt: initialData?.rate_per_mt || '',
+    gst_rate: initialData?.gst_rate || 5,
+    gst_amount: initialData?.gst_amount || 0,
+    total_amount_with_gst: initialData?.total_amount_with_gst || 0,
+    product_type: initialData?.product_type || initialData?.material_type || PRODUCT_TYPES[0],
+    quality_grade: initialData?.quality_grade || QUALITY_GRADES[0],
+    location: initialData?.location || '',
     investment_date: initialData?.investment_date || new Date().toISOString().split('T')[0],
     notes: initialData?.notes || '',
     status: initialData?.status || 'active'
   });
+
+  // Auto-calculate GST and Total
+  useEffect(() => {
+    const qty = parseFloat(String(formData.quantity_mt)) || 0;
+    const rate = parseFloat(String(formData.rate_per_mt)) || 0;
+    const netTotal = qty * rate;
+    const gstAmt = (netTotal * formData.gst_rate) / 100;
+    const grandTotal = netTotal + gstAmt;
+
+    setFormData(prev => ({
+      ...prev,
+      gst_amount: gstAmt,
+      total_amount_with_gst: grandTotal
+    }));
+  }, [formData.quantity_mt, formData.rate_per_mt, formData.gst_rate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +96,9 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     try {
       const payload = {
         ...formData,
-        investment_amount: parseFloat(String(formData.investment_amount)) || 0,
+        quantity_mt: parseFloat(String(formData.quantity_mt)) || 0,
+        rate_per_mt: parseFloat(String(formData.rate_per_mt)) || 0,
+        investment_amount: formData.total_amount_with_gst, // Keep legacy field in sync
         updated_by: user.id
       };
 
@@ -71,14 +109,14 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
           .eq('id', initialData.id);
 
         if (error) throw error;
-        toast.success('Investor updated successfully!');
+        toast.success('Investor inventory updated successfully!');
       } else {
         const { error } = await supabase
           .from('material_investors')
           .insert([{ ...payload, created_by: user.id }]);
 
         if (error) throw error;
-        toast.success('Material investor added successfully!');
+        toast.success('New material investor record saved!');
       }
 
       if (onSuccess) onSuccess();
@@ -96,13 +134,13 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
         <div className="bg-slate-50 border-b border-slate-200 p-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-200">
-              <User className="w-6 h-6 text-white" />
+              <Package className="w-6 h-6 text-white" />
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-900">
-                {isEditing ? 'Edit Material Investor' : 'Add New Material Investor'}
+                {isEditing ? 'Edit Investor Inventory' : 'Add Investor Inventory'}
               </h3>
-              <p className="text-sm text-slate-500">Capital investment & material tracking</p>
+              <p className="text-sm text-slate-500">Track capital investment with 5% GST logic</p>
             </div>
           </div>
           {onCancel && (
@@ -120,7 +158,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
           {/* Investor Details Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
-              <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2">Investor Basic Details</h4>
+              <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2">Investor Contact Details</h4>
             </div>
 
             <div className="md:col-span-2">
@@ -174,14 +212,71 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
             </div>
           </div>
 
-          {/* Investment Details Section */}
+          {/* Product Inventory Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
             <div className="md:col-span-2">
-              <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2">Investment & Material</h4>
+              <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-100 pb-2">Product & Inventory Tracking</h4>
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Investment Amount (₹) <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Product Type <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Package className="h-5 w-5 text-slate-400" />
+                </div>
+                <select
+                  value={formData.product_type}
+                  onChange={(e) => setFormData({ ...formData, product_type: e.target.value })}
+                  required
+                  className="w-full pl-12 pr-10 py-3 border-2 border-slate-100 bg-slate-50/50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-900 appearance-none"
+                >
+                  {PRODUCT_TYPES.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Quality Grade <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <FileText className="h-5 w-5 text-slate-400" />
+                </div>
+                <select
+                  value={formData.quality_grade}
+                  onChange={(e) => setFormData({ ...formData, quality_grade: e.target.value })}
+                  required
+                  className="w-full pl-12 pr-10 py-3 border-2 border-slate-100 bg-slate-50/50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-900 appearance-none"
+                >
+                  {QUALITY_GRADES.map(grade => (
+                    <option key={grade} value={grade}>{grade}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Quantity (MT) <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Weight className="h-5 w-5 text-slate-400" />
+                </div>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.quantity_mt}
+                  onChange={(e) => setFormData({ ...formData, quantity_mt: e.target.value })}
+                  required
+                  className="w-full pl-12 pr-4 py-3 border-2 border-slate-100 bg-slate-50/50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-900"
+                  placeholder="Quantity in Metric Tons"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Rate per MT (₹) <span className="text-red-500">*</span></label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <IndianRupee className="h-5 w-5 text-slate-400" />
@@ -190,32 +285,24 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.investment_amount}
-                  onChange={(e) => setFormData({ ...formData, investment_amount: e.target.value })}
+                  value={formData.rate_per_mt}
+                  onChange={(e) => setFormData({ ...formData, rate_per_mt: e.target.value })}
                   required
                   className="w-full pl-12 pr-4 py-3 border-2 border-slate-100 bg-slate-50/50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-900"
-                  placeholder="0.00"
+                  placeholder="Rate per Metric Ton"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Material Type <span className="text-red-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Package className="h-5 w-5 text-slate-400" />
-                </div>
-                <select
-                  value={formData.material_type}
-                  onChange={(e) => setFormData({ ...formData, material_type: e.target.value })}
-                  required
-                  className="w-full pl-12 pr-10 py-3 border-2 border-slate-100 bg-slate-50/50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-900 appearance-none"
-                >
-                  {MATERIAL_TYPES.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Storage Location</label>
+              <input
+                type="text"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-slate-100 bg-slate-50/50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-900"
+                placeholder="e.g., Yard A, Section 2"
+              />
             </div>
 
             <div>
@@ -233,22 +320,30 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
                 />
               </div>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Investment Status</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <FileText className="h-5 w-5 text-slate-400" />
+          {/* Tax summary visualization */}
+          <div className="bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full -mr-32 -mt-32 blur-3xl transition-all group-hover:bg-blue-600/20" />
+            
+            <div className="relative z-10 space-y-4">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-xs font-black uppercase tracking-[0.2em]">Investment Summary</span>
+                <div className="flex items-center gap-2">
+                  <Percent className="w-3 h-3 text-blue-400" />
+                  <span className="text-xs font-bold text-blue-400">GST: {formData.gst_rate}%</span>
                 </div>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-full pl-12 pr-10 py-3 border-2 border-slate-100 bg-slate-50/50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-900 appearance-none"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="closed">Closed / Settled</option>
-                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8 pt-4">
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Tax Amount (GST)</p>
+                  <p className="text-xl font-black text-white">₹ {formData.gst_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Payble</p>
+                  <p className="text-3xl font-black text-blue-400">₹ {formData.total_amount_with_gst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -287,7 +382,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
             ) : (
               <>
                 <Save className="w-5 h-5" />
-                {isEditing ? 'Update Investor' : 'Add Investor'}
+                {isEditing ? 'Update Inventory' : 'Save Investment'}
               </>
             )}
           </button>

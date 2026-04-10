@@ -735,6 +735,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                   <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider border-l border-slate-200">Soil</th>
                   <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">W.Rock</th>
                   <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">Agg.Reh</th>
+                  <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Diesel</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -751,6 +752,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                     <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium border-l border-slate-100">{row.soil || '-'}</td>
                     <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.wr || '-'}</td>
                     <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.ar || '-'}</td>
+                    <td className="px-3 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.fuel.toFixed(1)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -765,6 +767,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                   <td className="px-2 py-3 text-center text-xs font-bold text-blue-800 border-l border-purple-100">{(summaryTotals as any).soil}</td>
                   <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{(summaryTotals as any).wr}</td>
                   <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{(summaryTotals as any).ar}</td>
+                  <td className="px-3 py-3 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.fuel.toFixed(1)}</td>
                 </tr>
               </tfoot>
             </table>

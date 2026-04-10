@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Search, User, IndianRupee, Phone, Calendar, Mail, FileText, AlertCircle, TrendingUp, Filter, Pencil, Trash2 } from 'lucide-react';
+import { Search, User, IndianRupee, Phone, Calendar, Mail, FileText, AlertCircle, TrendingUp, Filter, Pencil, Trash2, Weight } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 
@@ -9,8 +9,12 @@ interface Investor {
   investor_name: string;
   contact_number: string;
   email: string | null;
-  investment_amount: number;
-  material_type: string;
+  quantity_mt: number;
+  rate_per_mt: number;
+  gst_amount: number;
+  total_amount_with_gst: number;
+  product_type: string;
+  quality_grade: string;
   investment_date: string;
   status: 'active' | 'inactive' | 'closed';
   notes: string | null;
@@ -26,7 +30,11 @@ export function MaterialInvestorsDetails({ onEdit }: MaterialInvestorsDetailsPro
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'closed'>('all');
-  const [totalInvestment, setTotalInvestment] = useState(0);
+  const [totals, setTotals] = useState({
+    investment: 0,
+    tonnage: 0,
+    activeCount: 0
+  });
 
   const fetchInvestors = useCallback(async () => {
     setLoading(true);
@@ -41,7 +49,7 @@ export function MaterialInvestorsDetails({ onEdit }: MaterialInvestorsDetailsPro
       }
 
       if (searchTerm) {
-        query = query.or(`investor_name.ilike.%${searchTerm}%,material_type.ilike.%${searchTerm}%,contact_number.ilike.%${searchTerm}%`);
+        query = query.or(`investor_name.ilike.%${searchTerm}%,product_type.ilike.%${searchTerm}%,contact_number.ilike.%${searchTerm}%`);
       }
 
       const { data, error } = await query;
@@ -49,8 +57,14 @@ export function MaterialInvestorsDetails({ onEdit }: MaterialInvestorsDetailsPro
       if (error) throw error;
       setInvestors(data || []);
 
-      const total = (data || []).reduce((sum, inv) => sum + (inv.investment_amount || 0), 0);
-      setTotalInvestment(total);
+      const calculated = (data || []).reduce((acc, inv) => {
+        acc.investment += (inv.total_amount_with_gst || 0);
+        acc.tonnage += (inv.quantity_mt || 0);
+        if (inv.status === 'active') acc.activeCount++;
+        return acc;
+      }, { investment: 0, tonnage: 0, activeCount: 0 });
+
+      setTotals(calculated);
     } catch (error) {
       console.error('Error fetching investors:', error);
       toast.error('Failed to load investors');
@@ -98,8 +112,18 @@ export function MaterialInvestorsDetails({ onEdit }: MaterialInvestorsDetailsPro
             <TrendingUp className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Investment</p>
-            <p className="text-xl font-black text-slate-900">₹{totalInvestment.toLocaleString('en-IN')}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Investment (Incl. GST)</p>
+            <p className="text-xl font-black text-slate-900">₹{totals.investment.toLocaleString('en-IN')}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+            <Weight className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total MT Invested</p>
+            <p className="text-xl font-black text-slate-900">{totals.tonnage.toLocaleString()} MT</p>
           </div>
         </div>
 
@@ -108,18 +132,8 @@ export function MaterialInvestorsDetails({ onEdit }: MaterialInvestorsDetailsPro
             <User className="w-6 h-6 text-green-600" />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Investors</p>
-            <p className="text-xl font-black text-slate-900">{investors.filter(i => i.status === 'active').length}</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
-            <AlertCircle className="w-6 h-6 text-slate-600" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Partners</p>
-            <p className="text-xl font-black text-slate-900">{investors.length}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Partners</p>
+            <p className="text-xl font-black text-slate-900">{totals.activeCount}</p>
           </div>
         </div>
       </div>
@@ -130,7 +144,7 @@ export function MaterialInvestorsDetails({ onEdit }: MaterialInvestorsDetailsPro
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search investors, materials, or phone..."
+            placeholder="Search investors, products, or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border-2 border-slate-50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
@@ -158,31 +172,32 @@ export function MaterialInvestorsDetails({ onEdit }: MaterialInvestorsDetailsPro
             <thead className="bg-slate-50">
               <tr>
                 <th scope="col" className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Investor</th>
-                <th scope="col" className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Material</th>
-                <th scope="col" className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
+                <th scope="col" className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Product & Grade</th>
+                <th scope="col" className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity (MT)</th>
+                <th scope="col" className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Rate & Tax</th>
+                <th scope="col" className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Investment</th>
                 <th scope="col" className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                <th scope="col" className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
                 <th scope="col" className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={7} className="px-6 py-12 text-center">
                     <div className="flex justify-center flex-col items-center gap-3">
                       <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      <p className="text-sm font-bold text-slate-400">Loading your investors...</p>
+                      <p className="text-sm font-bold text-slate-400">Loading inventory data...</p>
                     </div>
                   </td>
                 </tr>
               ) : investors.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
+                  <td colSpan={7} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
-                        <User className="w-8 h-8 text-slate-300" />
+                        <FileText className="w-8 h-8 text-slate-300" />
                       </div>
-                      <p className="text-slate-500 font-bold">No investors found matching your search</p>
+                      <p className="text-slate-500 font-bold">No records found</p>
                     </div>
                   </td>
                 </tr>
@@ -198,35 +213,42 @@ export function MaterialInvestorsDetails({ onEdit }: MaterialInvestorsDetailsPro
                           <div className="text-sm font-black text-slate-900">{investor.investor_name}</div>
                           <div className="flex items-center gap-3 mt-0.5">
                             <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500"><Phone className="w-3 h-3" />{investor.contact_number}</span>
-                            {investor.email && (
-                              <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500"><Mail className="w-3 h-3" />{investor.email}</span>
-                            )}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-slate-400" />
-                        <span className="font-bold text-slate-700">{investor.material_type}</span>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-700">{investor.product_type}</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{investor.quality_grade}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-sm font-black text-slate-900">{investor.quantity_mt.toLocaleString()}</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">MT</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-xs font-bold text-slate-400">₹</span>
+                          <span className="text-sm font-bold text-slate-700">{investor.rate_per_mt.toLocaleString('en-IN')}</span>
+                          <span className="text-[10px] font-black text-slate-400 tracking-tighter">/ MT</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-blue-500">GST: ₹{investor.gst_amount?.toLocaleString('en-IN')}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-baseline gap-1">
                         <span className="text-xs font-black text-slate-400">₹</span>
-                        <span className="text-sm font-black text-slate-900">{investor.investment_amount.toLocaleString('en-IN')}</span>
+                        <span className="text-sm font-black text-slate-900">{(investor.total_amount_with_gst || 0).toLocaleString('en-IN')}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${getStatusColor(investor.status)}`}>
                         {investor.status}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {format(new Date(investor.investment_date), 'MMM dd, yyyy')}
-                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -252,6 +274,14 @@ export function MaterialInvestorsDetails({ onEdit }: MaterialInvestorsDetailsPro
             </tbody>
           </table>
         </div>
+      </div>
+      
+      {/* Footer Info */}
+      <div className="flex items-center gap-2 px-6 py-4 bg-blue-50 rounded-2xl border border-blue-100">
+        <AlertCircle className="w-4 h-4 text-blue-500" />
+        <p className="text-xs font-bold text-blue-700 tracking-tight">
+          Calculations are based on a standard 5% GST rate as per investor inventory guidelines.
+        </p>
       </div>
     </div>
   );
