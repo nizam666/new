@@ -176,6 +176,10 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
       setError('Work Type is required');
       return false;
     }
+    if (parseFloat(formData.start_time) >= parseFloat(formData.end_time)) {
+      setError('End Reading must be greater than Start Reading');
+      return false;
+    }
     if (!formData.driver_name) {
       errors.push('Driver Name is required');
     }
