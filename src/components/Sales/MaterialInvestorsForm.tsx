@@ -24,7 +24,6 @@ type ActiveTab = 'Pricing' | 'Stock' | 'Other';
 interface InvestorData {
   id?: string;
   product_type: string;
-  item_type: 'Product' | 'Service';
   investor_name: string;
   contact_number: string;
   email: string;
@@ -50,7 +49,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
   
   const [formData, setFormData] = useState<InvestorData>({
     product_type: initialData?.product_type || PRODUCT_TYPES[0],
-    item_type: initialData?.item_type || 'Product',
     investor_name: initialData?.investor_name || '',
     contact_number: initialData?.contact_number || '',
     email: initialData?.email || '',
@@ -101,7 +99,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
       if (isSaveAndNew) {
         setFormData({
           product_type: PRODUCT_TYPES[0],
-          item_type: 'Product',
           investor_name: '',
           contact_number: '',
           email: '',
@@ -293,32 +290,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
           </div>
 
           <div className="flex items-center gap-3">
-             <div className="flex bg-white/80 backdrop-blur-md p-1.5 rounded-3xl shadow-lg border border-white">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, item_type: 'Product' })}
-                  className={`flex items-center gap-3 px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                    formData.item_type === 'Product'
-                      ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200'
-                      : 'text-slate-400 hover:text-indigo-400'
-                  }`}
-                >
-                  {formData.item_type === 'Product' && <Check className="w-4 h-4" />}
-                  Product
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, item_type: 'Service' })}
-                  className={`flex items-center gap-3 px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
-                    formData.item_type === 'Service'
-                      ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200'
-                      : 'text-slate-400 hover:text-indigo-400'
-                  }`}
-                >
-                  {formData.item_type === 'Service' && <Check className="w-4 h-4" />}
-                  Service
-                </button>
-              </div>
               <button className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-400 shadow-lg hover:text-indigo-600 transition-all border border-slate-100">
                 <Settings className="w-5 h-5" />
               </button>
