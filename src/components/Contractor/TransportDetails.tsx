@@ -29,6 +29,8 @@ interface TransportRecord {
   trip_ref: string;
   notes: string;
   status: 'pending' | 'approved' | 'rejected';
+  empty_vehicle_weight?: number;
+  gross_weight?: number;
   created_at: string;
 }
 
@@ -262,6 +264,11 @@ export function TransportDetails() {
                         </div>
                         <p className="text-sm text-slate-600 ml-6">
                           {record.material_transported} - {record.quantity} tons
+                          {record.gross_weight && record.gross_weight > 0 && (
+                            <span className="ml-2 text-xs text-slate-400 italic">
+                              (Gross: {record.gross_weight}t, Empty: {record.empty_vehicle_weight}t)
+                            </span>
+                          )}
                         </p>
                       </div>
                     )}

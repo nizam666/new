@@ -61,7 +61,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     quantity: '',
     number_of_trips: '1',
     notes: '',
-    trip_ref: ''
+    trip_ref: '',
+    empty_vehicle_weight: '',
+    gross_weight: ''
   });
 
   // Summary State
@@ -80,6 +82,15 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       fetchRecentVehicles();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (formData.material_transported === 'Good Boulders') {
+      const gross = parseFloat(formData.gross_weight) || 0;
+      const empty = parseFloat(formData.empty_vehicle_weight) || 0;
+      const net = Math.max(0, gross - empty);
+      setFormData(prev => ({ ...prev, quantity: net.toString() }));
+    }
+  }, [formData.gross_weight, formData.empty_vehicle_weight, formData.material_transported]);
 
   const fetchNextTripRef = async () => {
     if (!user) return;
@@ -275,6 +286,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             number_of_trips: parseInt(formData.number_of_trips) || 1,
             notes: formData.notes,
             trip_ref: formData.trip_ref,
+            empty_vehicle_weight: parseFloat(formData.empty_vehicle_weight) || 0,
+            gross_weight: parseFloat(formData.gross_weight) || 0,
             status: 'pending'
           }
         ]);
@@ -292,7 +305,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         quantity: '',
         number_of_trips: '1',
         notes: '',
-        trip_ref: ''
+        trip_ref: '',
+        empty_vehicle_weight: '',
+        gross_weight: ''
       });
 
       alert('Transport record submitted successfully!');
@@ -524,9 +539,43 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           />
         </div>
 
+        {formData.material_transported === 'Good Boulders' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Empty Vehicle (tons)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.empty_vehicle_weight}
+                onChange={(e) => setFormData({ ...formData, empty_vehicle_weight: e.target.value })}
+                min="0"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Gross Weight (tons)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.gross_weight}
+                onChange={(e) => setFormData({ ...formData, gross_weight: e.target.value })}
+                min="0"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
+          </>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Quantity (tons)
+            Quantity (tons) {formData.material_transported === 'Good Boulders' && '(Computed)'}
           </label>
           <input
             type="number"
@@ -534,7 +583,10 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             value={formData.quantity}
             onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
             min="0"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            disabled={formData.material_transported === 'Good Boulders'}
+            className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+              formData.material_transported === 'Good Boulders' ? 'bg-slate-50 text-slate-500 font-bold' : ''
+            }`}
             placeholder="0.00"
           />
         </div>
