@@ -190,7 +190,7 @@ function AppContent() {
       case 'attendance':
         return (
           <div className="space-y-6">
-            <SelfServiceAttendance workArea="crusher" />
+            <SelfServiceAttendance workArea="general" />
           </div>
         );
 
