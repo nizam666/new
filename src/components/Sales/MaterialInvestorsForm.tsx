@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Settings, ArrowLeft, ChevronDown, Check, Package, IndianRupee, Weight, Info } from 'lucide-react';
+import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Weight, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const PRODUCT_TYPES = [
