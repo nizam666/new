@@ -71,15 +71,38 @@ export function ApprovalsModule() {
 
       // 3. If it's an extra punch, update the selfie_attendance table
       if (approval.record_type === 'extra_punch') {
-        const { error: updateAttendanceError } = await supabase
+        console.log("Syncing extra_punch status to selfie_attendance:", {
+          id: approval.record_id,
+          newStatus
+        });
+
+        // First, update the specific record
+        const { data: mainRecord, error: updateMainError } = await supabase
           .from('selfie_attendance')
           .update({
             punch_status: newStatus,
             updated_at: new Date().toISOString()
           })
-          .eq('id', approval.record_id);
+          .eq('id', approval.record_id)
+          .select('employee_id, date')
+          .single();
 
-        if (updateAttendanceError) throw updateAttendanceError;
+        if (updateMainError) throw updateMainError;
+
+        // Second, ensure all other pending requests for the SAME employee today are also synced
+        // This prevents "ghost" pending records from blocking the user if they clicked request twice
+        if (mainRecord && newStatus === 'approved') {
+          console.log("Performing mass-approval sync for employee:", mainRecord.employee_id);
+          const { count: syncCount } = await supabase
+            .from('selfie_attendance')
+            .update({ punch_status: 'approved' })
+            .eq('employee_id', mainRecord.employee_id)
+            .eq('date', mainRecord.date)
+            .is('check_in', null)
+            .eq('punch_status', 'pending');
+          
+          console.log(`Mass-approval synced ${syncCount} additional records.`);
+        }
       }
 
       await loadApprovals();
