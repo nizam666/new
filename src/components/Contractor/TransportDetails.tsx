@@ -22,7 +22,6 @@ interface TransportRecord {
   vehicle_type: string;
   from_location: string;
   to_location: string;
-  distance_km: number;
   fuel_consumed: number;
   material_transported: string;
   quantity: number;
@@ -33,7 +32,6 @@ interface TransportRecord {
 }
 
 interface TransportStats {
-  totalDistance: number;
   totalFuel: number;
   totalQuantity: number;
   totalTrips: number;
@@ -43,7 +41,6 @@ export function TransportDetails() {
   const { user } = useAuth();
   const [records, setRecords] = useState<TransportRecord[]>([]);
   const [stats, setStats] = useState<TransportStats>({
-    totalDistance: 0,
     totalFuel: 0,
     totalQuantity: 0,
     totalTrips: 0
@@ -67,14 +64,7 @@ export function TransportDetails() {
 
       setRecords(data || []);
 
-      const totalDistance = data?.reduce((sum, r) => sum + r.distance_km, 0) || 0;
-      const totalFuel = data?.reduce((sum, r) => sum + r.fuel_consumed, 0) || 0;
-      const totalQuantity = data?.reduce((sum, r) => sum + r.quantity, 0) || 0;
-      // Sum the number_of_trips column if available, otherwise just count rows (fallback)
-      const totalTrips = data?.reduce((sum, r) => sum + (r.number_of_trips || 1), 0) || 0;
-
       setStats({
-        totalDistance,
         totalFuel,
         totalQuantity,
         totalTrips
@@ -127,16 +117,6 @@ export function TransportDetails() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Navigation className="w-5 h-5 text-purple-600" />
-            </div>
-            <TrendingUp className="w-4 h-4 text-slate-400" />
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{stats.totalDistance.toFixed(1)} km</p>
-          <p className="text-sm text-slate-600">Total Distance</p>
-        </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-2">
@@ -230,13 +210,6 @@ export function TransportDetails() {
                     <p className="text-sm font-bold text-slate-900 truncate">{record.to_location}</p>
                   </div>
 
-                  <div className="bg-slate-50 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Navigation className="w-4 h-4 text-purple-600" />
-                      <span className="text-xs font-medium text-slate-600">Distance</span>
-                    </div>
-                    <p className="text-sm font-bold text-slate-900">{record.distance_km} km</p>
-                  </div>
 
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">

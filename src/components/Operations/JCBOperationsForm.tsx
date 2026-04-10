@@ -18,7 +18,6 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
     total_hours: '',
     fuel_consumed: '',
     diesel_given_hours: '',
-    licence_number: '',
     work_description: '',
     notes: ''
   });
@@ -31,52 +30,19 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
     }));
   };
 
-  const parseTime = (timeStr: string): number | null => {
-    // Try to parse time in HH:MM format (24-hour)
-    const time24Match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
-    if (time24Match) {
-      const hours = parseInt(time24Match[1], 10);
-      const minutes = parseInt(time24Match[2], 10);
-      if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-        return hours + minutes / 60;
-      }
-    }
-
-    // Try to parse time in H:MM AM/PM format (12-hour)
-    const time12Match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/i);
-    if (time12Match) {
-      let hours = parseInt(time12Match[1], 10);
-      const minutes = parseInt(time12Match[2], 10);
-      const period = (time12Match[3] || '').toLowerCase();
-
-      if (period === 'pm' && hours < 12) hours += 12;
-      if (period === 'am' && hours === 12) hours = 0;
-
-      if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-        return hours + minutes / 60;
-      }
-    }
-
-    return null;
-  };
 
   const calculateHours = () => {
     if (formData.start_time && formData.end_time) {
-      const startHours = parseTime(formData.start_time);
-      const endHours = parseTime(formData.end_time);
+      const start = parseFloat(formData.start_time);
+      const end = parseFloat(formData.end_time);
 
-      if (startHours !== null && endHours !== null) {
-        let diffHours = endHours - startHours;
-        if (diffHours < 0) {
-          diffHours += 24; // Add 24 hours if end time is on the next day
-        }
-
+      if (!isNaN(start) && !isNaN(end)) {
+        const diffHours = end - start;
         setFormData(prev => ({
           ...prev,
-          total_hours: diffHours.toFixed(2)
+          total_hours: diffHours >= 0 ? diffHours.toFixed(2) : '0.00'
         }));
       } else {
-        // If time format is invalid, clear the total hours
         setFormData(prev => ({
           ...prev,
           total_hours: ''
@@ -136,7 +102,6 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
         total_hours: parseFloat(formData.total_hours) || 0,
         fuel_consumed: parseFloat(formData.fuel_consumed) || 0,
         diesel_given_hours: parseFloat(formData.diesel_given_hours) || null,
-        licence_number: formData.licence_number || null,
         work_description: formData.work_description || null,
         notes: formData.notes || null,
         status: 'pending',
@@ -160,7 +125,6 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
         total_hours: '',
         fuel_consumed: '',
         diesel_given_hours: '',
-        licence_number: '',
         work_description: '',
         notes: ''
       });
@@ -220,22 +184,30 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Work Type
+            Work Type *
           </label>
-          <select
-            name="operator_name"
-            value={formData.operator_name}
-            onChange={handleChange}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-          >
-            <option value="">Select work type</option>
-            <option value="Good borders loading">Good borders loading</option>
-            <option value="Material loading">Material loading</option>
-            <option value="Bunker works">Bunker works</option>
-            <option value="Crusher works">Crusher works</option>
-            <option value="Quarry works">Quarry works</option>
-          </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {[
+              'Good borders loading',
+              'Material loading',
+              'Bunker works',
+              'Crusher works',
+              'Quarry works'
+            ].map((workType) => (
+              <button
+                key={workType}
+                type="button"
+                onClick={() => setFormData({ ...formData, operator_name: workType })}
+                className={`px-3 py-3 rounded-lg border-2 transition-all transform hover:scale-[1.02] active:scale-95 text-sm ${
+                  formData.operator_name === workType
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-md'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-amber-400 hover:bg-amber-50'
+                }`}
+              >
+                {workType}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -254,54 +226,41 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Licence Number
-            </label>
-            <input
-              type="text"
-              name="licence_number"
-              value={formData.licence_number}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              placeholder="Enter licence number"
-            />
-          </div>
         </div>
 
-        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Start Time
+              Start Reading (Hrs)
             </label>
             <input
-              type="text"
+              type="number"
+              step="0.01"
               name="start_time"
               value={formData.start_time}
               onChange={handleChange}
               onBlur={calculateHours}
               required
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              placeholder="e.g., 9:00 AM or 14:30"
+              placeholder="Machine start hours"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              End Time
+              End Reading (Hrs)
             </label>
             <input
-              type="text"
+              type="number"
+              step="0.01"
               name="end_time"
               value={formData.end_time}
               onChange={handleChange}
               onBlur={calculateHours}
               required
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              placeholder="e.g., 5:30 PM or 17:30"
+              placeholder="Machine end hours"
             />
           </div>
-        </div>
 
         <div className="md:col-span-2">
           <label className="block text-sm font-bold text-slate-700 mb-2">

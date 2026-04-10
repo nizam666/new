@@ -15,14 +15,21 @@ const materialTypes = [
   "Aggregate's Rehandling"
 ];
 
-const locationTypes = [
+const fromLocationTypes = [
   'Quarry',
   'Stockyard',
   'Crusher'
 ];
 
+const locationTypes = [
+  'Quarry',
+  'Stockyard',
+  'Crusher',
+  'Soil dumping yard'
+];
+
 const getToLocationOptions = (fromLocation: string) => {
-  if (!fromLocation) return locationTypes;
+  if (!fromLocation) return ['Stockyard', 'Crusher', 'Soil dumping yard'];
 
   switch (fromLocation) {
     case 'Quarry':
@@ -42,9 +49,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     vehicle_type: '',
+    vehicle_number: '',
     from_location: '',
     to_location: '',
-    distance_km: '',
     fuel_consumed: '',
     material_transported: '',
     quantity: '',
@@ -60,19 +67,25 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         from_location: 'Crusher',
         to_location: 'Crusher'
       }));
+    } else if (material === "Soil") {
+      setFormData(prev => ({
+        ...prev,
+        material_transported: material,
+        to_location: 'Soil dumping yard'
+      }));
     } else {
       setFormData(prev => ({
         ...prev,
         material_transported: material,
         from_location: prev.from_location === 'Crusher' ? '' : prev.from_location,
-        to_location: prev.to_location === 'Crusher' ? '' : prev.to_location
+        to_location: prev.to_location === 'Crusher' || prev.to_location === 'Soil dumping yard' ? '' : prev.to_location
       }));
     }
   };
 
   const handleLocationChange = (fromLocation: string) => {
-    // Don't allow changing locations when 'Aggregate's Rehandling' is selected
-    if (formData.material_transported === "Aggregate's Rehandling") {
+    // Don't allow changing locations when 'Aggregate's Rehandling' or 'Soil' is selected
+    if (formData.material_transported === "Aggregate's Rehandling" || formData.material_transported === "Soil") {
       return;
     }
 
@@ -96,9 +109,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             contractor_id: user.id,
             date: formData.date,
             vehicle_type: formData.vehicle_type,
+            vehicle_number: formData.vehicle_number,
             from_location: formData.from_location,
             to_location: formData.to_location,
-            distance_km: parseFloat(formData.distance_km) || 0,
             fuel_consumed: parseFloat(formData.fuel_consumed) || 0,
             material_transported: formData.material_transported,
             quantity: parseFloat(formData.quantity) || 0,
@@ -113,9 +126,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       setFormData({
         date: new Date().toISOString().split('T')[0],
         vehicle_type: '',
+        vehicle_number: '',
         from_location: '',
         to_location: '',
-        distance_km: '',
         fuel_consumed: '',
         material_transported: '',
         quantity: '',
@@ -125,8 +138,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
       alert('Transport record submitted successfully!');
       if (onSuccess) onSuccess();
-    } catch (error) {
-      alert('Error submitting transport record: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } catch (error: any) {
+      console.error('Error submitting transport record:', error);
+      alert('Error submitting transport record: ' + (error.message || error.details || JSON.stringify(error)));
     } finally {
       setLoading(false);
     }
@@ -160,100 +174,123 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Vehicle Type
+            Vehicle Type *
           </label>
-          <select
-            value={formData.vehicle_type}
-            onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value })}
+          <div className="grid grid-cols-2 gap-2">
+            {vehicleTypes.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setFormData({ ...formData, vehicle_type: type })}
+                className={`px-4 py-3 rounded-lg border-2 transition-all transform hover:scale-[1.02] active:scale-95 ${
+                  formData.vehicle_type === type
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:bg-purple-50'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Vehicle Number *
+          </label>
+          <input
+            type="text"
+            value={formData.vehicle_number}
+            onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase() })}
             required
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-          >
-            <option value="">Select vehicle type</option>
-            {vehicleTypes.map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
+            placeholder="e.g. TN 01 AB 1234"
+          />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Material Transported *
           </label>
-          <select
-            value={formData.material_transported}
-            onChange={(e) => handleMaterialChange(e.target.value)}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-          >
-            <option value="">Select material type</option>
+          <div className="grid grid-cols-2 gap-2">
             {materialTypes.map((type) => (
-              <option key={type} value={type}>{type}</option>
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleMaterialChange(type)}
+                className={`px-3 py-3 rounded-lg border-2 transition-all transform hover:scale-[1.02] active:scale-95 text-sm ${
+                  formData.material_transported === type
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:bg-purple-50'
+                }`}
+              >
+                {type}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             From Location *
           </label>
-          <select
-            value={formData.from_location}
-            onChange={(e) => handleLocationChange(e.target.value)}
-            required
-            disabled={formData.material_transported === "Aggregate's Rehandling"}
-            className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${formData.material_transported === "Aggregate's Rehandling" ? 'bg-gray-100' : ''
-              }`}
-          >
-            <option value="">Select source location</option>
-            {locationTypes.map((location) => (
-              <option key={`from-${location}`} value={location}>
+          <div className="grid grid-cols-3 gap-2">
+            {fromLocationTypes.map((location) => (
+              <button
+                key={`from-${location}`}
+                type="button"
+                onClick={() => handleLocationChange(location)}
+                disabled={formData.material_transported === "Aggregate's Rehandling" || formData.material_transported === "Soil"}
+                className={`px-3 py-3 rounded-lg border-2 transition-all transform hover:scale-[1.02] active:scale-95 text-sm ${
+                  formData.from_location === location
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                    : formData.material_transported === "Aggregate's Rehandling" || formData.material_transported === "Soil"
+                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:bg-purple-50'
+                }`}
+              >
                 {location}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             To Location *
           </label>
-          <select
-            value={formData.to_location}
-            onChange={(e) => setFormData({ ...formData, to_location: e.target.value })}
-            required
-            disabled={!formData.from_location || formData.material_transported === "Aggregate's Rehandling"}
-            className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${!formData.from_location || formData.material_transported === "Aggregate's Rehandling" ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-          >
-            <option value="">
-              {formData.material_transported === "Aggregate's Rehandling"
-                ? 'Crusher to Crusher (auto-set)'
-                : formData.from_location
-                  ? 'Select destination'
-                  : 'Select source location first'}
-            </option>
-            {getToLocationOptions(formData.from_location).map((location) => (
-              <option key={`to-${location}`} value={location}>
-                {location}
-              </option>
-            ))}
-          </select>
+          {formData.material_transported === "Aggregate's Rehandling" ? (
+            <div className="px-3 py-3 rounded-lg border-2 bg-gray-100 text-gray-600 border-gray-200 text-sm">
+              Crusher to Crusher (auto-set)
+            </div>
+          ) : formData.material_transported === "Soil" ? (
+            <div className="px-3 py-3 rounded-lg border-2 bg-gray-100 text-gray-600 border-gray-200 text-sm">
+              Soil dumping yard (auto-set)
+            </div>
+          ) : !formData.from_location ? (
+            <div className="px-3 py-3 rounded-lg border-2 bg-gray-50 text-gray-400 border-gray-200 text-sm">
+              Select source location first
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {getToLocationOptions(formData.from_location).map((location) => (
+                <button
+                  key={`to-${location}`}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, to_location: location })}
+                  className={`px-3 py-3 rounded-lg border-2 transition-all transform hover:scale-[1.02] active:scale-95 text-sm ${
+                    formData.to_location === location
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                      : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:bg-purple-50'
+                  }`}
+                >
+                  {location}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Distance (km)
-          </label>
-          <input
-            type="number"
-            step="0.1"
-            value={formData.distance_km}
-            onChange={(e) => setFormData({ ...formData, distance_km: e.target.value })}
-            min="0"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            placeholder="0.0"
-          />
-        </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
