@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { RefreshCw, LogIn, LogOut, CheckCircle, AlertCircle } from 'lucide-react';
 
-type AttendanceStatus = 'idle' | 'loading' | 'success' | 'error';
+type AttendanceStatus = 'idle' | 'loading' | 'success' | 'error' | 'info';
 type ActionType = 'punch_in' | 'punch_out';
 
 type WorkArea = 'quarry' | 'crusher' | 'general';
@@ -255,7 +255,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
 
         if (pendingRequest) {
            console.log("Found pending request, blocking.");
-           throw new Error(`Your extra punch request is pending. Please wait for the Director to approve it.`);
+           setStatus('info');
+           setStatusMessage(`Your extra punch request is pending. Please wait for the Director to approve it.`);
+           return;
         }
 
         // 3. Check if they ALREADY completed a shift today (to show request modal)
@@ -525,9 +527,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
                             />
                         </div>
 
-                        {status === 'error' && (
-                            <div className="p-3 sm:p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs sm:text-sm flex gap-3 animate-in slide-in-from-top-2">
-                                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        {(status === 'error' || status === 'info') && (
+                            <div className={`p-3 sm:p-4 rounded-xl text-xs sm:text-sm flex gap-3 animate-in slide-in-from-top-2 ${status === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                                <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${status === 'info' ? 'text-blue-700' : 'text-red-500'}`} />
                                 <p>{statusMessage}</p>
                             </div>
                         )}
