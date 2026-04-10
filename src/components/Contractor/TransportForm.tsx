@@ -144,6 +144,13 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         material_transported: material,
         to_location: 'Soil dumping yard'
       }));
+    } else if (material === "Weather Rocks") {
+      setFormData(prev => ({
+        ...prev,
+        material_transported: material,
+        from_location: 'Quarry',
+        to_location: 'Soil dumping yard'
+      }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -155,8 +162,10 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   const handleLocationChange = (fromLocation: string) => {
-    // Don't allow changing locations when 'Aggregate's Rehandling' or 'Soil' is selected
-    if (formData.material_transported === "Aggregate's Rehandling" || formData.material_transported === "Soil") {
+    // Don't allow changing locations when 'Aggregate's Rehandling', 'Soil' or 'Weather Rocks' is selected
+    if (formData.material_transported === "Aggregate's Rehandling" || 
+        formData.material_transported === "Soil" ||
+        formData.material_transported === "Weather Rocks") {
       return;
     }
 
@@ -329,11 +338,11 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 key={`from-${location}`}
                 type="button"
                 onClick={() => handleLocationChange(location)}
-                disabled={formData.material_transported === "Aggregate's Rehandling" || formData.material_transported === "Soil"}
+                disabled={formData.material_transported === "Aggregate's Rehandling" || formData.material_transported === "Soil" || formData.material_transported === "Weather Rocks"}
                 className={`px-3 py-3 rounded-lg border-2 transition-all transform hover:scale-[1.02] active:scale-95 text-sm ${
                   formData.from_location === location
                     ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                    : formData.material_transported === "Aggregate's Rehandling" || formData.material_transported === "Soil"
+                    : formData.material_transported === "Aggregate's Rehandling" || formData.material_transported === "Soil" || formData.material_transported === "Weather Rocks"
                     ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                     : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:bg-purple-50'
                 }`}
@@ -352,7 +361,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             <div className="px-3 py-3 rounded-lg border-2 bg-gray-100 text-gray-600 border-gray-200 text-sm">
               Crusher to Crusher (auto-set)
             </div>
-          ) : formData.material_transported === "Soil" ? (
+          ) : formData.material_transported === "Soil" || formData.material_transported === "Weather Rocks" ? (
             <div className="px-3 py-3 rounded-lg border-2 bg-gray-100 text-gray-600 border-gray-200 text-sm">
               Soil dumping yard (auto-set)
             </div>
