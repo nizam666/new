@@ -215,7 +215,6 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
         end_time: formData.end_time,
         total_hours: parseFloat(formData.total_hours) || 0,
         fuel_consumed: parseFloat(formData.fuel_consumed) || 0,
-        diesel_given_hours: parseFloat(formData.diesel_given_hours) || null,
         licence_number: null,
         work_description: formData.work_description || null,
         notes: formData.notes || null,
