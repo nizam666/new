@@ -361,7 +361,6 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     setIsSubmittingRequest(true);
     try {
       const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toISOString();
 
       // 1. Create a pending attendance record
       // NOTE: We do NOT set check_in yet. The user will punch in after approval.
