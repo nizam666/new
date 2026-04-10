@@ -31,12 +31,6 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
   const [refreshKey, setRefreshKey] = useState(0);
   const [initialNameSet, setInitialNameSet] = useState(false);
 
-  useEffect(() => {
-    if (user && user.full_name && !initialNameSet && !formData.vehicle_number) {
-      setFormData(prev => ({ ...prev, vehicle_number: user.full_name }));
-      setInitialNameSet(true);
-    }
-  }, [user, initialNameSet, formData.vehicle_number]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -59,7 +53,7 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
       const { data, error } = await supabase
         .from('jcb_operations')
         .select('date, total_hours, fuel_consumed, diesel_given_hours')
-        .eq('user_id', user.id)
+        .eq('contractor_id', user.id)
         .gte('date', fromStr)
         .lte('date', toStr)
         .order('date', { ascending: true });
@@ -125,6 +119,13 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
     }
   }, [user, summaryMonth, summaryYear, refreshKey]);
 
+  useEffect(() => {
+    if (user && user.full_name && !initialNameSet && !formData.vehicle_number) {
+      setFormData(prev => ({ ...prev, vehicle_number: user.full_name }));
+      setInitialNameSet(true);
+    }
+  }, [user, initialNameSet, formData.vehicle_number]);
+
   const calculateHours = () => {
     if (formData.start_time && formData.end_time) {
       const start = parseFloat(formData.start_time);
@@ -149,10 +150,10 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
     const errors: string[] = [];
 
     if (!formData.operator_name) {
-      errors.push('Operator name is required');
+      errors.push('Work Type is required');
     }
     if (!formData.vehicle_number) {
-      errors.push('Driver name is required');
+      errors.push('Driver Name is required');
     }
     if (!formData.start_time) {
       errors.push('Start time is required');
@@ -187,15 +188,17 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
 
     try {
       const jcbData = {
-        user_id: user?.id,
+        contractor_id: user?.id,
         date: formData.date,
         operator_name: formData.operator_name,
         vehicle_number: formData.vehicle_number,
+        location: workArea === 'quarry' ? 'Quarry' : workArea === 'crusher' ? 'Crusher' : 'Site',
         start_time: formData.start_time,
         end_time: formData.end_time,
         total_hours: parseFloat(formData.total_hours) || 0,
         fuel_consumed: parseFloat(formData.fuel_consumed) || 0,
         diesel_given_hours: parseFloat(formData.diesel_given_hours) || null,
+        licence_number: null,
         work_description: formData.work_description || null,
         notes: formData.notes || null,
         status: 'pending',
