@@ -21,6 +21,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
   const [status, setStatus] = useState<AttendanceStatus>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [requestReason, setRequestReason] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
   const startCamera = useCallback(async () => {
     try {
@@ -208,6 +211,37 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           throw new Error(`You are already Punched IN. Please Punch OUT first.`);
         }
 
+        // --- Extra Punch Check ---
+        // Check if there's already a completed record for today
+        const { data: completedRecord } = await supabase
+          .from('selfie_attendance')
+          .select('id, punch_status')
+          .eq('employee_id', employeeId.trim().toUpperCase())
+          .eq('date', today)
+          .not('check_out', 'is', null)
+          .order('check_in', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (completedRecord) {
+          // If we have a completed shift, we need to check if there's an approved extra punch request
+          const { data: approvedRequest } = await supabase
+            .from('selfie_attendance')
+            .select('id')
+            .eq('employee_id', employeeId.trim().toUpperCase())
+            .eq('date', today)
+            .eq('punch_status', 'approved')
+            .is('check_out', null)
+            .maybeSingle();
+
+          if (!approvedRequest) {
+             // Trigger permission modal
+             setShowPermissionModal(true);
+             setStatus('idle');
+             return;
+          }
+        }
+
         const { error: insertError } = await supabase
           .from('selfie_attendance')
           .insert({
@@ -300,6 +334,75 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     }
   };
 
+  const handleRequestPermission = async () => {
+    if (!requestReason.trim()) {
+      alert("Please enter a reason for the extra punch.");
+      return;
+    }
+
+    setIsSubmittingRequest(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const now = new Date().toISOString();
+
+      // 1. Create a pending attendance record
+      const { data: newRecord, error: insertError } = await supabase
+        .from('selfie_attendance')
+        .insert({
+          employee_id: employeeId.trim().toUpperCase(),
+          date: today,
+          punch_status: 'pending',
+          request_reason: requestReason.trim(),
+          check_in: now, // We record the attempted check-in time
+          check_in_photo: capturedPhoto, // Use the photo we already captured
+          work_area: workArea
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // 2. Create approval workflow request for Director
+      // We'll find one director to notify
+      const { data: director } = await supabase
+        .from('users')
+        .select('id')
+        .eq('role', 'director')
+        .limit(1)
+        .single();
+
+      const { error: approvalError } = await supabase
+        .from('approval_workflows')
+        .insert({
+          record_type: 'extra_punch',
+          record_id: newRecord.id,
+          submitted_by: (await supabase.auth.getUser()).data.user?.id || director?.id, // Fallback to director if kiosk
+          status: 'pending'
+        });
+
+      // 3. Create notification for Director
+      if (director) {
+        await supabase.from('notifications').insert({
+          user_id: director.id,
+          title: 'Extra Punch Permission Requested',
+          message: `Employee ${employeeId.trim().toUpperCase()} is requesting an extra punch for today: "${requestReason}"`,
+          type: 'approval'
+        });
+      }
+
+      setShowPermissionModal(false);
+      setStatus('success');
+      setStatusMessage("Your request for an extra punch has been submitted to the Director. Please wait for approval.");
+      setRequestReason('');
+      
+    } catch (err) {
+      console.error("Error requesting permission:", err);
+      alert("Failed to submit request: " + (err instanceof Error ? err.message : "Connect error"));
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 lg:p-6 bg-slate-50 min-h-screen">
        <div className="text-center">
@@ -356,7 +459,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
             </div>
 
             {/* Controls */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col justify-center">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col justify-center">
                 
                 {status === 'success' ? (
                      <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
@@ -416,8 +519,80 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
                         </div>
                     </div>
                 )}
-            </div>
+      </div>
+      
+      {showPermissionModal && (
+        <PermissionModal 
+          reason={requestReason}
+          setReason={setRequestReason}
+          onSubmit={handleRequestPermission}
+          onClose={() => setShowPermissionModal(false)}
+          loading={isSubmittingRequest}
+        />
+      )}
+    </div>
+  );
+}
+
+function PermissionModal({ 
+  reason, 
+  setReason, 
+  onSubmit, 
+  onClose, 
+  loading 
+}: { 
+  reason: string, 
+  setReason: (s: string) => void, 
+  onSubmit: () => void, 
+  onClose: () => void,
+  loading: boolean
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+        {/* Header matching image */}
+        <div className="bg-[#FFF8E1] p-6 border-b border-[#FFE082] flex flex-col items-center text-center">
+           <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center mb-3">
+             <span className="text-2xl">🔒</span>
+           </div>
+           <h3 className="text-xl font-bold text-slate-900">Permission Required</h3>
         </div>
+
+        {/* Content */}
+        <div className="p-8 space-y-6">
+           <p className="text-center text-slate-600 leading-relaxed">
+             You have already completed your attendance today. To punch in again, you need permission from the Admin.
+           </p>
+
+           <div className="space-y-3">
+             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reason for Extra Punch</label>
+             <textarea 
+               value={reason}
+               onChange={(e) => setReason(e.target.value)}
+               placeholder="Explain why you need to work more today..."
+               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all resize-none h-28"
+               disabled={loading}
+             />
+           </div>
+
+           <button 
+             onClick={onSubmit}
+             disabled={loading || !reason.trim()}
+             className="w-full py-4 bg-[#FFC107] hover:bg-[#FFB300] disabled:opacity-50 text-slate-900 font-bold rounded-2xl shadow-lg shadow-amber-200 flex items-center justify-center gap-2 transition-all transform active:scale-95"
+           >
+             {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <span>🚀</span>}
+             {loading ? 'Submitting...' : 'Request Permission'}
+           </button>
+
+           <button 
+             onClick={onClose}
+             disabled={loading}
+             className="w-full py-2 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+           >
+             Not Now, Go Back
+           </button>
+        </div>
+      </div>
     </div>
   );
 }

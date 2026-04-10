@@ -48,7 +48,17 @@ export function ApprovalsModule() {
 
   const handleApproval = async (approvalId: string, newStatus: 'approved' | 'rejected') => {
     try {
-      const { error } = await supabase
+      // 1. Get the approval details first to know the record_type and record_id
+      const { data: approval, error: fetchError } = await supabase
+        .from('approval_workflows')
+        .select('record_type, record_id')
+        .eq('id', approvalId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // 2. Update the main approval workflow
+      const { error: updateApprovalError } = await supabase
         .from('approval_workflows')
         .update({
           status: newStatus,
@@ -57,7 +67,20 @@ export function ApprovalsModule() {
         })
         .eq('id', approvalId);
 
-      if (error) throw error;
+      if (updateApprovalError) throw updateApprovalError;
+
+      // 3. If it's an extra punch, update the selfie_attendance table
+      if (approval.record_type === 'extra_punch') {
+        const { error: updateAttendanceError } = await supabase
+          .from('selfie_attendance')
+          .update({
+            punch_status: newStatus,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', approval.record_id);
+
+        if (updateAttendanceError) throw updateAttendanceError;
+      }
 
       await loadApprovals();
       alert(`Request ${newStatus} successfully!`);
@@ -83,6 +106,7 @@ export function ApprovalsModule() {
       production: 'Production Record',
       quotation: 'Quotation',
       order: 'Sales Order',
+      extra_punch: 'Extra Punch Permission',
     };
     return labels[type] || type;
   };
