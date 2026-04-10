@@ -1,19 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Save, User, Phone, Mail, IndianRupee, Calendar, Package, FileText, X, Settings, ArrowLeft, ChevronDown, Check } from 'lucide-react';
+import { Settings, ArrowLeft, ChevronDown, Check, Package, IndianRupee, Weight, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
-
-const PRODUCT_TYPES = [
-  'Aggregate 20mm',
-  'Aggregate 40mm',
-  'GSB (Granular Sub Base)',
-  'M-Sand',
-  'P-Sand',
-  'Dust',
-  'Boulders',
-  'Others'
-];
 
 const GST_OPTIONS = [
   { label: 'None', value: 0 },
@@ -83,7 +72,7 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     try {
       const payload = {
         ...formData,
-        product_type: formData.item_name, // Mapping to original schema
+        product_type: formData.item_name,
         quantity_mt: parseFloat(String(formData.quantity_mt)) || 0,
         rate_per_mt: parseFloat(String(formData.rate_per_mt)) || 0,
         investment_amount: (parseFloat(String(formData.quantity_mt)) || 0) * (parseFloat(String(formData.rate_per_mt)) || 0) * (1 + formData.gst_rate/100),
@@ -138,32 +127,20 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     switch (activeTab) {
       case 'Pricing':
         return (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Unit */}
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Unit</label>
-              <input
-                type="text"
-                value="MTON"
-                disabled
-                className="w-full py-2 border-b-2 border-slate-200 focus:border-indigo-600 bg-transparent text-slate-800 font-medium outline-none transition-colors"
-                placeholder="Ex: PCS"
-              />
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 animate-in fade-in duration-300">
             {/* Sales Price */}
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Sales Price</label>
-              <div className="flex items-center gap-2 border-b-2 border-slate-200 focus-within:border-indigo-600 transition-colors">
-                <span className="text-slate-400">₹</span>
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Sales Price</label>
+              <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
+                <span className="text-xl font-bold text-slate-400 group-focus-within:text-indigo-600 transition-colors">₹</span>
                 <input
                   type="number"
                   value={formData.sales_price}
                   onChange={(e) => setFormData({ ...formData, sales_price: e.target.value })}
-                  className="flex-1 py-2 bg-transparent text-slate-800 font-medium outline-none"
-                  placeholder="0"
+                  className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
+                  placeholder="0.00"
                 />
-                <div className="flex items-center gap-1 text-slate-400 text-xs font-bold px-2 py-1 bg-slate-100 rounded">
+                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-tighter px-3 py-1 bg-slate-50 rounded-full border border-slate-100 transition-all hover:bg-slate-100 cursor-pointer">
                   Without Tax <ChevronDown className="w-3 h-3" />
                 </div>
               </div>
@@ -171,17 +148,17 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
 
             {/* Purchase Price */}
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Purchase Price</label>
-              <div className="flex items-center gap-2 border-b-2 border-slate-200 focus-within:border-indigo-600 transition-colors">
-                <span className="text-slate-400">₹</span>
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Purchase Price</label>
+              <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
+                <span className="text-xl font-bold text-slate-400 group-focus-within:text-indigo-600 transition-colors">₹</span>
                 <input
                   type="number"
                   value={formData.rate_per_mt}
                   onChange={(e) => setFormData({ ...formData, rate_per_mt: e.target.value })}
-                  className="flex-1 py-2 bg-transparent text-slate-800 font-medium outline-none"
-                  placeholder="0"
+                  className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
+                  placeholder="0.00"
                 />
-                <div className="flex items-center gap-1 text-slate-400 text-xs font-bold px-2 py-1 bg-slate-100 rounded">
+                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-tighter px-3 py-1 bg-slate-50 rounded-full border border-slate-100 transition-all hover:bg-slate-100 cursor-pointer">
                   Without Tax <ChevronDown className="w-3 h-3" />
                 </div>
               </div>
@@ -189,33 +166,49 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
 
             {/* GST */}
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">GST</label>
-              <div className="relative border-b-2 border-slate-200 focus-within:border-indigo-600 transition-colors">
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">GST Rate</label>
+              <div className="relative border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
                 <select
                   value={formData.gst_rate}
                   onChange={(e) => setFormData({ ...formData, gst_rate: parseInt(e.target.value) })}
-                  className="w-full py-2 bg-transparent text-slate-800 font-medium outline-none appearance-none"
+                  className="w-full py-3 bg-transparent text-lg font-bold text-slate-800 outline-none appearance-none cursor-pointer"
                 >
                   {GST_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Unit */}
+            <div>
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Unit</label>
+              <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
+                <input
+                  type="text"
+                  value="MTON (Metric Tons)"
+                  disabled
+                  className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-500 outline-none"
+                />
+                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
+                  <Package className="w-4 h-4 text-slate-400" />
+                </div>
               </div>
             </div>
 
             {/* HSN */}
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">HSN</label>
-              <div className="flex items-center border-b-2 border-slate-200 focus-within:border-indigo-600 transition-colors">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">HSN Code</label>
+              <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
                 <input
                   type="text"
                   value={formData.hsn}
                   onChange={(e) => setFormData({ ...formData, hsn: e.target.value })}
-                  className="flex-1 py-2 bg-transparent text-slate-800 font-medium outline-none"
-                  placeholder="Ex: 6704"
+                  className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
+                  placeholder="Ex: 2517 (Aggregates HSN)"
                 />
-                <Settings className="w-4 h-4 text-slate-400" />
+                <Settings className="w-5 h-5 text-indigo-400 cursor-pointer hover:rotate-90 transition-all" />
               </div>
             </div>
           </div>
@@ -223,60 +216,65 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
 
       case 'Stock':
         return (
-          <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in fade-in duration-300">
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Opening Stock (MT)</label>
-              <input
-                type="number"
-                value={formData.quantity_mt}
-                onChange={(e) => setFormData({ ...formData, quantity_mt: e.target.value })}
-                className="w-full py-2 border-b-2 border-slate-200 focus:border-indigo-600 bg-transparent text-slate-800 font-medium outline-none transition-colors"
-                placeholder="0.00"
-              />
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Opening Stock Quantity</label>
+              <div className="flex items-center gap-3 border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all group">
+                <input
+                  type="number"
+                  value={formData.quantity_mt}
+                  onChange={(e) => setFormData({ ...formData, quantity_mt: e.target.value })}
+                  className="flex-1 py-3 bg-transparent text-xl font-bold text-slate-800 outline-none"
+                  placeholder="0.00"
+                />
+                <span className="text-lg font-black text-indigo-400">MT</span>
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">As of Date</label>
-              <input
-                type="date"
-                value={formData.investment_date}
-                onChange={(e) => setFormData({ ...formData, investment_date: e.target.value })}
-                className="w-full py-2 border-b-2 border-slate-200 focus:border-indigo-600 bg-transparent text-slate-800 font-medium outline-none transition-colors"
-              />
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">As of Date</label>
+              <div className="flex items-center border-b-2 border-slate-100 focus-within:border-indigo-600 transition-all">
+                <input
+                  type="date"
+                  value={formData.investment_date}
+                  onChange={(e) => setFormData({ ...formData, investment_date: e.target.value })}
+                  className="flex-1 py-3 bg-transparent text-lg font-bold text-slate-800 outline-none"
+                />
+              </div>
             </div>
           </div>
         );
 
       case 'Other':
         return (
-          <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 animate-in fade-in duration-300">
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Investor Name</label>
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Investor Name</label>
               <input
                 type="text"
                 value={formData.investor_name}
                 onChange={(e) => setFormData({ ...formData, investor_name: e.target.value })}
-                className="w-full py-2 border-b-2 border-slate-200 focus:border-indigo-600 bg-transparent text-slate-800 font-medium outline-none transition-colors"
-                placeholder="Ex: John Doe"
+                className="w-full py-3 border-b-2 border-slate-100 focus:border-indigo-600 bg-transparent text-lg font-bold text-slate-800 outline-none transition-all"
+                placeholder="Name of the capital provider"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Contact Number</label>
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Investor Phone</label>
               <input
                 type="tel"
                 value={formData.contact_number}
                 onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                className="w-full py-2 border-b-2 border-slate-200 focus:border-indigo-600 bg-transparent text-slate-800 font-medium outline-none transition-colors"
+                className="w-full py-3 border-b-2 border-slate-100 focus:border-indigo-600 bg-transparent text-lg font-bold text-slate-800 outline-none transition-all"
                 placeholder="+91"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1">Notes</label>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Additional Remarks / Returns Policy</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={4}
-                className="w-full py-2 border-b-2 border-slate-200 focus:border-indigo-600 bg-transparent text-slate-800 font-medium outline-none transition-colors resize-none"
-                placeholder="Additional details..."
+                rows={3}
+                className="w-full py-4 border-2 border-slate-50 bg-slate-50/50 rounded-2xl focus:border-indigo-600 focus:bg-white text-lg font-medium text-slate-800 outline-none transition-all resize-none px-4 shadow-inner"
+                placeholder="Specify return terms, partnership percentage, or material grade specifics..."
               />
             </div>
           </div>
@@ -284,112 +282,212 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 md:flex md:items-center md:justify-center p-0 md:p-10">
-      <div className="w-full max-w-lg bg-white min-h-screen md:min-h-[auto] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative">
-        {/* Header */}
-        <div className="bg-white border-b border-slate-100 p-6 flex items-center justify-between sticky top-0 z-20">
-          <button onClick={onCancel} className="p-2 text-indigo-800 hover:bg-slate-50 rounded-full transition-colors">
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <h1 className="text-xl font-bold text-indigo-900 tracking-tight">Create New Item</h1>
-          <button className="p-2 text-indigo-800 hover:bg-slate-50 rounded-full transition-colors">
-            <Settings className="w-6 h-6" />
-          </button>
-        </div>
+  const calculateGrandTotal = () => {
+    const qty = parseFloat(String(formData.quantity_mt)) || 0;
+    const rate = parseFloat(String(formData.rate_per_mt)) || 0;
+    const net = qty * rate;
+    const tax = (net * formData.gst_rate) / 100;
+    return net + tax;
+  };
 
-        {/* Top Input Area */}
-        <div className="p-6 pb-0 space-y-6">
-          <div>
-            <label className="block text-xs font-black text-indigo-500 uppercase tracking-widest mb-2">Item Name <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              value={formData.item_name}
-              onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
-              className="w-full p-0 text-xl font-bold text-slate-800 border-b-2 border-slate-200 focus:border-indigo-600 bg-transparent outline-none transition-colors pb-1"
-              placeholder="Ex: Aggregates 20mm"
-              autoFocus
-            />
+  return (
+    <div className="min-h-[90vh] bg-slate-100/30 flex flex-col p-4 md:p-8 lg:p-12 animate-in fade-in zoom-in-95 duration-500">
+      <div className="w-full max-w-6xl mx-auto flex flex-col gap-8">
+        
+        {/* Top Navigation & Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={onCancel} 
+              className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-xl shadow-indigo-100/50 hover:bg-indigo-50 transition-all active:scale-95 border border-slate-100"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-3xl font-black text-indigo-950 tracking-tight">Create New Item</h1>
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Inventory Management System</p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Item Type</label>
-            <div className="flex bg-slate-100 p-1 rounded-full w-fit">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, item_type: 'Product' })}
-                className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-black tracking-widest transition-all ${
-                  formData.item_type === 'Product'
-                    ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                {formData.item_type === 'Product' && <Check className="w-4 h-4" />}
-                Product
+          <div className="flex items-center gap-3">
+             <div className="flex bg-white/80 backdrop-blur-md p-1.5 rounded-3xl shadow-lg border border-white">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, item_type: 'Product' })}
+                  className={`flex items-center gap-3 px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                    formData.item_type === 'Product'
+                      ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200'
+                      : 'text-slate-400 hover:text-indigo-400'
+                  }`}
+                >
+                  {formData.item_type === 'Product' && <Check className="w-4 h-4" />}
+                  Product
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, item_type: 'Service' })}
+                  className={`flex items-center gap-3 px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+                    formData.item_type === 'Service'
+                      ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200'
+                      : 'text-slate-400 hover:text-indigo-400'
+                  }`}
+                >
+                  {formData.item_type === 'Service' && <Check className="w-4 h-4" />}
+                  Service
+                </button>
+              </div>
+              <button className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-400 shadow-lg hover:text-indigo-600 transition-all border border-slate-100">
+                <Settings className="w-5 h-5" />
               </button>
+          </div>
+        </div>
+
+        {/* Form Body - Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          <div className="lg:col-span-8 space-y-8">
+            {/* Header Field - High Focus */}
+            <div className="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-slate-200/50 border border-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-full -mr-16 -mt-16 transition-all group-within:bg-indigo-600" />
+              <div className="relative z-10">
+                <label className="block text-xs font-black text-indigo-500 uppercase tracking-widest mb-4">Product / Item Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={formData.item_name}
+                  onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
+                  className="w-full p-0 text-4xl font-black text-indigo-950 bg-transparent outline-none placeholder:text-slate-100"
+                  placeholder="Ex: Aggregates 20mm PREMIUM"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Tabbed Navigation Container */}
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white overflow-hidden min-h-[500px] flex flex-col">
+              <div className="flex border-b border-slate-50 bg-slate-50/30">
+                {(['Pricing', 'Stock', 'Other'] as ActiveTab[]).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 px-8 py-6 text-xs font-black uppercase tracking-widest transition-all relative ${
+                      activeTab === tab ? 'text-indigo-600 bg-white' : 'text-slate-400 hover:text-indigo-400'
+                    }`}
+                  >
+                    {tab}
+                    {activeTab === tab && (
+                      <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-12 flex-1">
+                {renderTabContent()}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar Summary & Actions */}
+          <div className="lg:col-span-4 space-y-8">
+            {/* Live Pricing Summary Sidebar */}
+            <div className="bg-indigo-900 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-indigo-900/30 relative overflow-hidden group">
+              <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl transition-all group-hover:scale-110" />
+              
+              <div className="relative z-10 space-y-8">
+                <div className="flex items-center justify-between opacity-60">
+                  <span className="text-[10px] font-black uppercase tracking-widest">Pricing Overview</span>
+                  <Info className="w-4 h-4 cursor-pointer" />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-bold text-indigo-300">Total Asset Value</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-black">₹{calculateGrandTotal().toLocaleString('en-IN', { minimumFractionDigits: 0 })}</span>
+                    <span className="text-sm font-bold opacity-60">incl. tax</span>
+                  </div>
+                </div>
+
+                <div className="pt-8 border-t border-indigo-500/30 space-y-4">
+                  <div className="flex justify-between items-center bg-indigo-950/40 p-4 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center">
+                        <Weight className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-indigo-200">Total Quantity</span>
+                    </div>
+                    <span className="text-lg font-black">{parseFloat(String(formData.quantity_mt)) || 0} MT</span>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-indigo-950/40 p-4 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center">
+                        <IndianRupee className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-indigo-200">Unit Rate</span>
+                    </div>
+                    <span className="text-lg font-black">₹{parseFloat(String(formData.rate_per_mt)) || 0}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Action Sidebar */}
+            <div className="bg-white rounded-[2.5rem] p-4 shadow-xl shadow-slate-200/50 border border-white flex flex-col gap-3">
+              <button
+                onClick={(e) => handleSubmit(e)}
+                disabled={loading}
+                className="w-full py-6 bg-indigo-600 text-white font-black text-lg uppercase tracking-widest rounded-3xl hover:bg-indigo-700 shadow-2xl shadow-indigo-200 transition-all flex items-center justify-center gap-4 group"
+              >
+                {loading ? (
+                  <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Save className="w-6 h-6 transition-transform group-hover:scale-125" />
+                    Save Product
+                  </>
+                )}
+              </button>
+
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, item_type: 'Service' })}
-                className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-black tracking-widest transition-all ${
-                  formData.item_type === 'Service'
-                    ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
+                onClick={(e) => handleSubmit(e, true)}
+                className="w-full py-5 bg-slate-50 text-indigo-700 font-black text-sm uppercase tracking-widest rounded-3xl hover:bg-indigo-50 transition-all border border-slate-100 flex items-center justify-center gap-3"
               >
-                {formData.item_type === 'Service' && <Check className="w-4 h-4" />}
-                Service
+                Save & Create Another
+              </button>
+              
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-full py-4 text-slate-400 font-bold text-[10px] uppercase tracking-widest hover:text-red-500 transition-colors"
+              >
+                Discard Changes
               </button>
             </div>
           </div>
         </div>
-
-        {/* Tabs Selection */}
-        <div className="px-2 mt-4 flex border-b border-slate-100 overflow-x-auto no-scrollbar">
-          {(['Pricing', 'Stock', 'Other'] as ActiveTab[]).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-8 py-4 text-sm font-black uppercase tracking-widest transition-all relative ${
-                activeTab === tab ? 'text-indigo-600' : 'text-slate-400 hover:text-indigo-400'
-              }`}
-            >
-              {tab}
-              {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-600 rounded-t-full" />
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Form Content */}
-        <div className="flex-1 p-6 overflow-y-auto no-scrollbar pb-32">
-          {renderTabContent()}
-        </div>
-
-        {/* Footer */}
-        <div className="absolute bottom-0 left-0 w-full bg-white border-t border-slate-100 p-6 flex items-center justify-between gap-4 z-20">
-          <button
-            type="button"
-            onClick={(e) => handleSubmit(e, true)}
-            className="text-indigo-700 font-black text-sm uppercase tracking-widest flex flex-col items-start leading-tight"
-          >
-            <span className="text-lg">Save & New</span>
-            <span className="text-[10px] text-slate-400 lowercase italic">Create New Item</span>
-          </button>
-          
-          <button
-            onClick={(e) => handleSubmit(e)}
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-3 px-12 py-4 bg-indigo-600 text-white font-black text-lg uppercase tracking-widest rounded-3xl hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-xl shadow-indigo-200 disabled:opacity-50"
-          >
-            {loading ? (
-              <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              'Save'
-            )}
-          </button>
-        </div>
       </div>
     </div>
+  );
+}
+
+function Save(props: any) {
+  return (
+    <svg 
+      {...props} 
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" 
+      height="24" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    >
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"/>
+      <polyline points="17 21 17 13 7 13 7 21"/>
+      <polyline points="7 3 7 8 15 8"/>
+    </svg>
   );
 }
