@@ -8,6 +8,8 @@ import { MaterialInvestorsForm } from './MaterialInvestorsForm';
 import { MaterialInvestorsDetails } from './MaterialInvestorsDetails';
 import { CustomerVehicleForm } from '../Customers/CustomerVehicleForm';
 import { CustomerVehicleDetails } from '../Customers/CustomerVehicleDetails';
+import { CustomerDriverForm } from '../Customers/CustomerDriverForm';
+import { CustomerDriverDetails } from '../Customers/CustomerDriverDetails';
 
 interface Customer {
   id: string;
@@ -19,11 +21,12 @@ interface Customer {
 
 export function SalesModule() {
   useAuth();
-  const [activeTab, setActiveTab] = useState<'invoices' | 'customers' | 'investors' | 'vehicles'>(() => {
+  const [activeTab, setActiveTab] = useState<'invoices' | 'customers' | 'investors' | 'vehicles' | 'drivers'>(() => {
     const hash = window.location.hash.replace('#', '');
     if (hash === 'material-investors') return 'investors';
     if (hash === 'customers') return 'customers';
     if (hash === 'vehicles') return 'vehicles';
+    if (hash === 'drivers') return 'drivers';
     return 'invoices';
   });
 
@@ -36,12 +39,16 @@ export function SalesModule() {
   const [showVehicleForm, setShowVehicleForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<any>(null);
 
+  const [showDriverForm, setShowDriverForm] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<any>(null);
+
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace('#', '');
       if (hash === 'material-investors') setActiveTab('investors');
       else if (hash === 'customers') setActiveTab('customers');
       else if (hash === 'vehicles') setActiveTab('vehicles');
+      else if (hash === 'drivers') setActiveTab('drivers');
       else if (hash === 'sales') setActiveTab('invoices');
     };
     window.addEventListener('hashchange', handleHash);
@@ -126,6 +133,24 @@ export function SalesModule() {
     );
   }
 
+  if (showDriverForm) {
+    return (
+      <div className="space-y-6">
+        <CustomerDriverForm
+          initialData={editingDriver}
+          onSuccess={() => {
+            setShowDriverForm(false);
+            setEditingDriver(null);
+          }}
+          onCancel={() => {
+            setShowDriverForm(false);
+            setEditingDriver(null);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -152,6 +177,17 @@ export function SalesModule() {
             >
               <Plus className="w-5 h-5" />
               Register Vehicle
+            </button>
+          ) : activeTab === 'drivers' ? (
+            <button
+              onClick={() => {
+                setEditingDriver(null);
+                setShowDriverForm(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-[#4B6B9E] text-white rounded-lg hover:bg-[#3d5782] transition-colors shadow-lg"
+            >
+              <Plus className="w-5 h-5" />
+              Add Driver
             </button>
           ) : activeTab === 'invoices' ? (
             <button
@@ -205,6 +241,18 @@ export function SalesModule() {
               </div>
             </button>
             <button
+              onClick={() => setActiveTab('drivers')}
+              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'drivers'
+                  ? 'text-[#4B6B9E] border-b-2 border-[#4B6B9E] bg-white'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                }`}
+            >
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Drivers
+              </div>
+            </button>
+            <button
               onClick={() => setActiveTab('investors')}
               className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'investors'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
@@ -240,6 +288,19 @@ export function SalesModule() {
               onAddNew={() => {
                 setEditingVehicle(null);
                 setShowVehicleForm(true);
+              }}
+            />
+          )}
+
+          {activeTab === 'drivers' && (
+            <CustomerDriverDetails
+              onEdit={(d) => {
+                setEditingDriver(d);
+                setShowDriverForm(true);
+              }}
+              onAddNew={() => {
+                setEditingDriver(null);
+                setShowDriverForm(true);
               }}
             />
           )}
