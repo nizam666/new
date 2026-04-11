@@ -94,8 +94,8 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/40 border border-slate-100 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between pb-6 border-b border-slate-100">
+    <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8 bg-white p-5 sm:p-8 rounded-3xl shadow-xl shadow-slate-200/40 border border-slate-100 max-w-4xl mx-auto">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-slate-100">
         <div>
           <h3 className="text-2xl font-black text-slate-800">
             {isEditing ? 'Edit Customer Profile' : 'New Customer Profile'}
@@ -107,8 +107,8 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Core Identity */}
-        <div className="md:col-span-2 bg-slate-50 p-6 rounded-2xl border border-slate-100/50">
-           <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center">
+        <div className="md:col-span-2 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100/50">
+           <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 sm:mb-6 flex items-center">
              <User className="h-4 w-4 mr-2" /> Basic Identity
            </h4>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -148,8 +148,8 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
         </div>
 
         {/* Business & Tax Details */}
-        <div className="md:col-span-2 bg-cyan-50/30 p-6 rounded-2xl border border-cyan-100/50">
-           <h4 className="text-sm font-black uppercase tracking-widest text-cyan-600 mb-6 flex items-center">
+        <div className="md:col-span-2 bg-cyan-50/30 p-4 sm:p-6 rounded-2xl border border-cyan-100/50">
+           <h4 className="text-sm font-black uppercase tracking-widest text-cyan-600 mb-4 sm:mb-6 flex items-center">
              <Building className="h-4 w-4 mr-2" /> Business Details
            </h4>
            
@@ -168,23 +168,23 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
                 />
               </div>
 
-              <div className="bg-white p-5 rounded-xl border border-cyan-100 shadow-sm">
-                 <div className="flex flex-col md:flex-row md:items-center gap-6">
+              <div className="bg-white p-4 sm:p-5 rounded-xl border border-cyan-100 shadow-sm">
+                 <div className="flex flex-col md:flex-row md:items-start lg:items-center gap-6">
                     <div className="flex-1">
                       <label className="block text-sm font-bold text-slate-700 mb-1">Tax Status</label>
                       <p className="text-xs text-slate-500 mb-3">Select whether the customer is registered for GST.</p>
-                      <div className="flex items-center space-x-4 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      <div className="flex flex-col sm:flex-row items-center gap-3 sm:space-x-4 bg-slate-50 p-2 rounded-lg border border-slate-200">
                         <button
                           type="button"
                           onClick={() => setFormData({ ...formData, is_gst_registered: true })}
-                          className={`flex-1 flex items-center justify-center py-2 px-3 rounded-md text-sm font-bold transition-all ${formData.is_gst_registered ? 'bg-white text-cyan-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+                          className={`w-full sm:flex-1 flex items-center justify-center py-2 px-3 rounded-md text-sm font-bold transition-all ${formData.is_gst_registered ? 'bg-white text-cyan-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                           GST Registered
                         </button>
                         <button
                           type="button"
                           onClick={() => setFormData({ ...formData, is_gst_registered: false, tax_id: '' })}
-                          className={`flex-1 flex items-center justify-center py-2 px-3 rounded-md text-sm font-bold transition-all ${!formData.is_gst_registered ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+                          className={`w-full sm:flex-1 flex items-center justify-center py-2 px-3 rounded-md text-sm font-bold transition-all ${!formData.is_gst_registered ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                           URP (Unregistered)
                         </button>
@@ -218,11 +218,11 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
 
         {/* Address Information */}
         <div className="md:col-span-2">
-           <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center">
+           <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 sm:mb-6 flex items-center">
              <MapPin className="h-4 w-4 mr-2" /> Locations
            </h4>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                 <label className="block text-sm font-bold text-slate-700 mb-2">
                    Billing Address *
                 </label>
@@ -236,8 +236,8 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
                 />
               </div>
 
-              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex flex-col">
-                <div className="flex items-center justify-between mb-2">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 flex flex-col">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                   <label className="block text-sm font-bold text-slate-700">
                      Delivery Address *
                   </label>
@@ -270,21 +270,21 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
 
       </div>
 
-      <div className="flex justify-end space-x-4 pt-6 border-t border-slate-100 mt-8">
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 sm:space-x-4 pt-6 border-t border-slate-100 mt-8">
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="px-6 py-3 font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-all"
+          className="w-full sm:w-auto px-6 py-3 font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-all text-center"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-8 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/30 transition-all flex items-center"
+          className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/30 transition-all flex items-center justify-center"
         >
           {loading ? (
-            'Saving Customer...'
+            'Saving...'
           ) : (
             <>
               <Save className="h-5 w-5 mr-2" />

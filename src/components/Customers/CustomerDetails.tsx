@@ -225,9 +225,9 @@ export function CustomerDetails() {
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex justify-between items-start">
-            <div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
+            <div className="w-full">
               <h2 className="text-2xl font-black text-slate-900">{selectedCustomer.company_name || 'Untitled Company'}</h2>
               <div className="flex items-center gap-2 mt-1">
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${selectedCustomer.is_gst_registered !== false ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
@@ -269,7 +269,7 @@ export function CustomerDetails() {
               </div>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-lg min-w-[240px]">
+            <div className="w-full lg:w-auto bg-slate-50 p-4 rounded-lg min-w-[240px]">
               <h3 className="text-sm font-medium text-slate-500 mb-2">Total Balance</h3>
               <div className="text-3xl font-bold text-slate-900">
                 ₹{totalBalance.toLocaleString('en-IN')}
@@ -424,9 +424,9 @@ export function CustomerDetails() {
           <div className="bg-white shadow overflow-hidden sm:rounded-lg">
             <ul className="divide-y divide-slate-200">
               {currentCustomers.map((selectedCustomerList) => (
-                <li key={selectedCustomerList.id} className="px-5 py-5 sm:px-6 hover:bg-cyan-50/50 cursor-pointer transition-colors border-b border-slate-100 last:border-0">
-                  <div className="flex justify-between items-center">
-                    <div className="flex-1 min-w-0" onClick={() => handleCustomerClick(selectedCustomerList)}>
+                <li key={selectedCustomerList.id} className="px-4 py-4 sm:px-5 sm:py-5 hover:bg-cyan-50/50 cursor-pointer transition-colors border-b border-slate-100 last:border-0">
+                  <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4">
+                    <div className="flex-1 min-w-0 w-full" onClick={() => handleCustomerClick(selectedCustomerList)}>
                       <div className="flex items-center">
                         <User className="flex-shrink-0 mr-1.5 h-4 w-4 text-slate-400" />
                         <span className="font-bold text-slate-800">{selectedCustomerList.company_name || selectedCustomerList.contact_person}</span>
@@ -449,7 +449,7 @@ export function CustomerDetails() {
                         <span className="truncate">{selectedCustomerList.billing_address || selectedCustomerList.address || 'No billing address provided'}</span>
                       </div>
                     </div>
-                    <div className="ml-4 flex-shrink-0 flex space-x-2">
+                    <div className="flex-shrink-0 flex items-center justify-end w-full sm:w-auto pt-2 sm:pt-0 sm:ml-4 space-x-2 border-t border-slate-100 sm:border-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
