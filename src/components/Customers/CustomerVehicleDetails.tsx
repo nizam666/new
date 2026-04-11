@@ -5,14 +5,10 @@ import { useAuth } from '../../contexts/AuthContext';
 
 interface CustomerVehicle {
   id: string;
-  customer_id: string;
   vehicle_number: string;
   vehicle_type: string;
-  tare_weight: number;
-  customers: {
-    name: string;
-    company: string;
-  };
+  owner_name: string;
+  owner_contact: string;
 }
 
 interface CustomerVehicleDetailsProps {
@@ -31,13 +27,7 @@ export function CustomerVehicleDetails({ onAddNew, onEdit }: CustomerVehicleDeta
     try {
       const { data, error } = await supabase
         .from('customer_vehicles')
-        .select(`
-          *,
-          customers:customer_id (
-            name,
-            company
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -74,8 +64,7 @@ export function CustomerVehicleDetails({ onAddNew, onEdit }: CustomerVehicleDeta
 
   const filteredVehicles = vehicles.filter(v => 
     v.vehicle_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (v.customers?.company && v.customers.company.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (v.customers?.name && v.customers.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (v.owner_name && v.owner_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     v.vehicle_type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -169,11 +158,11 @@ export function CustomerVehicleDetails({ onAddNew, onEdit }: CustomerVehicleDeta
                   <User className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
                   <div className="flex flex-col min-w-0">
                     <span className="font-bold text-slate-700 truncate">
-                      {vehicle.customers?.company || vehicle.customers?.name || 'Unknown Owner'}
+                      {vehicle.owner_name}
                     </span>
-                    {vehicle.customers?.company && (
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 truncate">
-                        {vehicle.customers.name}
+                    {vehicle.owner_contact && (
+                      <span className="text-[10px] font-bold tracking-wider text-slate-400 truncate">
+                        {vehicle.owner_contact}
                       </span>
                     )}
                   </div>

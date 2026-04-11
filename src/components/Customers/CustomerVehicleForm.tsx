@@ -1,13 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Truck, Hash, User, AlertCircle, Save, X } from 'lucide-react';
-
-interface Customer {
-  id: string;
-  name: string;
-  company: string;
-}
+import { Truck, Hash, User, Phone, AlertCircle, Save, X } from 'lucide-react';
 
 interface CustomerVehicleFormProps {
   onSuccess: () => void;
@@ -26,41 +20,17 @@ const VEHICLE_TYPES = [
 
 export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: CustomerVehicleFormProps) {
   const { user } = useAuth();
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
-    customer_id: initialData?.customer_id || '',
+    owner_name: initialData?.owner_name || '',
+    owner_contact: initialData?.owner_contact || '',
     vehicle_number: initialData?.vehicle_number || '',
     vehicle_type: initialData?.vehicle_type || '10 wheeler tipper'
   });
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
 
-  const fetchCustomers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, name, company')
-        .order('name');
-        
-      if (error) throw error;
-      setCustomers(data || []);
-      
-      // Auto-select first customer if creating new and customers exist
-      if (!initialData && data && data.length > 0 && !formData.customer_id) {
-        setFormData(prev => ({ ...prev, customer_id: data[0].id }));
-      }
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-    } finally {
-      setLoadingCustomers(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,10 +44,11 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
       const vehicleNumber = formData.vehicle_number.trim().toUpperCase();
 
       if (!vehicleNumber) throw new Error("Vehicle number is required");
-      if (!formData.customer_id) throw new Error("Customer selection is required");
+      if (!formData.owner_name.trim()) throw new Error("Owner Name is required");
 
       const payload = {
-        customer_id: formData.customer_id,
+        owner_name: formData.owner_name.trim(),
+        owner_contact: formData.owner_contact.trim() || null,
         vehicle_number: vehicleNumber,
         vehicle_type: formData.vehicle_type,
         updated_at: new Date().toISOString()
@@ -140,36 +111,10 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
 
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Customer Link */}
-            <div className="col-span-1 md:col-span-2">
-              <label className="block text-sm font-bold text-slate-700 mb-2">
-                Owner / Customer *
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-slate-400" />
-                </div>
-                <select
-                  required
-                  disabled={loadingCustomers}
-                  value={formData.customer_id}
-                  onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 bg-slate-50 font-medium"
-                >
-                  <option value="">Select Customer</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.company ? `${c.company} (${c.name})` : c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
             {/* Vehicle Number */}
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">
-                Vehicle Number (License Plate) *
+                Registration Number *
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -178,7 +123,7 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
                 <input
                   type="text"
                   required
-                  placeholder="TN01AB1234"
+                  placeholder="TN24AB5662"
                   value={formData.vehicle_number}
                   onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.replace(/\s+/g, '').toUpperCase() })}
                   className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-bold uppercase tracking-wider"
@@ -207,6 +152,45 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
                 </select>
               </div>
             </div>
+
+            {/* Owner Name */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">
+                Owner Name *
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="Owner Name"
+                  value={formData.owner_name}
+                  onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
+                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium"
+                />
+              </div>
+            </div>
+
+            {/* Owner Contact */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">
+                Owner Contact
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Phone className="h-5 w-5 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Owner Contact"
+                  value={formData.owner_contact}
+                  onChange={(e) => setFormData({ ...formData, owner_contact: e.target.value })}
+                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -220,7 +204,7 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
           </button>
           <button
             type="submit"
-            disabled={loading || loadingCustomers}
+            disabled={loading}
             className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-indigo-200"
           >
             {loading ? (
