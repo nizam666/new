@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Search, User, Building, Phone, Mail, MapPin, Edit, Plus, ArrowUpRight, ArrowDownRight, Wallet, X, CreditCard } from 'lucide-react';
+import { Search, User, Building, Phone, Mail, MapPin, Edit, Plus, ArrowUpRight, ArrowDownRight, Wallet, X, CreditCard, AlertCircle, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomerForm } from './CustomerForm';
 
@@ -47,6 +47,7 @@ export function CustomerDetails() {
   // Initialize auth context (user is not used yet but kept for future use)
   useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [directoryStats, setDirectoryStats] = useState({ totalPending: 0, totalAdvance: 0, customerCount: 0 });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -127,6 +128,19 @@ export function CustomerDetails() {
       });
 
       setCustomers(updatedCustomers);
+
+      // Simple Stats calculation
+      let pending = 0;
+      let advance = 0;
+      updatedCustomers.forEach(c => {
+        if (c.balance > 0) pending += c.balance;
+        else if (c.balance < 0) advance += Math.abs(c.balance);
+      });
+      setDirectoryStats({
+        totalPending: pending,
+        totalAdvance: advance,
+        customerCount: updatedCustomers.length
+      });
     } catch (error) {
       console.error('Error fetching customers:', error instanceof Error ? error.message : String(error));
     } finally {
@@ -753,13 +767,48 @@ export function CustomerDetails() {
           </div>
           <input
             type="text"
-            placeholder="Search customers..."
+            placeholder="Search customers by name, company or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
           />
         </div>
       </div>
+
+      {/* Directory Stats Summary */}
+      {!loading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="bg-orange-50 bg-opacity-50 border border-orange-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between transition-all hover:shadow-md">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center shadow-inner">
+                <AlertCircle className="w-6 h-6 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-[11px] text-orange-600 font-black uppercase tracking-widest leading-none mb-1">Customer Outstanding</p>
+                <p className="text-xs text-orange-400 font-medium">Total Pending from Customers</p>
+              </div>
+            </div>
+            <p className="text-4xl font-black text-orange-700 leading-none tracking-tight">
+              ₹{directoryStats.totalPending.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </p>
+          </div>
+
+          <div className="bg-emerald-50 bg-opacity-50 border border-emerald-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between transition-all hover:shadow-md">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center shadow-inner">
+                <CheckCircle className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-[11px] text-emerald-600 font-black uppercase tracking-widest leading-none mb-1">Total Advance</p>
+                <p className="text-xs text-emerald-400 font-medium">Excess Payments Received</p>
+              </div>
+            </div>
+            <p className="text-4xl font-black text-emerald-700 leading-none tracking-tight">
+              ₹{directoryStats.totalAdvance.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </p>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
