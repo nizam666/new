@@ -56,7 +56,15 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
     material_rate: ''
   });
 
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([
+    {
+      id: crypto.randomUUID(),
+      amount: '',
+      payment_mode: 'cash',
+      payment_date: new Date().toISOString().split('T')[0],
+      notes: ''
+    }
+  ]);
 
   // Derived state calculations
   const emptyVal = parseFloat(formData.empty_weight) || 0;
