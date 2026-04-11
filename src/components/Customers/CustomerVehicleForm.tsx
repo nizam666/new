@@ -178,9 +178,9 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
                 <input
                   type="text"
                   required
-                  placeholder="TN 01 AB 1234"
+                  placeholder="TN01AB1234"
                   value={formData.vehicle_number}
-                  onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase() })}
+                  onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.replace(/\s+/g, '').toUpperCase() })}
                   className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-bold uppercase tracking-wider"
                 />
               </div>
