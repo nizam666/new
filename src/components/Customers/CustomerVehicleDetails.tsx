@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Truck, Search, Edit, Trash2, Hash, Scale, User, Plus } from 'lucide-react';
+import { Truck, Search, Edit, Trash2, Scale, User, Plus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface CustomerVehicle {
