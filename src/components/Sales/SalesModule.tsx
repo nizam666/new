@@ -33,6 +33,9 @@ export function SalesModule() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  const [viewingInvoice, setViewingInvoice] = useState<any>(null);
+
   const [showInvestorForm, setShowInvestorForm] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<any>(null);
   
@@ -83,15 +86,23 @@ export function SalesModule() {
     setShowInvestorForm(true);
   };
 
-  if (showNewInvoice) {
+  if (showNewInvoice || editingInvoice || viewingInvoice) {
     return (
       <div className="space-y-6">
         <InvoiceForm
+          initialData={editingInvoice || viewingInvoice}
+          isReadOnly={!!viewingInvoice}
           onSuccess={() => {
             setShowNewInvoice(false);
+            setEditingInvoice(null);
+            setViewingInvoice(null);
             window.location.reload();
           }}
-          onCancel={() => setShowNewInvoice(false)}
+          onCancel={() => {
+            setShowNewInvoice(false);
+            setEditingInvoice(null);
+            setViewingInvoice(null);
+          }}
         />
       </div>
     );
@@ -269,7 +280,10 @@ export function SalesModule() {
 
         <div className="p-6">
           {activeTab === 'invoices' && (
-            <InvoiceDetails />
+            <InvoiceDetails 
+              onEdit={(inv) => setEditingInvoice(inv)}
+              onView={(inv) => setViewingInvoice(inv)}
+            />
           )}
 
           {activeTab === 'investors' && (

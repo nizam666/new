@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { FileText, Calendar, DollarSign, AlertCircle, CheckCircle, Printer, CreditCard, X, Receipt } from 'lucide-react';
+import { FileText, Calendar, DollarSign, AlertCircle, CheckCircle, Printer, CreditCard, X, Receipt, Eye, Pencil } from 'lucide-react';
 import { printThermalInvoice, printThermalInvoice58mm } from '../../utils/thermalPrinter';
 
 interface Invoice {
@@ -27,7 +27,12 @@ interface Invoice {
   created_at: string;
 }
 
-export function InvoiceDetails() {
+interface InvoiceDetailsProps {
+  onEdit?: (invoice: any) => void;
+  onView?: (invoice: any) => void;
+}
+
+export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
   const { user } = useAuth();
   const userRole = user?.role;
 
@@ -420,12 +425,23 @@ export function InvoiceDetails() {
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {invoice.vehicle_no && (
-                    <div className="flex items-center gap-1.5 px-3 border-2 border-slate-100 rounded-lg bg-slate-50 mr-2">
-                       <span className="text-xs font-black tracking-widest text-slate-600">{invoice.vehicle_no}</span>
-                    </div>
-                  )}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onView?.(invoice)}
+                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="View Ticket"
+                  >
+                    <Eye className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => onEdit?.(invoice)}
+                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Edit Ticket"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <div className="h-6 w-px bg-slate-200 mx-1" />
+                  
                   {invoice.status !== 'paid' && (
                     <button
                       onClick={() => handleRecordPayment(invoice)}
