@@ -61,7 +61,8 @@ export function TransportDetails() {
         .from('transport_records')
         .select('*')
         .eq('contractor_id', user.id)
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 

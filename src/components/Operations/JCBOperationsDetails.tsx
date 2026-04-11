@@ -37,7 +37,8 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
       let query = supabase
         .from('jcb_operations')
         .select('*')
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
 
       if (user?.role !== 'director') {
         query = query.eq('contractor_id', user?.id);

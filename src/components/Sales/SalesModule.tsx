@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Plus, Search, FileText, Users, User, TrendingUp, Mail, Phone, Truck } from 'lucide-react';
+import { Plus, FileText, Users, User, TrendingUp, Truck } from 'lucide-react';
 import { InvoiceForm } from './InvoiceForm';
 import { InvoiceDetails } from './InvoiceDetails';
 import { MaterialInvestorsForm } from './MaterialInvestorsForm';
@@ -10,14 +9,7 @@ import { CustomerVehicleForm } from '../Customers/CustomerVehicleForm';
 import { CustomerVehicleDetails } from '../Customers/CustomerVehicleDetails';
 import { CustomerDriverForm } from '../Customers/CustomerDriverForm';
 import { CustomerDriverDetails } from '../Customers/CustomerDriverDetails';
-
-interface Customer {
-  id: string;
-  name: string;
-  company: string;
-  email: string;
-  phone: string;
-}
+import { CustomerDetails } from '../Customers/CustomerDetails';
 
 export function SalesModule() {
   useAuth();
@@ -30,8 +22,6 @@ export function SalesModule() {
     return 'invoices';
   });
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [viewingInvoice, setViewingInvoice] = useState<any>(null);
@@ -59,27 +49,8 @@ export function SalesModule() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'customers') {
-      loadCustomers();
-    }
+    // Customers handled by CustomerDetails component
   }, [activeTab]);
-
-  const loadCustomers = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setCustomers(data || []);
-    } catch (error) {
-      console.error('Error loading customers:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEditInvestor = (investor: any) => {
     setEditingInvestor(investor);
@@ -320,67 +291,7 @@ export function SalesModule() {
           )}
 
           {activeTab === 'customers' && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search customers..."
-                    className="w-full pl-10 pr-4 py-2 border-2 border-slate-50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
-                  />
-                </div>
-                <button
-                  onClick={() => (window.location.hash = 'customer-form')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
-                  title="Add New Customer"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
-
-              {loading ? (
-                <div className="text-center py-12 text-slate-400 font-bold">Loading customers...</div>
-              ) : customers.length === 0 ? (
-                <div className="text-center py-20 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200">
-                  <Users className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                  <p className="text-slate-500 font-bold">No customers found</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {customers.map((customer) => (
-                    <div
-                      key={customer.id}
-                      className="group bg-white border-2 border-slate-50 rounded-2xl p-5 hover:border-blue-500/20 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300"
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center font-black text-slate-300">
-                          {customer.name.charAt(0).toUpperCase()}
-                        </div>
-                      </div>
-                      <h4 className="font-black text-slate-900 group-hover:text-blue-600 transition-colors">{customer.name}</h4>
-                      {customer.company && (
-                        <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">{customer.company}</p>
-                      )}
-                      <div className="mt-6 space-y-3">
-                        {customer.email && (
-                          <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                            <Mail className="w-3.5 h-3.5 text-slate-400" />
-                            {customer.email}
-                          </div>
-                        )}
-                        {customer.phone && (
-                          <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                            <Phone className="w-3.5 h-3.5 text-slate-400" />
-                            {customer.phone}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CustomerDetails />
           )}
         </div>
       </div>

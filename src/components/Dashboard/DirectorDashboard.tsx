@@ -203,6 +203,14 @@ export function DirectorDashboard() {
           color: 'from-blue-500 to-indigo-500',
           lightColor: 'bg-blue-50 text-blue-600',
           href: '#sales'
+        },
+        {
+          name: 'Customer Directory',
+          value: 'View Ledger',
+          icon: Users,
+          color: 'from-cyan-500 to-blue-500',
+          lightColor: 'bg-cyan-50 text-cyan-600',
+          href: '#customers'
         }
       ]
     },
@@ -475,6 +483,10 @@ export function DirectorDashboard() {
               <a href="#production" className="flex flex-col items-center justify-center p-4 rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 hover:border-white/20 group">
                 <Factory className="w-6 h-6 mb-2 text-orange-400 group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-medium text-slate-300">Production</span>
+              </a>
+              <a href="#customers" className="flex flex-col items-center justify-center p-4 rounded-xl bg-white/10 hover:bg-white/20 transition-all border border-white/10 hover:border-white/20 group col-span-2">
+                <Users className="w-6 h-6 mb-2 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-medium text-slate-300">Customer Ledger & Directory</span>
               </a>
             </div>
           </div>

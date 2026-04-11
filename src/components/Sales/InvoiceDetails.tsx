@@ -77,7 +77,8 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
       let query = supabase
         .from('invoices')
         .select('*')
-        .order('invoice_date', { ascending: false });
+        .order('invoice_date', { ascending: false })
+        .order('created_at', { ascending: false });
 
       if (userRole !== 'director') {
         query = query.gt('tax_rate', 0);
@@ -137,12 +138,41 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
   const calculateStats = () => {
     const totalInvoices = invoices.length;
     const totalAmount = invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
-    const totalPaid = invoices.reduce((sum, inv) => sum + inv.amount_paid, 0);
+    
+    // Detailed payment breakdown
+    const breakdown: Record<string, number> = { cash: 0, upi: 0, netbanking: 0, card: 0, cheque: 0, other: 0 };
+    invoices.forEach(inv => {
+      try {
+        const history = typeof inv.payment_history === 'string' 
+          ? JSON.parse(inv.payment_history) 
+          : inv.payment_history;
+          
+        if (Array.isArray(history)) {
+          history.forEach((p: any) => {
+            let mode = p.payment_mode?.toLowerCase() || 'other';
+            if (mode === 'bank_transfer') mode = 'netbanking';
+            breakdown[mode] = (breakdown[mode] || 0) + (p.amount || 0);
+          });
+        } else if (inv.amount_paid > 0) {
+          let mode = inv.payment_mode?.toLowerCase() || 'other';
+          if (mode === 'bank_transfer') mode = 'netbanking';
+          breakdown[mode] = (breakdown[mode] || 0) + (inv.amount_paid || 0);
+        }
+      } catch (e) {
+        if (inv.amount_paid > 0) {
+          let mode = inv.payment_mode?.toLowerCase() || 'other';
+          if (mode === 'bank_transfer') mode = 'netbanking';
+          breakdown[mode] = (breakdown[mode] || 0) + (inv.amount_paid || 0);
+        }
+      }
+    });
+
+    const totalPaid = Object.values(breakdown).reduce((a, b) => a + b, 0);
     const totalPending = totalAmount - totalPaid;
     const paidCount = invoices.filter(inv => inv.status === 'paid').length;
     const unpaidCount = invoices.filter(inv => inv.status === 'unpaid').length;
 
-    return { totalInvoices, totalAmount, totalPaid, totalPending, paidCount, unpaidCount };
+    return { totalInvoices, totalAmount, totalPaid, totalPending, paidCount, unpaidCount, breakdown };
   };
 
   const stats = calculateStats();
@@ -330,46 +360,66 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-          <div className="flex items-center gap-3">
-            <FileText className="w-8 h-8 text-blue-600" />
-            <div>
-              <p className="text-xs text-blue-600 font-medium">Total Invoices</p>
-              <p className="text-2xl font-bold text-blue-900">{stats.totalInvoices}</p>
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+        {/* Total Invoices */}
+        <div className="bg-blue-50 bg-opacity-50 rounded-xl p-5 border border-blue-100 flex flex-col justify-between shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shadow-inner">
+              <FileText className="w-5 h-5 text-blue-600" />
             </div>
+            <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">Total Invoices</p>
+          </div>
+          <p className="text-3xl font-black text-blue-900 leading-none">{stats.totalInvoices}</p>
+        </div>
+
+        {/* Total Sales Amount */}
+        <div className="bg-emerald-50 bg-opacity-50 rounded-xl p-5 border border-emerald-100 flex flex-col justify-between shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shadow-inner">
+              <DollarSign className="w-5 h-5 text-emerald-600" />
+            </div>
+            <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">Total Sales Amount</p>
+          </div>
+          <p className="text-3xl font-black text-emerald-900 leading-none">₹{stats.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+        </div>
+
+        {/* Total Received (Paid) */}
+        <div className="bg-emerald-50 bg-opacity-50 rounded-xl p-5 border border-emerald-200 flex flex-col shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shadow-inner">
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+              </div>
+              <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">Total Received</p>
+            </div>
+          </div>
+          
+          <p className="text-3xl font-black text-emerald-900 mb-4 leading-none">₹{stats.totalPaid.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+          
+          <div className="space-y-1.5 pt-3 border-t border-emerald-100">
+            {Object.entries(stats.breakdown).map(([mode, amount]) => amount > 0 && (
+              <div key={mode} className="flex justify-between items-center text-[10px]">
+                <span className="text-emerald-600 font-bold uppercase tracking-wider">{mode === 'netbanking' ? 'Bank' : mode}</span>
+                <span className="font-black text-emerald-800">₹{amount.toLocaleString('en-IN')}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-          <div className="flex items-center gap-3">
-            <DollarSign className="w-8 h-8 text-green-600" />
-            <div>
-              <p className="text-xs text-green-600 font-medium">Total Amount</p>
-              <p className="text-2xl font-bold text-green-900">₹{stats.totalAmount.toFixed(0)}</p>
+        {/* Pending / Advance */}
+        <div className={`${stats.totalPending >= 0 ? 'bg-orange-50 border-orange-100' : 'bg-green-50 border-green-100'} bg-opacity-50 rounded-xl p-5 border flex flex-col justify-between shadow-sm transition-all hover:shadow-md`}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className={`w-10 h-10 ${stats.totalPending >= 0 ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'} rounded-xl flex items-center justify-center shadow-inner`}>
+              {stats.totalPending >= 0 ? <AlertCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
             </div>
+            <p className={`text-[10px] ${stats.totalPending >= 0 ? 'text-orange-600' : 'text-green-600'} font-black uppercase tracking-widest`}>
+              {stats.totalPending >= 0 ? 'Total Pending' : 'Advance Balance'}
+            </p>
           </div>
-        </div>
-
-        <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
-          <div className="flex items-center gap-3">
-            <CheckCircle className="w-8 h-8 text-emerald-600" />
-            <div>
-              <p className="text-xs text-emerald-600 font-medium">Paid</p>
-              <p className="text-2xl font-bold text-emerald-900">₹{stats.totalPaid.toFixed(0)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-8 h-8 text-red-600" />
-            <div>
-              <p className="text-xs text-red-600 font-medium">Pending</p>
-              <p className="text-2xl font-bold text-red-900">₹{stats.totalPending.toFixed(0)}</p>
-            </div>
-          </div>
+          <p className={`text-3xl font-black ${stats.totalPending >= 0 ? 'text-orange-700' : 'text-green-700'} leading-none`}>
+            ₹{Math.abs(stats.totalPending).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </p>
         </div>
       </div>
 
@@ -717,6 +767,6 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -308,6 +308,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
         const payload = {
           invoice_number: currentInvoiceNumber,
           invoice_date: formData.invoice_date,
+          customer_id: selectedCustomerId,
           customer_name: formData.customer_name,
           delivery_location: formData.delivery_location || null,
           vehicle_no: formData.vehicle_no || null,

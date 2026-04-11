@@ -43,7 +43,8 @@ export function DispatchDetails() {
       let query = supabase
         .from('dispatch_list')
         .select('*')
-        .order('dispatch_date', { ascending: false });
+        .order('dispatch_date', { ascending: false })
+        .order('created_at', { ascending: false });
 
       if (userRole !== 'director') {
         query = query.eq('billing_type', 'with_gst');
