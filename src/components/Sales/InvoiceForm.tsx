@@ -295,19 +295,6 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Gross Weight (Tons)</label>
-              <input
-                type="number"
-                step="0.001"
-                min="0"
-                placeholder="0.000"
-                value={formData.gross_weight}
-                onChange={(e) => setFormData({ ...formData, gross_weight: e.target.value })}
-                className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
-              />
-            </div>
-
-            <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Empty / Tare Weight (Tons)</label>
               <input
                 type="number"
@@ -316,6 +303,19 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
                 placeholder="0.000"
                 value={formData.empty_weight}
                 onChange={(e) => setFormData({ ...formData, empty_weight: e.target.value })}
+                className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Gross Weight (Tons)</label>
+              <input
+                type="number"
+                step="0.001"
+                min="0"
+                placeholder="0.000"
+                value={formData.gross_weight}
+                onChange={(e) => setFormData({ ...formData, gross_weight: e.target.value })}
                 className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
               />
             </div>
