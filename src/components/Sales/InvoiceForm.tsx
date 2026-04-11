@@ -3,6 +3,18 @@ import { supabase } from '../../lib/supabase';
 import { FileText, Printer, AlertCircle } from 'lucide-react';
 import { printThermalInvoice } from '../../utils/thermalPrinter';
 
+interface Customer {
+  id: string;
+  name: string;
+  company: string;
+  delivery_address: string;
+}
+
+interface Vehicle {
+  id: string;
+  vehicle_number: string;
+}
+
 interface InvoiceFormProps {
   onSuccess: () => void;
   onCancel: () => void;
@@ -13,6 +25,9 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
   const [generatingInvoiceNumber, setGeneratingInvoiceNumber] = useState(true);
   const [error, setError] = useState('');
   const shouldPrintRef = useRef(false);
+
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
   const [formData, setFormData] = useState({
     invoice_number: '',
@@ -37,7 +52,27 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
 
   useEffect(() => {
     generateInvoiceNumber();
+    fetchDropdownData();
   }, []);
+
+  const fetchDropdownData = async () => {
+    try {
+      const { data: customerData } = await supabase
+        .from('customers')
+        .select('id, name, company, delivery_address')
+        .order('name');
+      
+      const { data: vehicleData } = await supabase
+        .from('customer_vehicles')
+        .select('id, vehicle_number')
+        .order('vehicle_number');
+
+      if (customerData) setCustomers(customerData);
+      if (vehicleData) setVehicles(vehicleData);
+    } catch (err) {
+      console.error('Error fetching dropdown references:', err);
+    }
+  };
 
   const generateInvoiceNumber = async () => {
     try {
@@ -200,14 +235,29 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-2">Customer Name *</label>
-            <input
-              type="text"
+            <select
               required
-              placeholder="Client / Company"
               value={formData.customer_name}
-              onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            />
+              onChange={(e) => {
+                const selectedCustName = e.target.value;
+                const cust = customers.find(c => c.name === selectedCustName || c.company === selectedCustName);
+                
+                setFormData({ 
+                  ...formData, 
+                  customer_name: selectedCustName,
+                  // Auto-fill delivery location from the matched customer profile!
+                  delivery_location: cust?.delivery_address || ''
+                });
+              }}
+              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">Select customer...</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.name || c.company}>
+                  {c.name} {c.company ? `(${c.company})` : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -217,19 +267,24 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
               placeholder="Destination site"
               value={formData.delivery_location}
               onChange={(e) => setFormData({ ...formData, delivery_location: e.target.value })}
-              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-indigo-50/30"
             />
           </div>
 
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-2">Vehicle No</label>
-            <input
-              type="text"
-              placeholder="TN 01 AB 1234"
+            <select
               value={formData.vehicle_no}
-              onChange={(e) => setFormData({ ...formData, vehicle_no: e.target.value.toUpperCase() })}
-              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 uppercase tracking-wider font-bold text-slate-700"
-            />
+              onChange={(e) => setFormData({ ...formData, vehicle_no: e.target.value })}
+              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white uppercase tracking-wider font-bold text-slate-700"
+            >
+              <option value="">Select vehicle...</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.vehicle_number}>
+                  {v.vehicle_number}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
