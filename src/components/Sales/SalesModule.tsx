@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Plus, Search, FileText, Users, TrendingUp, Mail, Phone, Truck } from 'lucide-react';
+import { Plus, Search, FileText, Users, User, TrendingUp, Mail, Phone, Truck } from 'lucide-react';
 import { InvoiceForm } from './InvoiceForm';
 import { InvoiceDetails } from './InvoiceDetails';
 import { MaterialInvestorsForm } from './MaterialInvestorsForm';

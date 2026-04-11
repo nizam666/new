@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { IdCard, User, Calendar, Phone, Activity, AlertCircle, Save, X } from 'lucide-react';
+import { AlertCircle, Save, X } from 'lucide-react';
 
 interface DriverFormProps {
   onSuccess: () => void;
