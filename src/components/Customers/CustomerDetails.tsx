@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Search, User, Building, Phone, Mail, MapPin, Edit, Trash2, Plus, FileText } from 'lucide-react';
+import { Search, User, Building, Phone, Mail, MapPin, Edit, Plus, FileText } from 'lucide-react';
 import { format, subDays, addDays } from 'date-fns';
 import { CustomerForm } from './CustomerForm';
 
@@ -73,24 +73,7 @@ export function CustomerDetails() {
     fetchCustomers();
   }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this customer?')) return;
 
-    try {
-      const { error } = await supabase
-        .from('customers')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      // Refresh the customer list
-      fetchCustomers();
-      alert('Customer deleted successfully');
-    } catch (error) {
-      alert('Error deleting customer: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  };
 
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
@@ -458,16 +441,6 @@ export function CustomerDetails() {
                         title="Edit"
                       >
                         <Edit className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(selectedCustomerList.id);
-                        }}
-                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-5 w-5" />
                       </button>
                     </div>
                   </div>
