@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Truck, Scale, Hash, User, AlertCircle, Save, X } from 'lucide-react';
+import { Truck, Hash, User, AlertCircle, Save, X } from 'lucide-react';
 
 interface Customer {
   id: string;
@@ -34,8 +34,7 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
   const [formData, setFormData] = useState({
     customer_id: initialData?.customer_id || '',
     vehicle_number: initialData?.vehicle_number || '',
-    vehicle_type: initialData?.vehicle_type || '10 wheeler tipper',
-    tare_weight: initialData?.tare_weight || ''
+    vehicle_type: initialData?.vehicle_type || '10 wheeler tipper'
   });
 
   useEffect(() => {
@@ -73,7 +72,6 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
     try {
       // Data normalization
       const vehicleNumber = formData.vehicle_number.trim().toUpperCase();
-      const tareWeight = formData.tare_weight ? parseFloat(formData.tare_weight) : 0;
 
       if (!vehicleNumber) throw new Error("Vehicle number is required");
       if (!formData.customer_id) throw new Error("Customer selection is required");
@@ -82,7 +80,6 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
         customer_id: formData.customer_id,
         vehicle_number: vehicleNumber,
         vehicle_type: formData.vehicle_type,
-        tare_weight: tareWeight,
         updated_at: new Date().toISOString()
       };
 
@@ -209,28 +206,6 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
                   ))}
                 </select>
               </div>
-            </div>
-
-            {/* Tare Weight */}
-            <div className="col-span-1 md:col-span-2 lg:col-span-1">
-              <label className="block text-sm font-bold text-slate-700 mb-2">
-                Empty / Tare Weight (Kg)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Scale className="h-5 w-5 text-slate-400" />
-                </div>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 5500"
-                  value={formData.tare_weight}
-                  onChange={(e) => setFormData({ ...formData, tare_weight: e.target.value })}
-                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium"
-                />
-              </div>
-              <p className="mt-1 text-xs text-slate-500">Optional: Used as a baseline for future weighbridge integrations.</p>
             </div>
           </div>
         </div>

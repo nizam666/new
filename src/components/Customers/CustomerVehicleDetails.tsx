@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Truck, Search, Edit, Trash2, Scale, User, Plus } from 'lucide-react';
+import { Truck, Search, Edit, Trash2, User, Plus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface CustomerVehicle {
@@ -177,13 +177,6 @@ export function CustomerVehicleDetails({ onAddNew, onEdit }: CustomerVehicleDeta
                       </span>
                     )}
                   </div>
-                </div>
-                
-                <div className="flex items-center gap-2.5 text-sm text-slate-500">
-                  <Scale className="w-4 h-4 text-slate-400" />
-                  <span className="font-semibold text-slate-600">
-                    {vehicle.tare_weight ? `${vehicle.tare_weight.toLocaleString()} kg` : 'Weight unknown'}
-                  </span>
                 </div>
               </div>
             </div>
