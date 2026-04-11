@@ -231,12 +231,12 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
       })).filter(p => p.amount > 0);
 
       let currentInvoiceNumber = formData.invoice_number;
-      let syncResult = null;
+
       let attempts = 0;
       const maxAttempts = 3;
 
       while (attempts < maxAttempts) {
-        const { data: insertData, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from('invoices')
           .insert([{
             invoice_number: currentInvoiceNumber,
@@ -275,7 +275,6 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
           throw insertError;
         }
 
-        syncResult = insertData;
         break; // Success!
       }
 
