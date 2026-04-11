@@ -25,18 +25,14 @@ interface Customer {
   id: string;
   company_name: string;
   contact_person: string;
-  email: string;
+  email?: string;
   phone: string;
-  address: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  country: string;
+  address?: string;
+  billing_address?: string;
+  delivery_address?: string;
+  is_gst_registered?: boolean;
   tax_id: string;
-  customer_type: string;
-  payment_terms: string;
-  credit_limit: number;
-  notes: string;
+  gst_number?: string;
   created_at: string;
   updated_at: string;
 }
@@ -232,8 +228,15 @@ export function CustomerDetails() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">{selectedCustomer.company_name}</h2>
-              <p className="text-slate-600">{selectedCustomer.customer_type} • {selectedCustomer.tax_id}</p>
+              <h2 className="text-2xl font-black text-slate-900">{selectedCustomer.company_name || 'Untitled Company'}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${selectedCustomer.is_gst_registered !== false ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                   {selectedCustomer.is_gst_registered !== false ? 'GST Registered' : 'URP (Unregistered)'}
+                </span>
+                {selectedCustomer.is_gst_registered !== false && (
+                   <span className="text-sm font-bold text-slate-500">{selectedCustomer.tax_id || selectedCustomer.gst_number}</span>
+                )}
+              </div>
 
               <div className="mt-4 space-y-2">
                 <div className="flex items-center text-slate-700">
@@ -248,13 +251,20 @@ export function CustomerDetails() {
                   <Mail className="h-4 w-4 mr-2 text-slate-500" />
                   {selectedCustomer.email || 'N/A'}
                 </div>
-                <div className="flex items-start text-slate-700">
-                  <MapPin className="h-4 w-4 mr-2 mt-1 flex-shrink-0 text-slate-500" />
-                  <span>
-                    {selectedCustomer.address}<br />
-                    {selectedCustomer.city}{selectedCustomer.city && selectedCustomer.state ? ', ' : ''}{selectedCustomer.state}<br />
-                    {selectedCustomer.postal_code} {selectedCustomer.country}
-                  </span>
+                <div className="flex items-start text-slate-700 pt-2 border-t border-slate-100">
+                  <MapPin className="h-4 w-4 mr-2 mt-1 flex-shrink-0 text-slate-400" />
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Billing Address</span>
+                      <span className="text-sm font-medium">{selectedCustomer.billing_address || selectedCustomer.address || 'N/A'}</span>
+                    </div>
+                    {selectedCustomer.delivery_address && selectedCustomer.delivery_address !== selectedCustomer.billing_address && (
+                      <div>
+                        <span className="text-[10px] font-black text-cyan-600 uppercase tracking-widest block mb-0.5">Delivery Site</span>
+                        <span className="text-sm font-medium">{selectedCustomer.delivery_address}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -269,13 +279,16 @@ export function CustomerDetails() {
               </div>
 
               <div className="mt-4 pt-4 border-t border-slate-200">
-                <h3 className="text-sm font-medium text-slate-500 mb-2">Payment Terms</h3>
-                <div className="text-sm text-slate-700">
-                  {selectedCustomer.payment_terms}
-                </div>
-                <div className="text-sm text-slate-500">
-                  Credit Limit: ₹{selectedCustomer.credit_limit?.toLocaleString('en-IN') || '0'}
-                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(selectedCustomer);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:border-cyan-500 hover:text-cyan-700 transition-all"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit Customer Profile
+                </button>
               </div>
             </div>
           </div>
@@ -410,32 +423,37 @@ export function CustomerDetails() {
         <>
           <div className="bg-white shadow overflow-hidden sm:rounded-lg">
             <ul className="divide-y divide-slate-200">
-              {currentCustomers.map((customer) => (
-                <li key={customer.id} className="px-4 py-4 sm:px-6 hover:bg-slate-50">
+              {currentCustomers.map((selectedCustomerList) => (
+                <li key={selectedCustomerList.id} className="px-5 py-5 sm:px-6 hover:bg-cyan-50/50 cursor-pointer transition-colors border-b border-slate-100 last:border-0">
                   <div className="flex justify-between items-center">
-                    <div className="flex-1 min-w-0" onClick={() => handleCustomerClick(customer)}>
+                    <div className="flex-1 min-w-0" onClick={() => handleCustomerClick(selectedCustomerList)}>
                       <div className="flex items-center">
                         <User className="flex-shrink-0 mr-1.5 h-4 w-4 text-slate-400" />
-                        <span className="font-medium">{customer.contact_person}</span>
+                        <span className="font-bold text-slate-800">{selectedCustomerList.company_name || selectedCustomerList.contact_person}</span>
+                        {selectedCustomerList.is_gst_registered === false && (
+                          <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-black uppercase tracking-wider rounded border border-slate-200 scale-90">URP</span>
+                        )}
                       </div>
-                      <div className="mt-2 flex items-center text-sm text-slate-500">
-                        <Phone className="flex-shrink-0 mr-1.5 h-4 w-4 text-slate-400" />
-                        {customer.phone || 'N/A'}
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                        <div className="flex items-center text-sm text-slate-500 font-medium">
+                          <User className="flex-shrink-0 mr-1.5 h-3.5 w-3.5 text-slate-400" />
+                          {selectedCustomerList.contact_person}
+                        </div>
+                        <div className="flex items-center text-sm text-slate-500 font-medium">
+                          <Phone className="flex-shrink-0 mr-1.5 h-3.5 w-3.5 text-slate-400" />
+                          {selectedCustomerList.phone || 'N/A'}
+                        </div>
                       </div>
-                      <div className="mt-2 flex items-center text-sm text-slate-500">
-                        <Mail className="flex-shrink-0 mr-1.5 h-4 w-4 text-slate-400" />
-                        {customer.email || 'N/A'}
-                      </div>
-                      <div className="mt-2 flex items-center text-sm text-slate-500">
-                        <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-slate-400" />
-                        {customer.city}{customer.city && customer.state ? ', ' : ''}{customer.state}
+                      <div className="mt-2 flex items-start text-xs text-slate-500 max-w-lg truncate">
+                        <MapPin className="flex-shrink-0 mr-1.5 h-3.5 w-3.5 text-slate-300 mt-0.5" />
+                        <span className="truncate">{selectedCustomerList.billing_address || selectedCustomerList.address || 'No billing address provided'}</span>
                       </div>
                     </div>
                     <div className="ml-4 flex-shrink-0 flex space-x-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleEdit(customer);
+                          handleEdit(selectedCustomerList);
                         }}
                         className="p-2 rounded-lg text-cyan-600 hover:bg-cyan-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500"
                         title="Edit"
@@ -445,7 +463,7 @@ export function CustomerDetails() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(customer.id);
+                          handleDelete(selectedCustomerList.id);
                         }}
                         className="p-2 rounded-lg text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                         title="Delete"
