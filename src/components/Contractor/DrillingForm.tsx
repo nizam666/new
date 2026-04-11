@@ -84,6 +84,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
   const [monthlyStats, setMonthlyStats] = useState<{
     date: string;
     totalFeet: number;
+    totalDiesel: number;
     breakdown: Record<string, number>;
   }[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -123,7 +124,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
       const { data, error } = await supabase
         .from('drilling_records')
-        .select('date, material_type, rod_measurements, rod_measurements_set2')
+        .select('date, material_type, diesel_consumed, rod_measurements, rod_measurements_set2')
         .eq('contractor_id', user.id)
         .gte('date', format(start, 'yyyy-MM-dd'))
         .lte('date', format(end, 'yyyy-MM-dd'))
@@ -132,7 +133,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
       if (error) throw error;
 
       // Group and sum by date and material
-      type DailyBreakdown = { total: number; breakdown: Record<string, number> };
+      type DailyBreakdown = { total: number; diesel: number; breakdown: Record<string, number> };
       const statsMap = new Map<string, DailyBreakdown>();
 
       data?.forEach(record => {
@@ -147,8 +148,9 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
         });
 
         const mType = record.material_type || 'Unknown';
-        const current = statsMap.get(record.date) || { total: 0, breakdown: {} };
+        const current = statsMap.get(record.date) || { total: 0, diesel: 0, breakdown: {} };
         current.total += dailySum;
+        current.diesel += (record.diesel_consumed || 0);
         current.breakdown[mType] = (current.breakdown[mType] || 0) + dailySum;
         statsMap.set(record.date, current);
       });
@@ -156,6 +158,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
       const statsArray = Array.from(statsMap.entries()).map(([date, data]) => ({
         date,
         totalFeet: data.total,
+        totalDiesel: data.diesel,
         breakdown: data.breakdown
       }));
       setMonthlyStats(statsArray);
@@ -472,10 +475,11 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-[10px] sm:text-xs">
-            <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-200 px-2 sm:px-4 py-2 font-bold text-slate-500 uppercase tracking-wider text-center">
+            <div className="grid grid-cols-4 bg-slate-50 border-b border-slate-200 px-2 sm:px-4 py-2 font-bold text-slate-500 uppercase tracking-wider text-center">
               <span className="text-left">Date</span>
-              <span>Good Boulders</span>
-              <span className="text-right">Weathered Rock</span>
+              <span>Boulders</span>
+              <span>Rock</span>
+              <span className="text-right">Diesel</span>
             </div>
 
             <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
@@ -487,7 +491,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                 <div className="p-4 text-center text-slate-500 italic">No records for this month</div>
               ) : (
                 monthlyStats.map((stat) => (
-                  <div key={stat.date} className="grid grid-cols-3 px-2 sm:px-4 py-3 items-center hover:bg-slate-50/50 transition-colors text-center text-xs">
+                  <div key={stat.date} className="grid grid-cols-4 px-2 sm:px-4 py-3 items-center hover:bg-slate-50/50 transition-colors text-center text-xs">
                     <div className="text-left">
                       <div className="font-bold text-slate-900">{safeFormat(stat.date, 'dd MMM')}</div>
                       <div className="text-[8px] sm:text-[10px] text-slate-400 capitalize">{safeFormat(stat.date, 'EEE')}</div>
@@ -495,8 +499,11 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                     <div className="text-orange-600 font-bold">
                       {(stat.breakdown?.['Good Boulders'] || 0).toFixed(0)}<span className="text-[8px] opacity-70 ml-0.5 font-normal">ft</span>
                     </div>
-                    <div className="text-amber-600 font-bold text-right pr-1">
+                    <div className="text-amber-600 font-bold">
                       {(stat.breakdown?.['Weathered Rocks'] || 0).toFixed(0)}<span className="text-[8px] opacity-70 ml-0.5 font-normal">ft</span>
+                    </div>
+                    <div className="text-blue-600 font-bold text-right pr-1">
+                      {stat.totalDiesel.toFixed(1)}<span className="text-[8px] opacity-70 ml-0.5 font-normal text-slate-400">L</span>
                     </div>
                   </div>
                 ))
@@ -506,7 +513,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             {/* Monthly Total Footer - Redesigned to show material totals only */}
             {monthlyStats.length > 0 && (
               <div className="bg-slate-900 px-4 py-4 text-white">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   {['Good Boulders', 'Weathered Rocks'].map(type => {
                     const typeTotal = monthlyStats.reduce((acc, curr) => acc + (curr.breakdown?.[type] || 0), 0);
                     const isBoulders = type === 'Good Boulders';
@@ -515,16 +522,24 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                         isBoulders ? 'bg-orange-600/20 border-orange-600/30' : 'bg-amber-600/20 border-amber-600/30'
                       }`}>
                         <span className="text-[8px] sm:text-[10px] font-semibold uppercase tracking-widest opacity-70 mb-1 text-center">
-                          {isBoulders ? 'Total G.B in feets' : 'Total W.R in feets'}
+                          {isBoulders ? 'Total G.B' : 'Total W.R'}
                         </span>
-                        <span className={`text-lg sm:text-xl font-black ${isBoulders ? 'text-orange-400' : 'text-amber-400'}`}>
+                        <span className={`text-sm sm:text-lg font-black ${isBoulders ? 'text-orange-400' : 'text-amber-400'}`}>
                           {typeTotal.toFixed(0)}
                           <span className="text-[10px] sm:text-xs font-medium opacity-60 ml-1 tracking-normal">ft</span>
                         </span>
-                        <span className="text-[8px] opacity-50 mt-1">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]}</span>
                       </div>
                     );
                   })}
+                  <div className="p-3 rounded-lg border bg-blue-600/20 border-blue-600/30 flex flex-col items-center">
+                    <span className="text-[8px] sm:text-[10px] font-semibold uppercase tracking-widest opacity-70 mb-1 text-center">
+                      Total Diesel
+                    </span>
+                    <span className="text-sm sm:text-lg font-black text-blue-400">
+                      {monthlyStats.reduce((acc, curr) => acc + curr.totalDiesel, 0).toFixed(1)}
+                      <span className="text-[10px] sm:text-xs font-medium opacity-60 ml-1 tracking-normal">L</span>
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

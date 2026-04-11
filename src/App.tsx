@@ -95,15 +95,12 @@ function AppContent() {
                 <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">Role: {user.role.replace('_', ' ')}</p>
               </div>
               <div className="px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-black text-indigo-600 uppercase tracking-widest shadow-sm">
-                Operational Terminal
+                Attendance Terminal
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-8">
-
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-400 font-medium">
-                Select a module from the sidebar to view detailed operations
-              </div>
+              <SelfServiceAttendance workArea="crusher" />
             </div>
           </div>
         );

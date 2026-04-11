@@ -11,6 +11,12 @@ const MATERIAL_TYPES = [
   'SBBM Slurry Work',
   'SBBM Stockyard Good Boulders',
   'Aggregates rehandling/ Aggregate Loading',
+  'Face cleaning',
+  'Crusher machine works',
+  'Excavator bucket -> breaker change',
+  'Excavator breaker -> bucket change',
+  'Excavator maintenance work',
+  'Excavator Diesel work',
   'Others'
 ];
 
@@ -35,7 +41,8 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
     breaker_bucket: '',
     starting_hours: '',
     ending_hours: '',
-    notes: ''
+    notes: '',
+    custom_material_type: ''
   });
 
   const getRunningHours = () => {
@@ -113,7 +120,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
       const insertData = {
         contractor_id: user.id,
         date: formData.date,
-        material_type: formData.material_type,
+        material_type: formData.material_type === 'Others' ? formData.custom_material_type : formData.material_type,
         vehicle_used: formData.vehicle_used,
         quantity_loaded: parseFloat(formData.diesel) || 0, // Store diesel in quantity_loaded temporarily
         breaker_bucket: formData.breaker_bucket,
@@ -139,7 +146,8 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
         breaker_bucket: '',
         starting_hours: '',
         ending_hours: '',
-        notes: ''
+        notes: '',
+        custom_material_type: ''
       });
 
       toast.success('Excavator breaking/loading record submitted successfully!', { position: 'top-right' });
@@ -191,7 +199,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
           <label className="block text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest mb-3 ml-1">
             Material Type <span className="text-red-500 text-base">*</span>
           </label>
-          <div className="grid grid-cols-1 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             {MATERIAL_TYPES.map((material) => (
               <button
                 key={material}
@@ -212,6 +220,23 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
               </button>
             ))}
           </div>
+          
+          {/* Conditional "Others" Input */}
+          {formData.material_type === 'Others' && (
+            <div className="mt-4 animate-in slide-in-from-top-2 duration-300">
+              <label className="block text-[10px] sm:text-xs font-black text-green-600 uppercase tracking-widest mb-2 ml-1">
+                Specify Other Work Type <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.custom_material_type}
+                onChange={(e) => setFormData({ ...formData, custom_material_type: e.target.value })}
+                required
+                className="w-full px-4 sm:px-5 py-3 sm:py-4 border-2 border-green-100 bg-green-50/20 rounded-xl sm:rounded-2xl text-sm sm:text-base focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all font-bold text-slate-900"
+                placeholder="Type the specific work here..."
+              />
+            </div>
+          )}
         </div>
 
         {/* Vehicle & Breaker Group */}

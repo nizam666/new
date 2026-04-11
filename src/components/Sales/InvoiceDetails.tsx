@@ -22,6 +22,9 @@ interface Invoice {
   payment_mode: string;
   payment_date: string;
   payment_history: string;
+  empty_weight: number;
+  gross_weight: number;
+  net_weight: number;
   notes: string;
   terms_conditions: string;
   created_at: string;
@@ -411,7 +414,12 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-lg font-semibold text-slate-900">{invoice.invoice_number}</h3>
+                      <button
+                        onClick={() => onView?.(invoice)}
+                        className="text-lg font-bold text-blue-600 hover:text-blue-800 hover:underline transition-all text-left"
+                      >
+                        {invoice.invoice_number}
+                      </button>
                       <span className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
                         {getStatusIcon(invoice.status)}
                         {invoice.status.toUpperCase()}

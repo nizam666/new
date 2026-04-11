@@ -55,7 +55,8 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
     material_name: '',
     empty_weight: '',
     gross_weight: '',
-    material_rate: ''
+    material_rate: '',
+    bill_type: 'non-gst' as 'gst' | 'non-gst'
   });
 
   const [payments, setPayments] = useState<Payment[]>([
@@ -69,6 +70,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
   ]);
 
   const [recentLocations, setRecentLocations] = useState<string[]>([]);
+  const [globalLocations, setGlobalLocations] = useState<string[]>([]);
   const [updateProfile, setUpdateProfile] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
@@ -79,7 +81,16 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
 
   const rawNet = grossVal - emptyVal;
   const netWeight = rawNet > 0 ? parseFloat(rawNet.toFixed(3)) : 0;
+  
   const totalAmount = parseFloat((netWeight * rateVal).toFixed(2));
+  const tax_rate = formData.bill_type === 'gst' ? 5 : 0;
+  
+  // GST Inclusive Math: Total = Subtotal + (Subtotal * 0.05)
+  // => Subtotal = Total / 1.05
+  const subtotal = tax_rate > 0 
+    ? parseFloat((totalAmount / (1 + tax_rate/100)).toFixed(2)) 
+    : totalAmount;
+  const tax_amount = parseFloat((totalAmount - subtotal).toFixed(2));
 
   const totalCalculatedPaid = payments.reduce((sum, p) => {
     // We only count actual monetary collection towards 'amount_paid'
@@ -91,6 +102,8 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
   const balanceDue = totalAmount - totalCalculatedPaid;
 
   useEffect(() => {
+    fetchDropdownData();
+    fetchRecentLocations(); // Global fetch
     if (initialData) {
       setFormData({
         invoice_number: initialData.invoice_number || '',
@@ -101,7 +114,8 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
         material_name: initialData.material_name || '',
         empty_weight: initialData.empty_weight?.toString() || '',
         gross_weight: initialData.gross_weight?.toString() || '',
-        material_rate: initialData.material_rate?.toString() || ''
+        material_rate: initialData.material_rate?.toString() || '',
+        bill_type: (initialData.tax_rate > 0) ? 'gst' : 'non-gst'
       });
 
       if (initialData.payment_history) {
@@ -127,15 +141,14 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
     } else {
       generateInvoiceNumber();
     }
-    fetchDropdownData();
   }, [initialData]);
 
   // Sync selected customer ID when customers load or name changes (important for editing)
   useEffect(() => {
-    if (formData.customer_name && customers.length > 0) {
-      const cust = customers.find(c => c.name === formData.customer_name);
-      if (cust) {
-        setSelectedCustomerId(cust.id);
+    if (formData.customer_name) {
+      const customer = customers.find(c => c.name === formData.customer_name);
+      if (customer) {
+        setSelectedCustomerId(customer.id);
         fetchRecentLocations(formData.customer_name);
       }
     }
@@ -218,19 +231,27 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
     setPayments(payments.filter(p => p.id !== id));
   };
 
-  const fetchRecentLocations = async (customerName: string) => {
+  const fetchRecentLocations = async (customerName?: string) => {
     try {
-      const { data } = await supabase
+      let query = supabase
         .from('invoices')
         .select('delivery_location')
-        .eq('customer_name', customerName)
         .not('delivery_location', 'is', null)
         .order('created_at', { ascending: false });
       
+      if (customerName) {
+        query = query.eq('customer_name', customerName);
+      }
+      
+      const { data } = await query.limit(200);
+      
       if (data) {
-        // Get unique locations
         const unique = Array.from(new Set(data.map(d => d.delivery_location)));
-        setRecentLocations(unique.slice(0, 10)); // Top 10 recent
+        if (customerName) {
+          setRecentLocations(unique.slice(0, 20));
+        } else {
+          setGlobalLocations(unique.slice(0, 100));
+        }
       }
     } catch (err) {
       console.error('Error fetching recent locations:', err);
@@ -295,8 +316,10 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
           empty_weight: emptyVal,
           gross_weight: grossVal,
           net_weight: netWeight,
+          subtotal: subtotal,
+          tax_rate: tax_rate,
+          tax_amount: tax_amount,
           total_amount: totalAmount,
-          subtotal: totalAmount,
           
           // Payment logistics:
           amount_paid: totalCalculatedPaid,
@@ -344,16 +367,21 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
         printThermalInvoice({
           invoice_number: currentInvoiceNumber,
           customer_name: formData.customer_name,
+          vehicle_no: formData.vehicle_no,
           invoice_date: formData.invoice_date,
           due_date: formData.invoice_date,
           items: backupItemFormat,
-          subtotal: totalAmount,
-          tax_rate: 0,
-          tax_amount: 0,
+          subtotal: subtotal,
+          tax_rate: tax_rate,
+          tax_amount: tax_amount,
           total_amount: totalAmount,
           status: status,
           amount_paid: totalCalculatedPaid,
-          notes: `Vehicle: ${formData.vehicle_no}\nDestination: ${formData.delivery_location}`
+          empty_weight: emptyVal,
+          gross_weight: grossVal,
+          net_weight: netWeight,
+          delivery_location: formData.delivery_location,
+          notes: undefined
         });
       }
 
@@ -477,13 +505,11 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
                 <SearchableSelect
                   disabled={isReadOnly}
                   options={[
-                    // Fixed default from profile
                     ...(customers.find(c => c.id === selectedCustomerId)?.delivery_address ? [{
                       value: customers.find(c => c.id === selectedCustomerId)!.delivery_address,
                       label: `Primary: ${customers.find(c => c.id === selectedCustomerId)!.delivery_address}`
                     }] : []),
-                    // History
-                    ...recentLocations.map(loc => ({
+                    ...Array.from(new Set([...recentLocations, ...globalLocations])).map(loc => ({
                       value: loc,
                       label: loc
                     }))
@@ -610,7 +636,41 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
                   <div className="w-full px-4 py-2.5 bg-indigo-50 border-2 border-indigo-200 rounded-lg flex items-center justify-between">
                     <span className="font-black text-indigo-700 text-lg">₹ {totalAmount.toFixed(2)}</span>
                   </div>
-                  <p className="text-[10px] text-indigo-500 mt-1.5 font-bold">Auto-Calculated (Net × Rate)</p>
+                  <p className="text-[10px] text-indigo-500 mt-1.5 font-bold">Auto-Calculated {formData.bill_type === 'gst' ? '(Net × Rate) [Incl. 5% GST]' : '(Net × Rate)'}</p>
+                </div>
+              </div>
+
+              {/* GST Toggle */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-700">Billing Type</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Select Tax Compliance Mode</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={isReadOnly}
+                    onClick={() => setFormData({ ...formData, bill_type: 'non-gst' })}
+                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                      formData.bill_type === 'non-gst'
+                        ? 'bg-slate-800 text-white shadow-lg'
+                        : 'bg-white text-slate-400 border border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    Non-GST Bill
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isReadOnly}
+                    onClick={() => setFormData({ ...formData, bill_type: 'gst' })}
+                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                      formData.bill_type === 'gst'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 ring-2 ring-indigo-500/20'
+                        : 'bg-white text-slate-400 border border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    GST Bill (5%)
+                  </button>
                 </div>
               </div>
             </div>
@@ -707,7 +767,9 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-5 bg-indigo-900 rounded-2xl text-white shadow-xl shadow-indigo-900/10">
                 <div className="flex items-center gap-6 divide-x divide-indigo-800">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Grand Total</p>
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                      {formData.bill_type === 'gst' ? 'Grand Total (Inclusive of 5% GST)' : 'Grand Total'}
+                    </p>
                     <p className="text-2xl font-black">₹ {totalAmount.toFixed(2)}</p>
                   </div>
                   <div className="space-y-1 pl-6">

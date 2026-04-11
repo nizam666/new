@@ -33,6 +33,7 @@ export interface MenuItem {
 
 export const DIRECTOR_NAV: MenuItem[] = [
     { name: 'Dashboard', icon: Home, href: '#dashboard' },
+    { name: 'Selfie Attendance', icon: Camera, href: '#quarry-attendance' },
     {
         name: 'Quarry Work',
         icon: Factory,
@@ -112,7 +113,8 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Blasting', icon: Factory, href: '#blasting', roles: ['contractor', 'manager'] },
     { name: 'Breaking/Loading', icon: ClipboardCheck, href: '#loading', roles: ['contractor', 'manager'] },
     { name: 'Transport', icon: Truck, href: '#transport', roles: ['contractor', 'manager'] },
-    { name: 'Attendance', icon: Clock, href: '#attendance', roles: ['contractor', 'manager'] },
+    { name: 'Selfie Attendance', icon: Camera, href: '#attendance' },
+    { name: 'Attendance', icon: Clock, href: '#attendance', roles: ['contractor', 'crusher_manager', 'manager', 'sales', 'worker', 'security', 'driver'] },
     { name: 'Photos/Videos', icon: Camera, href: '#media', roles: ['contractor', 'manager'] },
     { name: 'Inventory', icon: Package, href: '#inventory', roles: ['contractor', 'manager'] },
     { name: 'Fuel', icon: Fuel, href: '#fuel', roles: ['contractor', 'manager'] },
@@ -130,6 +132,7 @@ export const MANAGER_NAV: MenuItem[] = [
 
 export const CHAIRMEN_NAV: MenuItem[] = [
     { name: 'Dashboard', icon: Home, href: '#dashboard' },
+    { name: 'Selfie Attendance', icon: Camera, href: '#attendance' },
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
     {
         name: 'Reports',

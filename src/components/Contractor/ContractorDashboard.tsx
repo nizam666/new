@@ -9,9 +9,11 @@ import {
   CheckCircle,
   AlertCircle,
   TrendingUp,
-  Calendar
+  Calendar,
+  Users
 } from 'lucide-react';
 import { AttendanceForm } from './AttendanceForm';
+import { SelfServiceAttendance } from '../Attendance/SelfServiceAttendance';
 
 interface Stats {
   todayRecords: number;
@@ -171,11 +173,20 @@ export function ContractorDashboard() {
         })}
       </div>
 
-      {/* Quick Attendance Section */}
+      {/* Selfie Attendance Terminal */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
           <Clock className="w-5 h-5 text-indigo-500" />
-          Quick Attendance Logger
+          Selfie Attendance Terminal
+        </h2>
+        <SelfServiceAttendance workArea="quarry" />
+      </div>
+
+      {/* Quick Team Attendance Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 opacity-70">
+        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+          <Users className="w-5 h-5 text-slate-500" />
+          Team Attendance Logger (Manual)
         </h2>
         <AttendanceForm 
           onSuccess={() => loadStats()} 

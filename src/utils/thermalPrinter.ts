@@ -8,6 +8,8 @@ interface InvoiceItem {
 interface ThermalInvoiceData {
   invoice_number: string;
   customer_name: string;
+  vehicle_no?: string;
+  delivery_location?: string;
   invoice_date: string;
   due_date: string;
   items: string | InvoiceItem[];
@@ -16,6 +18,9 @@ interface ThermalInvoiceData {
   tax_amount: number;
   total_amount: number;
   amount_paid: number;
+  empty_weight: number;
+  gross_weight: number;
+  net_weight: number;
   notes?: string;
   terms_conditions?: string;
   status: string;
@@ -172,7 +177,7 @@ export function printThermalInvoice(invoice: ThermalInvoiceData, showCompanyName
       <body>
         <div class="header">
           ${showCompanyName ? '<div class="company-name">SRI BABA BLUE MATELS PVT LTD</div>' : ''}
-          <div class="invoice-title">BILL</div>
+          <div class="invoice-title">${invoice.tax_amount > 0 ? 'TAX INVOICE' : 'ESTIMATE / BILL'}</div>
         </div>
         
         <hr class="separator">
@@ -188,6 +193,17 @@ export function printThermalInvoice(invoice: ThermalInvoiceData, showCompanyName
         <div class="section">
           <div class="bold">BILL TO:</div>
           <pre>${invoice.customer_name}</pre>
+          ${invoice.vehicle_no ? `<pre>Vehicle  : ${invoice.vehicle_no}</pre>` : ''}
+          ${invoice.delivery_location ? `<pre>Delivery : ${invoice.delivery_location}</pre>` : ''}
+        </div>
+
+        <hr class="dotted-line">
+
+        <div class="section">
+          <div class="bold">WEIGHT DETAILS:</div>
+          <pre>${formatLine('Gross Weight:', `${invoice.gross_weight.toFixed(3)} T`, 32)}</pre>
+          <pre>${formatLine('Empty Weight:', `${invoice.empty_weight.toFixed(3)} T`, 32)}</pre>
+          <pre class="bold">${formatLine('Net Load:', `${invoice.net_weight.toFixed(3)} T`, 32)}</pre>
         </div>
         
         <hr class="separator">
@@ -208,6 +224,20 @@ export function printThermalInvoice(invoice: ThermalInvoiceData, showCompanyName
         <hr class="dotted-line">
         
         <div class="total-section">
+          ${invoice.tax_amount > 0 ? `
+          <div class="line">
+            <span>Subtotal:</span>
+            <span>${invoice.subtotal.toFixed(2)}</span>
+          </div>
+          <div class="line">
+            <span>CGST (2.5%):</span>
+            <span>${(invoice.tax_amount / 2).toFixed(2)}</span>
+          </div>
+          <div class="line">
+            <span>SGST (2.5%):</span>
+            <span>${(invoice.tax_amount / 2).toFixed(2)}</span>
+          </div>
+          ` : ''}
           <div class="line">
             <span>Total Amount:</span>
             <span class="bold">${invoice.total_amount.toFixed(2)}</span>
@@ -345,14 +375,24 @@ export function printThermalInvoice58mm(invoice: ThermalInvoiceData, showCompany
       </head>
       <body>
         ${showCompanyName ? '<div class="company-name">SRI BABA BLUE MATELS PVT LTD</div>' : ''}
-        <div class="center bold">BILL</div>
+        <div class="center bold">${invoice.tax_amount > 0 ? 'TAX INVOICE' : 'ESTIMATE / BILL'}</div>
         <hr class="separator">
         
         <div class="section">
           <pre>INV: ${invoice.invoice_number}</pre>
           <pre>Date: ${new Date(invoice.invoice_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</pre>
+          <pre>Veh: ${invoice.vehicle_no || 'N/A'}</pre>
+          <pre>Dest: ${invoice.delivery_location ? invoice.delivery_location.substring(0, 18) : 'N/A'}</pre>
           <pre>Customer:</pre>
           <pre>${invoice.customer_name.substring(0, 22)}</pre>
+        </div>
+
+        <hr class="separator">
+
+        <div class="section">
+          <pre>${formatLine('GROSS:', `${invoice.gross_weight.toFixed(2)} T`, 24)}</pre>
+          <pre>${formatLine('EMPTY:', `${invoice.empty_weight.toFixed(2)} T`, 24)}</pre>
+          <pre class="bold">${formatLine('NET  :', `${invoice.net_weight.toFixed(2)} T`, 24)}</pre>
         </div>
         
         <hr class="separator">
@@ -367,6 +407,11 @@ export function printThermalInvoice58mm(invoice: ThermalInvoiceData, showCompany
         <hr class="separator">
         
         <div class="section">
+          ${invoice.tax_amount > 0 ? `
+          <pre>${formatLine('Subtotal:', `₹${invoice.subtotal.toFixed(2)}`, 24)}</pre>
+          <pre>${formatLine('CGST (2.5%):', `₹${(invoice.tax_amount / 2).toFixed(2)}`, 24)}</pre>
+          <pre>${formatLine('SGST (2.5%):', `₹${(invoice.tax_amount / 2).toFixed(2)}`, 24)}</pre>
+          ` : ''}
           <pre class="bold grand-total">${formatLine('TOTAL:', `₹${invoice.total_amount.toFixed(2)}`, 24)}</pre>
           ${invoice.amount_paid > 0 ? `
           <pre>${formatLine('Paid:', `₹${invoice.amount_paid.toFixed(2)}`, 24)}</pre>
@@ -374,10 +419,29 @@ export function printThermalInvoice58mm(invoice: ThermalInvoiceData, showCompany
           ` : ''}
         </div>
         
-        <div class="center bold">[${invoice.status.toUpperCase()}]</div>
+        <div class="center">
+          <span class="status-badge">${invoice.status.toUpperCase()}</span>
+        </div>
         
-        <div class="center" style="margin-top: 10px; font-size: 8pt;">
-          <pre>Thank You!</pre>
+        ${invoice.notes ? `
+        <div class="section notes">
+          <div class="bold text-xs">Notes:</div>
+          <pre style="white-space: pre-wrap; font-size: 8pt;">${invoice.notes}</pre>
+        </div>
+        ` : ''}
+        
+        ${invoice.terms_conditions ? `
+        <div class="terms">
+          <hr class="dotted-line">
+          <div class="bold" style="font-size: 8pt;">Terms & Conditions</div>
+          <pre style="white-space: pre-wrap; font-size: 7.5pt;">${invoice.terms_conditions}</pre>
+        </div>
+        ` : ''}
+        
+        <div class="footer">
+          <hr class="separator">
+          <div>Thank you for your business!</div>
+          <div style="margin-top: 3px; font-size: 8pt;">Printed: ${new Date().toLocaleString('en-GB')}</div>
         </div>
       </body>
     </html>
