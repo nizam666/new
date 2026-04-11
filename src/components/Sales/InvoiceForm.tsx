@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Printer, AlertCircle } from 'lucide-react';
+import { FileText, Printer, AlertCircle, X } from 'lucide-react';
 import { printThermalInvoice } from '../../utils/thermalPrinter';
 
 interface Customer {
@@ -19,6 +19,14 @@ interface PriceMaster {
   id: string;
   product_type: string;
   sales_price: number;
+}
+
+interface Payment {
+  id: string;
+  amount: string;
+  payment_mode: string;
+  payment_date: string;
+  notes: string;
 }
 
 interface InvoiceFormProps {
@@ -48,6 +56,8 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
     material_rate: ''
   });
 
+  const [payments, setPayments] = useState<Payment[]>([]);
+
   // Derived state calculations
   const emptyVal = parseFloat(formData.empty_weight) || 0;
   const grossVal = parseFloat(formData.gross_weight) || 0;
@@ -56,6 +66,15 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
   const rawNet = grossVal - emptyVal;
   const netWeight = rawNet > 0 ? parseFloat(rawNet.toFixed(3)) : 0;
   const totalAmount = parseFloat((netWeight * rateVal).toFixed(2));
+
+  const totalCalculatedPaid = payments.reduce((sum, p) => {
+    // We only count actual monetary collection towards 'amount_paid'
+    // 'Credit' entries are recorded in history but don't count as cash collected
+    if (p.payment_mode === 'credit') return sum;
+    return sum + (parseFloat(p.amount) || 0);
+  }, 0);
+
+  const balanceDue = totalAmount - totalCalculatedPaid;
 
   useEffect(() => {
     generateInvoiceNumber();
@@ -117,6 +136,24 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
     }
   };
 
+  const addPayment = () => {
+    setPayments([...payments, {
+      id: crypto.randomUUID(),
+      amount: '',
+      payment_mode: 'cash',
+      payment_date: new Date().toISOString().split('T')[0],
+      notes: ''
+    }]);
+  };
+
+  const removePayment = (id: string) => {
+    setPayments(payments.filter(p => p.id !== id));
+  };
+
+  const updatePayment = (id: string, field: keyof Payment, value: string) => {
+    setPayments(payments.map(p => p.id === id ? { ...p, [field]: value } : p));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -138,6 +175,22 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         amount: totalAmount
       }];
 
+      // Calculate final status
+      let status = 'unpaid';
+      if (totalCalculatedPaid >= totalAmount && totalAmount > 0) {
+        status = 'paid';
+      } else if (totalCalculatedPaid > 0) {
+        status = 'partial';
+      }
+
+      const paymentHistory = payments.map(p => ({
+        amount: parseFloat(p.amount) || 0,
+        payment_mode: p.payment_mode,
+        payment_date: p.payment_date,
+        notes: p.notes,
+        recorded_at: new Date().toISOString()
+      })).filter(p => p.amount > 0);
+
       const { error: insertError } = await supabase
         .from('invoices')
         .insert([{
@@ -154,10 +207,16 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
           total_amount: totalAmount,
           subtotal: totalAmount,
           
-          // Backwards compatibility for strictly required columns:
-          due_date: formData.invoice_date, // Fulfill not-null requirement in legacy databases
-          items: JSON.stringify(backupItemFormat),
-          status: 'unpaid' // Standard default
+          // Payment logistics:
+          amount_paid: totalCalculatedPaid,
+          status: status,
+          payment_history: paymentHistory.length > 0 ? JSON.stringify(paymentHistory) : '[]',
+          payment_mode: paymentHistory.length > 0 ? paymentHistory[0].payment_mode : null,
+          payment_date: paymentHistory.length > 0 ? paymentHistory[0].payment_date : null,
+
+          // Backwards compatibility:
+          due_date: formData.invoice_date,
+          items: JSON.stringify(backupItemFormat)
         }]);
 
       if (insertError) throw insertError;
@@ -173,8 +232,8 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
           tax_rate: 0,
           tax_amount: 0,
           total_amount: totalAmount,
-          status: 'unpaid',
-          amount_paid: 0,
+          status: status,
+          amount_paid: totalCalculatedPaid,
           notes: `Vehicle: ${formData.vehicle_no}\nDestination: ${formData.delivery_location}`
         });
       }
@@ -403,7 +462,111 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         </div>
       </div>
 
-      {/* Submit Controls */}
+      {/* 5. Payment Details Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">5. Payment Information</h4>
+          <button
+            type="button"
+            onClick={addPayment}
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 rounded-lg"
+          >
+            + Add Payment Mode
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {payments.length === 0 ? (
+            <div className="text-center py-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl">
+              <p className="text-sm font-bold text-slate-400">No payments added yet. Full amount will show as Unpaid.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 border-2 border-slate-50 rounded-2xl overflow-hidden divide-y divide-slate-50">
+              {payments.map((p, index) => (
+                <div key={p.id} className={`p-5 flex flex-col md:flex-row gap-4 items-start ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                  <div className="w-full md:w-32">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Mode</label>
+                    <select
+                      value={p.payment_mode}
+                      onChange={(e) => updatePayment(p.id, 'payment_mode', e.target.value)}
+                      className="w-full px-3 py-2 text-sm font-bold border-2 border-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="upi">UPI</option>
+                      <option value="card">Card</option>
+                      <option value="netbanking">Netbanking</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="credit">Credit (Uncollected)</option>
+                    </select>
+                  </div>
+
+                  <div className="w-full md:w-40">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Amount (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={p.amount}
+                      onChange={(e) => updatePayment(p.id, 'amount', e.target.value)}
+                      className="w-full px-3 py-2 text-sm font-black border-2 border-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="w-full md:w-40">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={p.payment_date}
+                      onChange={(e) => updatePayment(p.id, 'payment_date', e.target.value)}
+                      className="w-full px-3 py-2 text-sm font-bold border-2 border-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="flex-1 w-full">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Notes (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ref no, cheque no, etc."
+                      value={p.notes}
+                      onChange={(e) => updatePayment(p.id, 'notes', e.target.value)}
+                      className="w-full px-3 py-2 text-sm font-medium border-2 border-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => removePayment(p.id)}
+                    className="self-end md:self-center p-2 text-red-300 hover:text-red-500 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Payment Summary Banner */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-5 bg-indigo-900 rounded-2xl text-white shadow-xl shadow-indigo-900/10">
+            <div className="flex items-center gap-6 divide-x divide-indigo-800">
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Grand Total</p>
+                <p className="text-2xl font-black">₹ {totalAmount.toFixed(2)}</p>
+              </div>
+              <div className="space-y-1 pl-6">
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Total Collected</p>
+                <p className="text-2xl font-black text-emerald-400">₹ {totalCalculatedPaid.toFixed(2)}</p>
+              </div>
+            </div>
+
+            <div className={`px-6 py-2 rounded-xl border-2 flex flex-col items-center ${balanceDue <= 0 ? 'bg-emerald-500/10 border-emerald-500/50' : 'bg-red-500/10 border-red-500/50'}`}>
+              <p className="text-[10px] font-black uppercase opacity-60">Balance Due</p>
+              <p className={`text-xl font-black ${balanceDue <= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                ₹ {balanceDue.toFixed(2)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="flex justify-end gap-3 pt-6 border-t border-slate-200">
         <button
           type="button"
