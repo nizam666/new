@@ -260,20 +260,11 @@ function AppContent() {
       case 'customers':
         return (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Customer Management</h2>
-              <p className="text-slate-600 mt-1">Manage customer relationships and information</p>
-            </div>
-            <CustomerForm onSuccess={() => window.location.reload()} />
-          </div>
-        );
-
-      case 'customer-details':
-        return (
-          <div className="space-y-6">
             <CustomerDetails />
           </div>
         );
+
+
 
       case 'inventory':
         return (
