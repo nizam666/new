@@ -187,6 +187,10 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       const now = new Date().toISOString();
       const currentLocation = await getCurrentLocation();
 
+      if (currentLocation === 'Location denied' || currentLocation === 'Geolocation not supported') {
+        throw new Error('Location access is mandatory for attendance. Please enable GPS/Location services and allow location permissions before punching in or out.');
+      }
+
       // 1. Fetch any TRUE active session (clocked in, but not clocked out)
       const { data: activeSession, error: activeError } = await supabase
         .from('selfie_attendance')
