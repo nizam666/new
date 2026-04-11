@@ -1,14 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Plus, Trash2, Printer } from 'lucide-react';
+import { FileText, Printer, AlertCircle } from 'lucide-react';
 import { printThermalInvoice } from '../../utils/thermalPrinter';
-
-interface InvoiceItem {
-  material: string;
-  quantity: number;
-  rate: number;
-  amount: number;
-}
 
 interface InvoiceFormProps {
   onSuccess: () => void;
@@ -18,93 +11,33 @@ interface InvoiceFormProps {
 export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
   const [loading, setLoading] = useState(false);
   const [generatingInvoiceNumber, setGeneratingInvoiceNumber] = useState(true);
+  const [error, setError] = useState('');
   const shouldPrintRef = useRef(false);
-  const [invoiceType, setInvoiceType] = useState<'with_gst' | 'without_gst'>('with_gst');
+
   const [formData, setFormData] = useState({
     invoice_number: '',
-    customer_name: '',
     invoice_date: new Date().toISOString().split('T')[0],
-    due_date: '',
-    tax_rate: '5',
-    amount_paid: '0',
-    payment_mode: '',
-    payment_date: '',
+    customer_name: '',
+    delivery_location: '',
+    vehicle_no: '',
+    material_name: '',
     empty_weight: '',
     gross_weight: '',
-    net_weight: '',
-    notes: '',
-    terms_conditions: 'Payment due within 30 days.\nLate payments may incur additional charges.'
+    material_rate: ''
   });
 
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { material: '', quantity: 0, rate: 0, amount: 0 }
-  ]);
+  // Derived state calculations
+  const emptyVal = parseFloat(formData.empty_weight) || 0;
+  const grossVal = parseFloat(formData.gross_weight) || 0;
+  const rateVal = parseFloat(formData.material_rate) || 0;
 
-  const addItem = () => {
-    setItems([...items, { material: '', quantity: 0, rate: 0, amount: 0 }]);
-  };
-
-  const removeItem = (index: number) => {
-    if (items.length > 1) {
-      setItems(items.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-
-    if (field === 'quantity' || field === 'rate') {
-      newItems[index].amount = newItems[index].quantity * newItems[index].rate;
-    }
-
-    setItems(newItems);
-  };
-
-  const calculateTotals = () => {
-    // Total is the sum of all item amounts (which include GST)
-    const total = items.reduce((sum, item) => sum + item.amount, 0);
-    const taxRate = parseFloat(formData.tax_rate) || 0;
-
-    // Extract GST from the total (reverse calculation)
-    // Formula: Base Amount = Total / (1 + tax_rate/100)
-    const subtotal = total / (1 + taxRate / 100);
-    const taxAmount = total - subtotal;
-
-    return { subtotal, taxAmount, total };
-  };
-
-  const { subtotal, taxAmount, total } = calculateTotals();
+  const rawNet = grossVal - emptyVal;
+  const netWeight = rawNet > 0 ? parseFloat(rawNet.toFixed(3)) : 0;
+  const totalAmount = parseFloat((netWeight * rateVal).toFixed(2));
 
   useEffect(() => {
     generateInvoiceNumber();
   }, []);
-
-  const computedNetWeight = formData.empty_weight && formData.gross_weight
-    ? (parseFloat(formData.gross_weight) - parseFloat(formData.empty_weight)).toFixed(3)
-    : formData.net_weight;
-
-  // Update quantity of first item when net weight changes
-  useEffect(() => {
-    if (computedNetWeight) {
-      const netWeightValue = parseFloat(computedNetWeight);
-      if (!isNaN(netWeightValue)) {
-        setItems(currentItems => {
-          if (currentItems.length > 0) {
-            // Only update if it's different to avoid infinite loops/unnecessary renders
-            if (currentItems[0].quantity === netWeightValue) return currentItems;
-            
-            const newItems = [...currentItems];
-            newItems[0] = { ...newItems[0], quantity: netWeightValue };
-            // Recalculate amount for the updated item
-            newItems[0].amount = newItems[0].quantity * newItems[0].rate;
-            return newItems;
-          }
-          return currentItems;
-        });
-      }
-    }
-  }, [computedNetWeight]);
 
   const generateInvoiceNumber = async () => {
     try {
@@ -137,466 +70,259 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    // Safety validity checks
+    if (!formData.customer_name.trim()) { setError("Customer Name is required."); return; }
+    if (!formData.material_name.trim()) { setError("Material is required."); return; }
+    if (netWeight <= 0) { setError("Net Weight must be greater than zero. Check Gross/Empty weights."); return; }
+    if (rateVal <= 0) { setError("Material Rate must be greater than zero."); return; }
+
     setLoading(true);
 
     try {
-      const amountPaid = parseFloat(formData.amount_paid) || 0;
-      const remainingBalance = total - amountPaid;
+      // Create a backwards-compatible item JSON for print layouts
+      const backupItemFormat = [{
+        material: formData.material_name,
+        quantity: netWeight,
+        rate: rateVal,
+        amount: totalAmount
+      }];
 
-      let status = 'unpaid';
-      if (remainingBalance <= 0) {
-        status = 'paid';
-      } else if (amountPaid > 0) {
-        status = 'partial';
-      }
-
-      const paymentHistory = [];
-      if (amountPaid > 0) {
-        paymentHistory.push({
-          amount: amountPaid,
-          payment_mode: formData.payment_mode,
-          payment_date: formData.payment_date,
-          notes: 'Initial payment on invoice creation',
-          recorded_at: new Date().toISOString()
-        });
-      }
-
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('invoices')
         .insert([{
           invoice_number: formData.invoice_number,
-          customer_name: formData.customer_name,
           invoice_date: formData.invoice_date,
-          due_date: formData.due_date || formData.invoice_date,
-          items: JSON.stringify(items),
-          subtotal: subtotal,
-          tax_rate: parseFloat(formData.tax_rate),
-          tax_amount: taxAmount,
-          total_amount: total,
-          status: status,
-          amount_paid: amountPaid,
-          payment_mode: formData.payment_mode || null,
-          payment_date: formData.payment_date || null,
-          payment_history: paymentHistory.length > 0 ? JSON.stringify(paymentHistory) : null,
-          notes: formData.notes || null,
-          terms_conditions: formData.terms_conditions || null
+          customer_name: formData.customer_name,
+          delivery_location: formData.delivery_location || null,
+          vehicle_no: formData.vehicle_no || null,
+          material_name: formData.material_name,
+          material_rate: rateVal,
+          empty_weight: emptyVal,
+          gross_weight: grossVal,
+          net_weight: netWeight,
+          total_amount: totalAmount,
+          subtotal: totalAmount,
+          
+          // Backwards compatibility for strictly required columns:
+          due_date: formData.invoice_date, // Fulfill not-null requirement in legacy databases
+          items: JSON.stringify(backupItemFormat),
+          status: 'unpaid' // Standard default
         }]);
 
-      if (error) {
-        console.error('Supabase insert error details:', error);
-        throw error;
-      }
+      if (insertError) throw insertError;
 
       if (shouldPrintRef.current) {
         printThermalInvoice({
           invoice_number: formData.invoice_number,
           customer_name: formData.customer_name,
           invoice_date: formData.invoice_date,
-          due_date: formData.due_date || formData.invoice_date,
-          items: items,
-          subtotal: subtotal,
-          tax_rate: parseFloat(formData.tax_rate),
-          tax_amount: taxAmount,
-          total_amount: total,
-          status: status,
-          amount_paid: amountPaid,
-          notes: formData.notes,
-          terms_conditions: formData.terms_conditions
+          due_date: formData.invoice_date,
+          items: backupItemFormat,
+          subtotal: totalAmount,
+          tax_rate: 0,
+          tax_amount: 0,
+          total_amount: totalAmount,
+          status: 'unpaid',
+          amount_paid: 0,
+          notes: `Vehicle: ${formData.vehicle_no}\nDestination: ${formData.delivery_location}`
         });
       }
 
-      alert('Invoice created successfully!');
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Invoice creation error:', error);
-      const e = error as { message?: string; details?: string };
-      alert(`Error: ${e?.message || e?.details || 'Unknown error. Check console.'}`);
+      setError(error.message || 'Unknown database error occurred.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-8">
       <div className="flex items-center justify-between pb-4 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-            <FileText className="w-5 h-5 text-blue-600" />
+          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+            <FileText className="w-5 h-5 text-indigo-600" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-900">Create New Invoice</h3>
+          <h3 className="text-xl font-bold text-slate-800 tracking-wide">Dispatch Ticket / Invoice</h3>
         </div>
         <button
           type="button"
           onClick={onCancel}
-          className="text-slate-600 hover:text-slate-900"
+          className="text-slate-400 hover:text-slate-900 font-bold"
         >
           Cancel
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Invoice Number *
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.invoice_number}
-            onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50"
-            placeholder="Auto-generated"
-            readOnly={generatingInvoiceNumber}
-          />
-          {generatingInvoiceNumber && (
-            <p className="text-xs text-slate-500 mt-1">Generating invoice number...</p>
-          )}
+      {error && (
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-start gap-3 border border-red-100 mb-6">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <p className="text-sm font-bold">{error}</p>
         </div>
+      )}
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Customer Name *
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.customer_name}
-            onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Customer name"
-          />
-        </div>
+      {/* 1. Header Information */}
+      <div>
+        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">1. Document Details</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">Invoice Number *</label>
+            <input
+              type="text"
+              required
+              value={formData.invoice_number}
+              onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
+              className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-bold text-slate-600"
+              placeholder="Auto-generated"
+              readOnly={generatingInvoiceNumber}
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Invoice Date *
-          </label>
-          <input
-            type="date"
-            required
-            value={formData.invoice_date}
-            onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Due Date (Optional)
-          </label>
-          <input
-            type="date"
-            value={formData.due_date}
-            onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">Date *</label>
+            <input
+              type="date"
+              required
+              value={formData.invoice_date}
+              onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
+              className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Weight Information Section */}
-      <div className="border-t border-slate-200 pt-6">
-        <h4 className="text-sm font-semibold text-slate-700 mb-4">Weight Information (Optional)</h4>
+      {/* 2. Logistics & Route */}
+      <div>
+        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">2. Dispatch Routing</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">Customer Name *</label>
+            <input
+              type="text"
+              required
+              placeholder="Client / Company"
+              value={formData.customer_name}
+              onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
 
-        <div className="bg-white p-4 rounded-lg border border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Empty Weight */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">Delivery Location</label>
+            <input
+              type="text"
+              placeholder="Destination site"
+              value={formData.delivery_location}
+              onChange={(e) => setFormData({ ...formData, delivery_location: e.target.value })}
+              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">Vehicle No</label>
+            <input
+              type="text"
+              placeholder="TN 01 AB 1234"
+              value={formData.vehicle_no}
+              onChange={(e) => setFormData({ ...formData, vehicle_no: e.target.value.toUpperCase() })}
+              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 uppercase tracking-wider font-bold text-slate-700"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Weight Mathematics */}
+      <div>
+        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">3. Weighbridge Data</h4>
+        <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Empty Weight (Tons)
-              </label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Gross Weight (Tons)</label>
               <input
                 type="number"
                 step="0.001"
                 min="0"
-                value={formData.empty_weight}
-                onChange={(e) => setFormData({ ...formData, empty_weight: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="0.000"
-                title="Enter weight in tons"
-              />
-            </div>
-
-            {/* Gross Weight */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Gross Weight (Tons)
-              </label>
-              <input
-                type="number"
-                step="0.001"
-                min="0"
                 value={formData.gross_weight}
                 onChange={(e) => setFormData({ ...formData, gross_weight: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0.000"
-                title="Enter weight in tons"
+                className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
               />
             </div>
 
-            {/* Net Weight */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Net Weight (Tons)
-              </label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Empty / Tare Weight (Tons)</label>
               <input
                 type="number"
                 step="0.001"
                 min="0"
-                value={formData.empty_weight && formData.gross_weight
-                  ? (parseFloat(formData.gross_weight) - parseFloat(formData.empty_weight)).toFixed(3)
-                  : formData.net_weight}
-                onChange={(e) => setFormData({ ...formData, net_weight: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50"
                 placeholder="0.000"
-                title="Enter weight in tons"
-                readOnly={!!(formData.empty_weight && formData.gross_weight)}
+                value={formData.empty_weight}
+                onChange={(e) => setFormData({ ...formData, empty_weight: e.target.value })}
+                className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-cyan-700 mb-2">Net Load Target (Tons)</label>
+              <div className="w-full px-4 py-2.5 bg-cyan-50 border-2 border-cyan-200 rounded-lg flex items-center justify-between">
+                <span className="font-bold text-cyan-900">{netWeight.toFixed(3)}</span>
+                <span className="text-xs font-black text-cyan-600 tracking-wider">TONS</span>
+              </div>
+              <p className="text-[10px] text-cyan-600 mt-1.5 font-bold">Auto-Calculated (Gross - Empty)</p>
             </div>
           </div>
         </div>
       </div>
 
+      {/* 4. Billing Metrics */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">4. Valuation</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
           <div>
-            <h4 className="text-sm font-semibold text-slate-700">Invoice Items</h4>
-            <p className="text-xs text-slate-500 mt-1">Rate is GST inclusive (includes {formData.tax_rate}% GST)</p>
+            <label className="block text-sm font-bold text-slate-700 mb-2">Material *</label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. 20mm Aggregate"
+              value={formData.material_name}
+              onChange={(e) => setFormData({ ...formData, material_name: e.target.value })}
+              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold"
+            />
           </div>
-          <button
-            type="button"
-            onClick={addItem}
-            className="flex items-center gap-2 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" />
-            Add Item
-          </button>
-        </div>
 
-        <div className="grid grid-cols-12 gap-3 px-3 mb-2">
-          <div className="col-span-5 text-xs font-medium text-slate-600">Material/Description</div>
-          <div className="col-span-2 text-xs font-medium text-slate-600">Quantity</div>
-          <div className="col-span-2 text-xs font-medium text-slate-600">Rate (Inc. GST)</div>
-          <div className="col-span-2 text-xs font-medium text-slate-600">Amount</div>
-          <div className="col-span-1"></div>
-        </div>
-
-        <div className="space-y-3">
-          {items.map((item, index) => (
-            <div key={index} className="grid grid-cols-12 gap-3 p-3 bg-slate-50 rounded-lg">
-              <div className="col-span-5">
-                <input
-                  type="text"
-                  required
-                  value={item.material}
-                  onChange={(e) => updateItem(index, 'material', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Material/Description"
-                />
-              </div>
-              <div className="col-span-2">
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={item.quantity || ''}
-                  onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Qty"
-                />
-              </div>
-              <div className="col-span-2">
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={item.rate || ''}
-                  onChange={(e) => updateItem(index, 'rate', parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Rate"
-                />
-              </div>
-              <div className="col-span-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={item.amount.toFixed(2)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-slate-100"
-                  placeholder="Amount"
-                />
-              </div>
-              <div className="col-span-1 flex items-center justify-center">
-                <button
-                  type="button"
-                  onClick={() => removeItem(index)}
-                  disabled={items.length === 1}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Invoice Type
-            </label>
-            <select
-              value={invoiceType}
-              onChange={(e) => {
-                const type = e.target.value as 'with_gst' | 'without_gst';
-                setInvoiceType(type);
-                if (type === 'without_gst') {
-                  setFormData({ ...formData, tax_rate: '0' });
-                } else if (formData.tax_rate === '0' || !formData.tax_rate) {
-                  setFormData({ ...formData, tax_rate: '5' });
-                }
-              }}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            >
-              <option value="with_gst">With GST</option>
-              <option value="without_gst">Without GST (Tax Free)</option>
-            </select>
+            <label className="block text-sm font-bold text-slate-700 mb-2">Material Rate (₹ per Ton) *</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              placeholder="0.00"
+              value={formData.material_rate}
+              onChange={(e) => setFormData({ ...formData, material_rate: e.target.value })}
+              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
+            />
           </div>
 
-          {invoiceType === 'with_gst' && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Tax Rate (%)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={formData.tax_rate}
-                onChange={(e) => setFormData({ ...formData, tax_rate: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+          <div>
+            <label className="block text-sm font-bold text-indigo-900 mb-2">Final Amount (₹)</label>
+            <div className="w-full px-4 py-2.5 bg-indigo-50 border-2 border-indigo-200 rounded-lg flex items-center justify-between">
+              <span className="font-black text-indigo-700 text-lg">₹ {totalAmount.toFixed(2)}</span>
             </div>
-          )}
-        </div>
-
-        <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Base Amount:</span>
-            <span className="font-semibold text-slate-900">₹{subtotal.toFixed(2)}</span>
-          </div>
-          {invoiceType === 'with_gst' && (
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-600">GST ({formData.tax_rate}%):</span>
-              <span className="font-semibold text-slate-900">₹{taxAmount.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-base pt-2 border-t border-slate-300">
-            <span className="font-semibold text-slate-900">
-              {invoiceType === 'with_gst' ? 'Total (Inc. GST):' : 'Total Amount:'}
-            </span>
-            <span className="font-bold text-blue-600 text-lg">₹{total.toFixed(2)}</span>
+            <p className="text-[10px] text-indigo-500 mt-1.5 font-bold">Auto-Calculated (Net × Rate)</p>
           </div>
         </div>
       </div>
 
-      {/* Payment Information Section */}
-      <div className="border-t border-slate-200 pt-6">
-        <h4 className="text-sm font-semibold text-slate-700 mb-4">Payment Information (Optional)</h4>
-
-        <div className="bg-white p-4 rounded-lg border border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Amount Received */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Amount Received
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.amount_paid}
-                onChange={(e) => setFormData({ ...formData, amount_paid: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0.00"
-              />
-              {parseFloat(formData.amount_paid) > 0 && (
-                <p className="text-xs text-slate-500 mt-1">
-                  Balance: ₹{(total - parseFloat(formData.amount_paid)).toFixed(2)}
-                </p>
-              )}
-            </div>
-
-            {/* Payment Mode */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Payment Mode
-              </label>
-              <select
-                value={formData.payment_mode}
-                onChange={(e) => setFormData({ ...formData, payment_mode: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={!formData.amount_paid || parseFloat(formData.amount_paid) === 0}
-              >
-                <option value="">Select mode</option>
-                <option value="cash">Cash</option>
-                <option value="bank_transfer">Bank Transfer</option>
-                <option value="cheque">Cheque</option>
-                <option value="upi">UPI</option>
-                <option value="card">Card</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-
-            {/* Payment Date */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Payment Date
-              </label>
-              <input
-                type="date"
-                value={formData.payment_date}
-                onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={!formData.amount_paid || parseFloat(formData.amount_paid) === 0}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Notes
-        </label>
-        <textarea
-          value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          rows={2}
-          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Additional notes for this invoice..."
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Terms & Conditions
-        </label>
-        <textarea
-          value={formData.terms_conditions}
-          onChange={(e) => setFormData({ ...formData, terms_conditions: e.target.value })}
-          rows={3}
-          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Terms and conditions..."
-        />
-      </div>
-
-      <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+      {/* Submit Controls */}
+      <div className="flex justify-end gap-3 pt-6 border-t border-slate-200">
         <button
           type="button"
           onClick={onCancel}
-          className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+          className="px-6 py-2.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
         >
           Cancel
         </button>
@@ -604,18 +330,18 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
           type="submit"
           onClick={() => { shouldPrintRef.current = true; }}
           disabled={loading || generatingInvoiceNumber}
-          className="flex items-center gap-2 px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 disabled:bg-slate-400 transition-colors"
+          className="flex items-center gap-2 px-6 py-2.5 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900 disabled:opacity-50 transition-colors shadow-lg"
         >
           <Printer className="w-4 h-4" />
-          Create & Print
+          Save & Print Ticket
         </button>
         <button
           type="submit"
           onClick={() => { shouldPrintRef.current = false; }}
           disabled={loading || generatingInvoiceNumber}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400 transition-colors"
+          className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-lg shadow-indigo-200"
         >
-          {loading ? 'Creating...' : 'Create Invoice'}
+          {loading ? 'Processing...' : 'Save Dispatch Ticket'}
         </button>
       </div>
     </form>

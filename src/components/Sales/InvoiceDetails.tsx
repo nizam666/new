@@ -8,6 +8,8 @@ interface Invoice {
   id: string;
   invoice_number: string;
   customer_name: string;
+  delivery_location: string;
+  vehicle_no: string;
   invoice_date: string;
   due_date: string;
   items: string;
@@ -119,7 +121,8 @@ export function InvoiceDetails() {
       if (!searchTerm) return true;
       return (
         invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
+        invoice.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (invoice.vehicle_no && invoice.vehicle_no.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     });
 
@@ -409,10 +412,20 @@ export function InvoiceDetails() {
                         {invoice.status.toUpperCase()}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-600">{invoice.customer_name}</p>
+                    <p className="text-sm font-bold text-slate-700">{invoice.customer_name}</p>
+                    {invoice.delivery_location && (
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                        Dest: {invoice.delivery_location}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  {invoice.vehicle_no && (
+                    <div className="flex items-center gap-1.5 px-3 border-2 border-slate-100 rounded-lg bg-slate-50 mr-2">
+                       <span className="text-xs font-black tracking-widest text-slate-600">{invoice.vehicle_no}</span>
+                    </div>
+                  )}
                   {invoice.status !== 'paid' && (
                     <button
                       onClick={() => handleRecordPayment(invoice)}
