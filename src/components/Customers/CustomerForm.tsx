@@ -122,7 +122,7 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
                   onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
                   required
                   className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-cyan-500/10 focus:border-cyan-500 transition-all font-medium"
-                  placeholder="e.g. John Doe"
+                  placeholder="e.g. Mani"
                 />
               </div>
 
