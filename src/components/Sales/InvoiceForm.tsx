@@ -66,6 +66,10 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
     }
   ]);
 
+  const [recentLocations, setRecentLocations] = useState<string[]>([]);
+  const [updateProfile, setUpdateProfile] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+
   // Derived state calculations
   const emptyVal = parseFloat(formData.empty_weight) || 0;
   const grossVal = parseFloat(formData.gross_weight) || 0;
@@ -158,6 +162,25 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
     setPayments(payments.filter(p => p.id !== id));
   };
 
+  const fetchRecentLocations = async (customerName: string) => {
+    try {
+      const { data } = await supabase
+        .from('invoices')
+        .select('delivery_location')
+        .eq('customer_name', customerName)
+        .not('delivery_location', 'is', null)
+        .order('created_at', { ascending: false });
+      
+      if (data) {
+        // Get unique locations
+        const unique = Array.from(new Set(data.map(d => d.delivery_location)));
+        setRecentLocations(unique.slice(0, 10)); // Top 10 recent
+      }
+    } catch (err) {
+      console.error('Error fetching recent locations:', err);
+    }
+  };
+
   const updatePayment = (id: string, field: keyof Payment, value: string) => {
     setPayments(payments.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
@@ -228,6 +251,16 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         }]);
 
       if (insertError) throw insertError;
+
+      // Update customer profile if requested
+      if (updateProfile && selectedCustomerId && formData.delivery_location) {
+        const { error: profileError } = await supabase
+          .from('customers')
+          .update({ delivery_address: formData.delivery_location })
+          .eq('id', selectedCustomerId);
+        
+        if (profileError) console.error('Error updating customer profile:', profileError);
+      }
 
       if (shouldPrintRef.current) {
         printThermalInvoice({
@@ -325,23 +358,51 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
               value={formData.customer_name}
               placeholder="Search customer..."
               onSelect={(val, original) => {
+                const cust = original as Customer;
                 setFormData({ 
                   ...formData, 
                   customer_name: val,
-                  delivery_location: (original as Customer)?.delivery_address || ''
+                  delivery_location: cust?.delivery_address || ''
                 });
+                setSelectedCustomerId(cust?.id || null);
+                fetchRecentLocations(val);
+                setUpdateProfile(false);
               }}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Delivery Location</label>
-            <input
-              type="text"
-              placeholder="Destination site"
+          <div className="relative">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-bold text-slate-700">Delivery Location</label>
+              {formData.delivery_location && (
+                <label className="flex items-center gap-1.5 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={updateProfile}
+                    onChange={(e) => setUpdateProfile(e.target.checked)}
+                    className="w-3 h-3 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                  />
+                  <span className="text-[10px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">Save as Default</span>
+                </label>
+              )}
+            </div>
+            <SearchableSelect
+              options={[
+                // Fixed default from profile
+                ...(customers.find(c => c.id === selectedCustomerId)?.delivery_address ? [{
+                  value: customers.find(c => c.id === selectedCustomerId)!.delivery_address,
+                  label: `Primary: ${customers.find(c => c.id === selectedCustomerId)!.delivery_address}`
+                }] : []),
+                // History
+                ...recentLocations.map(loc => ({
+                  value: loc,
+                  label: loc
+                }))
+              ]}
               value={formData.delivery_location}
-              onChange={(e) => setFormData({ ...formData, delivery_location: e.target.value })}
-              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-indigo-50/30"
+              placeholder="Destination site"
+              onSelect={(val) => setFormData({ ...formData, delivery_location: val })}
+              allowCustom={true}
             />
           </div>
 
@@ -607,9 +668,10 @@ interface SearchableSelectProps {
   value: string;
   onSelect: (value: string, original?: any) => void;
   placeholder: string;
+  allowCustom?: boolean;
 }
 
-function SearchableSelect({ options, value, onSelect, placeholder }: SearchableSelectProps) {
+function SearchableSelect({ options, value, onSelect, placeholder, allowCustom = false }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -618,6 +680,9 @@ function SearchableSelect({ options, value, onSelect, placeholder }: SearchableS
     opt.label.toLowerCase().includes(search.toLowerCase()) ||
     opt.value.toLowerCase().includes(search.toLowerCase())
   );
+
+  // If custom typing is allowed, add the current search as an option if not already there
+  const showCustomOption = allowCustom && search.trim() !== '' && !filteredOptions.some(opt => opt.value.toLowerCase() === search.toLowerCase());
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -660,6 +725,19 @@ function SearchableSelect({ options, value, onSelect, placeholder }: SearchableS
              </div>
           </div>
           <div className="max-h-60 overflow-y-auto pt-1 pb-1">
+            {showCustomOption && (
+              <div
+                onClick={() => {
+                  onSelect(search);
+                  setIsOpen(false);
+                  setSearch('');
+                }}
+                className="px-4 py-2.5 text-sm cursor-pointer hover:bg-indigo-50 transition-colors flex items-center justify-between text-indigo-600 font-bold border-b border-slate-50"
+              >
+                <span>Use new: "{search}"</span>
+                <span className="text-[10px] bg-indigo-100 px-2 py-0.5 rounded">CUSTOM</span>
+              </div>
+            )}
             {filteredOptions.length > 0 ? (
               filteredOptions.map((opt) => (
                 <div
