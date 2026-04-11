@@ -449,9 +449,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 flex flex-col min-h-screen p-4 sm:p-6 lg:p-8 bg-slate-50">
-       <div className="text-center">
+        <div className="text-center">
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-              {workArea === 'quarry' ? 'Quarry' : workArea === 'crusher' ? 'Crusher' : ''} Attendance Terminal
+              {workArea === 'quarry' ? 'Quarry ' : workArea === 'crusher' ? 'Crusher ' : ''}Attendance Terminal
             </h1>
             {workArea !== 'general' && (
               <span className={`inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full ${

@@ -348,7 +348,7 @@ export function DirectorDashboard() {
           <Clock className="w-5 h-5 text-indigo-500" />
           Selfie Attendance Terminal
         </h2>
-        <SelfServiceAttendance workArea="crusher" />
+        <SelfServiceAttendance workArea="general" />
       </div>
 
       {/* Quick Team Attendance Section (Optional/Legacy toggle) */}
