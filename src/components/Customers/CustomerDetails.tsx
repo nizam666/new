@@ -23,8 +23,8 @@ interface Invoice {
 
 interface Customer {
   id: string;
-  company_name: string;
-  contact_person: string;
+  company?: string;
+  name: string;
   email?: string;
   phone: string;
   address?: string;
@@ -58,7 +58,7 @@ export function CustomerDetails() {
       const { data, error } = await supabase
         .from('customers')
         .select('*')
-        .order('company_name', { ascending: true });
+        .order('company', { ascending: true });
 
       if (error) throw error;
       setCustomers(data || []);
@@ -178,9 +178,8 @@ export function CustomerDetails() {
 
   // Filter customers based on search term
   const filteredCustomers = customers.filter(customer =>
-    customer.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.contact_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (customer.company || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (customer.phone && customer.phone.includes(searchTerm))
   );
 
@@ -228,7 +227,7 @@ export function CustomerDetails() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
             <div className="w-full">
-              <h2 className="text-2xl font-black text-slate-900">{selectedCustomer.company_name || 'Untitled Company'}</h2>
+              <h2 className="text-2xl font-black text-slate-900">{selectedCustomer.company || 'Untitled Company'}</h2>
               <div className="flex items-center gap-2 mt-1">
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${selectedCustomer.is_gst_registered !== false ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                    {selectedCustomer.is_gst_registered !== false ? 'GST Registered' : 'URP (Unregistered)'}
@@ -241,7 +240,7 @@ export function CustomerDetails() {
               <div className="mt-4 space-y-2">
                 <div className="flex items-center text-slate-700">
                   <User className="h-4 w-4 mr-2 text-slate-500" />
-                  {selectedCustomer.contact_person}
+                  {selectedCustomer.name}
                 </div>
                 <div className="flex items-center text-slate-700">
                   <Phone className="h-4 w-4 mr-2 text-slate-500" />
@@ -429,7 +428,7 @@ export function CustomerDetails() {
                     <div className="flex-1 min-w-0 w-full" onClick={() => handleCustomerClick(selectedCustomerList)}>
                       <div className="flex items-center">
                         <User className="flex-shrink-0 mr-1.5 h-4 w-4 text-slate-400" />
-                        <span className="font-bold text-slate-800">{selectedCustomerList.company_name || selectedCustomerList.contact_person}</span>
+                        <span className="font-bold text-slate-800">{selectedCustomerList.company || selectedCustomerList.name}</span>
                         {selectedCustomerList.is_gst_registered === false && (
                           <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-black uppercase tracking-wider rounded border border-slate-200 scale-90">URP</span>
                         )}
@@ -437,7 +436,7 @@ export function CustomerDetails() {
                       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
                         <div className="flex items-center text-sm text-slate-500 font-medium">
                           <User className="flex-shrink-0 mr-1.5 h-3.5 w-3.5 text-slate-400" />
-                          {selectedCustomerList.contact_person}
+                          {selectedCustomerList.name}
                         </div>
                         <div className="flex items-center text-sm text-slate-500 font-medium">
                           <Phone className="flex-shrink-0 mr-1.5 h-3.5 w-3.5 text-slate-400" />
