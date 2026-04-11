@@ -444,7 +444,14 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Selected Material</label>
+              <div className="w-full px-4 py-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-slate-500 font-bold truncate">
+                {formData.material_name || 'None selected'}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Material Rate (₹ per Ton) *</label>
               <input
