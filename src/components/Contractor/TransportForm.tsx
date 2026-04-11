@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Truck, Save, Calendar, ChevronDown, Clock, FileUp, Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { Truck, Save, Calendar, ChevronDown, Clock, FileUp, Download, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const vehicleTypes = [
@@ -323,9 +323,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           }
 
           const recordsToInsert: any[] = [];
-          const errors: string[] = [];
 
-          data.forEach((row: any, index) => {
+          data.forEach((row: any) => {
             const partyName = row['Party Name']?.toString().trim();
             
             // STRICT FILTER: Only accept KVSS Q TO C
@@ -759,19 +758,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             min="1"
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             placeholder="1"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Party Name
-          </label>
-          <input
-            type="text"
-            value={formData.party_name}
-            onChange={(e) => setFormData({ ...formData, party_name: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            placeholder="KVSS Q TO C"
           />
         </div>
 
