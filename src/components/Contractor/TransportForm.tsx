@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Truck, Save, Calendar, ChevronDown, Clock } from 'lucide-react';
+import { Truck, Save, Calendar, ChevronDown, Clock, FileUp, Download, AlertCircle, CheckCircle } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const vehicleTypes = [
   'Truck',
@@ -63,7 +64,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     notes: '',
     trip_ref: '',
     empty_vehicle_weight: '',
-    gross_weight: ''
+    gross_weight: '',
+    party_name: 'KVSS Q TO C'
   });
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -89,7 +91,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       const gross = parseFloat(formData.gross_weight) || 0;
       const empty = parseFloat(formData.empty_vehicle_weight) || 0;
       const net = Math.max(0, gross - empty);
-      setFormData(prev => ({ ...prev, quantity: net.toString() }));
+      setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toString() }));
     }
   }, [formData.gross_weight, formData.empty_vehicle_weight, formData.material_transported]);
 
@@ -124,11 +126,11 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       }
 
       const formattedRef = `TRP-${nextNum.toString().padStart(3, '0')}`;
-      setFormData(prev => ({ ...prev, trip_ref: formattedRef }));
+      setFormData((prev: typeof formData) => ({ ...prev, trip_ref: formattedRef }));
     } catch (err) {
       console.error('Error fetching next trip ref:', err);
       // Fallback
-      setFormData(prev => ({ ...prev, trip_ref: 'TRP-001' }));
+      setFormData((prev: typeof formData) => ({ ...prev, trip_ref: 'TRP-001' }));
     }
   };
 
@@ -255,33 +257,140 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const handleMaterialChange = (material: string) => {
     if (material === "Aggregate's Rehandling") {
-      setFormData(prev => ({
+      setFormData((prev: typeof formData) => ({
         ...prev,
         material_transported: material,
         from_location: 'Crusher',
         to_location: 'Crusher'
       }));
     } else if (material === "Soil") {
-      setFormData(prev => ({
+      setFormData((prev: typeof formData) => ({
         ...prev,
         material_transported: material,
         from_location: 'Quarry',
         to_location: 'Soil dumping yard'
       }));
     } else if (material === "Weather Rocks") {
-      setFormData(prev => ({
+      setFormData((prev: typeof formData) => ({
         ...prev,
         material_transported: material,
         from_location: 'Quarry',
         to_location: 'Soil dumping yard'
       }));
     } else {
-      setFormData(prev => ({
+      setFormData((prev: typeof formData) => ({
         ...prev,
         material_transported: material,
         from_location: prev.from_location === 'Crusher' ? '' : prev.from_location,
         to_location: prev.to_location === 'Crusher' || prev.to_location === 'Soil dumping yard' ? '' : prev.to_location
       }));
+    }
+  };
+
+  const handleBulkExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setLoading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const bstr = evt.target?.result;
+          const wb = XLSX.read(bstr, { type: 'binary' });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const data = XLSX.utils.sheet_to_json(ws);
+
+          if (!data || data.length === 0) {
+            throw new Error('Excel file is empty.');
+          }
+
+          // 1. Fetch current max trip ref to start sequence
+          const { data: latestRecords } = await supabase
+            .from('transport_records')
+            .select('trip_ref')
+            .eq('contractor_id', user.id)
+            .order('trip_ref', { ascending: false })
+            .limit(100);
+
+          let nextId = 1;
+          if (latestRecords && latestRecords.length > 0) {
+            const numbers = latestRecords
+              .map(r => parseInt(r.trip_ref?.replace('TRP-', '') || '0', 10))
+              .filter(n => !isNaN(n));
+            if (numbers.length > 0) nextId = Math.max(...numbers) + 1;
+          }
+
+          const recordsToInsert: any[] = [];
+          const errors: string[] = [];
+
+          data.forEach((row: any, index) => {
+            const partyName = row['Party Name']?.toString().trim();
+            
+            // STRICT FILTER: Only accept KVSS Q TO C
+            if (partyName !== 'KVSS Q TO C') {
+              return; // Skip other parties silently or log if needed
+            }
+
+            // Parse Date from "Gross Date Time" (expected DD/MM/YYYY ...)
+            let date = new Date().toISOString().split('T')[0];
+            const rawDateTime = row['Gross Date Time']?.toString();
+            if (rawDateTime) {
+              const part = rawDateTime.split(' ')[0]; // Get DD/MM/YYYY
+              const [d, m, y] = part.split('/');
+              if (d && m && y) {
+                date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+              }
+            }
+
+            // Map fields and scale weights (KG to Tons)
+            recordsToInsert.push({
+              contractor_id: user.id,
+              date: date,
+              vehicle_number: row['Vehicle No']?.toString().toUpperCase().replace(/\s/g, ''),
+              vehicle_type: 'Truck', // Defaulting based on format
+              from_location: 'Quarry', // Defaulting based on context
+              to_location: 'Crusher', // Defaulting based on context
+              material_transported: 'Good Boulders', // Defaulting based on screenshot "BOULDERS"
+              gross_weight: (parseFloat(row['Load Weight']) || 0) / 1000,
+              empty_vehicle_weight: (parseFloat(row['Empty Weight']) || 0) / 1000,
+              quantity: (parseFloat(row['Net Weight']) || 0) / 1000,
+              party_name: 'KVSS Q TO C',
+              trip_ref: `TRP-${(nextId++).toString().padStart(3, '0')}`,
+              status: 'pending',
+              number_of_trips: 1
+            });
+          });
+
+          if (recordsToInsert.length === 0) {
+            alert('No valid records found for "KVSS Q TO C" in this file.');
+            setLoading(false);
+            return;
+          }
+
+          const { error: insertError } = await supabase
+            .from('transport_records')
+            .insert(recordsToInsert);
+
+          if (insertError) throw insertError;
+
+          alert(`Successfully uploaded ${recordsToInsert.length} records!`);
+          setRefreshKey(prev => prev + 1);
+          fetchNextTripRef();
+        } catch (err: any) {
+          console.error('Bulk upload processing error:', err);
+          alert('Error processing Excel data: ' + err.message);
+        } finally {
+          setLoading(false);
+          // Clear input
+          e.target.value = '';
+        }
+      };
+      reader.readAsBinaryString(file);
+    } catch (err: any) {
+      alert('File reading error: ' + err.message);
+      setLoading(false);
     }
   };
 
@@ -324,6 +433,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             trip_ref: formData.trip_ref,
             empty_vehicle_weight: parseFloat(formData.empty_vehicle_weight) || 0,
             gross_weight: parseFloat(formData.gross_weight) || 0,
+            party_name: formData.party_name,
             status: 'pending'
           }
         ]);
@@ -343,7 +453,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         notes: '',
         trip_ref: '',
         empty_vehicle_weight: '',
-        gross_weight: ''
+        gross_weight: '',
+        party_name: 'KVSS Q TO C'
       });
 
       alert('Transport record submitted successfully!');
@@ -362,6 +473,55 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
   return (
     <div className="space-y-8">
+      {/* ── Bulk Upload Section ────────────────────────────────────────────── */}
+      <div className="bg-gradient-to-br from-indigo-50 to-white rounded-2xl shadow-sm border border-indigo-100 p-8 overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+          <FileUp className="w-32 h-32 text-indigo-900" />
+        </div>
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-2">
+            <h3 className="text-2xl font-black text-indigo-900 tracking-tight flex items-center gap-3">
+              <div className="p-2 bg-indigo-600 rounded-lg shadow-lg">
+                <FileUp className="w-5 h-5 text-white" />
+              </div>
+              Bulk Excel Entry
+            </h3>
+            <p className="text-indigo-600/70 font-bold uppercase tracking-widest text-[10px]">
+              Sri Baba Blue Metals Format • KVSS Q TO C Only
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all cursor-pointer shadow-lg shadow-indigo-200 active:scale-95 group">
+              <Download className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
+              <span>Select Excel File</span>
+              <input
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleBulkExcelUpload}
+                disabled={loading}
+                className="hidden"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-6 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-indigo-900">Automatic Processing Insight:</p>
+              <ul className="text-[11px] text-indigo-600/80 font-medium space-y-1">
+                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Auto-converts Kilograms to Tons (e.g., 35310 → 35.31)</li>
+                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Enforces "KVSS Q TO C" Party Name strict filter</li>
+                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Sequences sequential Trip IDs from latest record</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -446,8 +606,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             {showSuggestions && formData.vehicle_number && (
               <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
                 {recentVehicles
-                  .filter(v => v.number.includes(formData.vehicle_number))
-                  .map(v => (
+                  .filter((v: {number: string, type: string}) => v.number.includes(formData.vehicle_number))
+                  .map((v: {number: string, type: string}) => (
                     <button
                       key={v.number}
                       type="button"
@@ -471,7 +631,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 <Clock className="w-3 h-3" /> Recent Vehicles
               </p>
               <div className="flex flex-wrap gap-2">
-                {recentVehicles.slice(0, 5).map((v) => (
+                {recentVehicles.slice(0, 5).map((v: {number: string, type: string}) => (
                   <button
                     key={v.number}
                     type="button"
@@ -599,6 +759,19 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             min="1"
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             placeholder="1"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Party Name
+          </label>
+          <input
+            type="text"
+            value={formData.party_name}
+            onChange={(e) => setFormData({ ...formData, party_name: e.target.value })}
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            placeholder="KVSS Q TO C"
           />
         </div>
 
@@ -739,7 +912,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {summaryRows.map((row, idx) => (
+                {summaryRows.map((row: any, idx: number) => (
                   <tr key={row.date} className={`hover:bg-slate-50 transition-colors ${idx % 2 !== 0 ? 'bg-slate-50/40' : ''}`}>
                     <td className="px-3 py-3 text-xs font-medium text-slate-900 whitespace-nowrap">
                       {new Date(row.date + 'T00:00:00').toLocaleDateString('en-IN', {
