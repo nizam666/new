@@ -54,18 +54,14 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
     try {
       // Map form data fields onto the database column names
       const payload = {
-        name: formData.contact_person, // Store name in DB's name column
-        contact_person: formData.contact_person, // Just to be safe for legacy queries
-        company_name: formData.company_name,
-        company: formData.company_name, // Sync legacy column
+        name: formData.contact_person, 
+        company: formData.company_name,
         is_gst_registered: formData.is_gst_registered,
-        tax_id: formData.is_gst_registered ? formData.tax_id : null,
-        gst_number: formData.is_gst_registered ? formData.tax_id : null, // Sync legacy row
+        gst_number: formData.is_gst_registered ? formData.tax_id : null,
         phone: formData.phone,
         billing_address: formData.billing_address,
-        address: formData.billing_address, // Set primary legacy address
-        delivery_address: copyBillingToDelivery ? formData.billing_address : formData.delivery_address,
-        updated_by: user.id
+        address: formData.billing_address, 
+        delivery_address: copyBillingToDelivery ? formData.billing_address : formData.delivery_address
       };
 
       if (isEditing && initialData?.id) {
@@ -79,15 +75,16 @@ export function CustomerForm({ onSuccess, initialData }: CustomerFormProps) {
       } else {
         const { error } = await supabase
           .from('customers')
-          .insert([{ ...payload, created_by: user.id }]);
+          .insert([payload]);
 
         if (error) throw error;
         alert('Customer added successfully!');
       }
 
       if (onSuccess) onSuccess();
-    } catch (error) {
-      alert('Error saving customer: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } catch (error: any) {
+      console.error('Supabase Error Details:', error);
+      alert('Error saving customer: ' + (error?.message || error?.details || JSON.stringify(error)));
     } finally {
       setLoading(false);
     }
