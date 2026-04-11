@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Printer, AlertCircle, X } from 'lucide-react';
+import { FileText, Printer, AlertCircle, X, Search, ChevronDown } from 'lucide-react';
 import { printThermalInvoice } from '../../utils/thermalPrinter';
 
 interface Customer {
@@ -314,31 +314,24 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
       <div>
         <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">2. Dispatch Routing</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-bold text-slate-700 mb-2">Customer Name *</label>
-            <select
-              required
+            <SearchableSelect
+              options={customers.map(c => ({
+                value: c.name || c.company,
+                label: `${c.name} ${c.company ? `(${c.company})` : ''}`,
+                original: c
+              }))}
               value={formData.customer_name}
-              onChange={(e) => {
-                const selectedCustName = e.target.value;
-                const cust = customers.find(c => c.name === selectedCustName || c.company === selectedCustName);
-                
+              placeholder="Search customer..."
+              onSelect={(val, original) => {
                 setFormData({ 
                   ...formData, 
-                  customer_name: selectedCustName,
-                  // Auto-fill delivery location from the matched customer profile!
-                  delivery_location: cust?.delivery_address || ''
+                  customer_name: val,
+                  delivery_location: (original as Customer)?.delivery_address || ''
                 });
               }}
-              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
-            >
-              <option value="">Select customer...</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.name || c.company}>
-                  {c.name} {c.company ? `(${c.company})` : ''}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
@@ -352,20 +345,17 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
             />
           </div>
 
-          <div>
+          <div className="relative">
             <label className="block text-sm font-bold text-slate-700 mb-2">Vehicle No</label>
-            <select
-              value={formData.vehicle_no}
-              onChange={(e) => setFormData({ ...formData, vehicle_no: e.target.value })}
-              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white uppercase tracking-wider font-bold text-slate-700"
-            >
-              <option value="">Select vehicle...</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.vehicle_number}>
-                  {v.vehicle_number}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+               options={vehicles.map(v => ({
+                 value: v.vehicle_number,
+                 label: v.vehicle_number
+               }))}
+               value={formData.vehicle_no}
+               placeholder="Search vehicle..."
+               onSelect={(val) => setFormData({ ...formData, vehicle_no: val })}
+            />
           </div>
         </div>
       </div>
@@ -609,5 +599,92 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         </button>
       </div>
     </form>
+  );
+}
+
+interface SearchableSelectProps {
+  options: { value: string; label: string; original?: any }[];
+  value: string;
+  onSelect: (value: string, original?: any) => void;
+  placeholder: string;
+}
+
+function SearchableSelect({ options, value, onSelect, placeholder }: SearchableSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filteredOptions = options.filter(opt => 
+    opt.label.toLowerCase().includes(search.toLowerCase()) ||
+    opt.value.toLowerCase().includes(search.toLowerCase())
+  );
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const displayLabel = value || placeholder;
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full px-4 py-2.5 border-2 rounded-lg cursor-pointer flex items-center justify-between transition-all ${
+          isOpen ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-slate-200 hover:border-slate-300'
+        } ${!value ? 'text-slate-400' : 'text-slate-800 font-bold'}`}
+      >
+        <span className="truncate">{displayLabel}</span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="p-2 border-b border-slate-50 bg-slate-50/50">
+             <div className="relative">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+               <input
+                 autoFocus
+                 type="text"
+                 placeholder="Search..."
+                 value={search}
+                 onChange={(e) => setSearch(e.target.value)}
+                 className="w-full pl-9 pr-4 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-500 focus:ring-0 outline-none font-medium"
+               />
+             </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto pt-1 pb-1">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((opt) => (
+                <div
+                  key={opt.value}
+                  onClick={() => {
+                    onSelect(opt.value, opt.original);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between ${
+                    value === opt.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-600 font-medium'
+                  }`}
+                >
+                  <span className="truncate">{opt.label}</span>
+                  {value === opt.value && <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />}
+                </div>
+              ))
+            ) : (
+              <div className="px-4 py-6 text-center">
+                <p className="text-sm font-bold text-slate-400">No matches found</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
