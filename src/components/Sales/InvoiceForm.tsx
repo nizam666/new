@@ -15,6 +15,12 @@ interface Vehicle {
   vehicle_number: string;
 }
 
+interface PriceMaster {
+  id: string;
+  product_type: string;
+  sales_price: number;
+}
+
 interface InvoiceFormProps {
   onSuccess: () => void;
   onCancel: () => void;
@@ -28,6 +34,7 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [priceMaster, setPriceMaster] = useState<PriceMaster[]>([]);
 
   const [formData, setFormData] = useState({
     invoice_number: '',
@@ -67,8 +74,15 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         .select('id, vehicle_number')
         .order('vehicle_number');
 
+      const { data: priceData } = await supabase
+        .from('material_investors')
+        .select('id, product_type, sales_price')
+        .eq('status', 'active')
+        .order('product_type');
+
       if (customerData) setCustomers(customerData);
       if (vehicleData) setVehicles(vehicleData);
+      if (priceData) setPriceMaster(priceData);
     } catch (err) {
       console.error('Error fetching dropdown references:', err);
     }
@@ -335,39 +349,56 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
       {/* 4. Billing Metrics */}
       <div>
         <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">4. Valuation</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+        <div className="space-y-6">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Material *</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. 20mm Aggregate"
-              value={formData.material_name}
-              onChange={(e) => setFormData({ ...formData, material_name: e.target.value })}
-              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Material Rate (₹ per Ton) *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              required
-              placeholder="0.00"
-              value={formData.material_rate}
-              onChange={(e) => setFormData({ ...formData, material_rate: e.target.value })}
-              className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-indigo-900 mb-2">Final Amount (₹)</label>
-            <div className="w-full px-4 py-2.5 bg-indigo-50 border-2 border-indigo-200 rounded-lg flex items-center justify-between">
-              <span className="font-black text-indigo-700 text-lg">₹ {totalAmount.toFixed(2)}</span>
+            <label className="block text-sm font-bold text-slate-700 mb-3">Select Material *</label>
+            <div className="flex flex-wrap gap-2">
+              {priceMaster.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setFormData({ 
+                    ...formData, 
+                    material_name: m.product_type,
+                    material_rate: String(m.sales_price)
+                  })}
+                  className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all border-2 ${
+                    formData.material_name === m.product_type
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200 scale-105'
+                      : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/50'
+                  }`}
+                >
+                  {m.product_type}
+                </button>
+              ))}
+              {priceMaster.length === 0 && (
+                <p className="text-xs text-slate-400 font-medium">No materials found in Price Master.</p>
+              )}
             </div>
-            <p className="text-[10px] text-indigo-500 mt-1.5 font-bold">Auto-Calculated (Net × Rate)</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Material Rate (₹ per Ton) *</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                placeholder="0.00"
+                value={formData.material_rate}
+                onChange={(e) => setFormData({ ...formData, material_rate: e.target.value })}
+                className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-indigo-900 mb-2">Final Amount (₹)</label>
+              <div className="w-full px-4 py-2.5 bg-indigo-50 border-2 border-indigo-200 rounded-lg flex items-center justify-between">
+                <span className="font-black text-indigo-700 text-lg">₹ {totalAmount.toFixed(2)}</span>
+              </div>
+              <p className="text-[10px] text-indigo-500 mt-1.5 font-bold">Auto-Calculated (Net × Rate)</p>
+            </div>
           </div>
         </div>
       </div>
