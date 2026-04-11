@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Clock } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { LoginForm } from './components/Auth/LoginForm';
@@ -11,15 +10,7 @@ import { BlastingForm } from './components/Contractor/BlastingForm';
 import { LoadingForm } from './components/Contractor/LoadingForm';
 import { TransportForm } from './components/Contractor/TransportForm';
 import { MediaForm } from './components/Contractor/MediaForm';
-import { 
-  Users, 
-  Settings, 
-  FileText, 
-  TrendingUp, 
-  Package, 
-  BarChart3, 
-  ChevronRight 
-} from 'lucide-react';
+import { InventoryForm } from './components/Inventory/InventoryForm';
 import { FuelForm } from './components/Fuel/FuelForm';
 import { SafetyForm } from './components/Safety/SafetyForm';
 import { MobileOperations } from './components/Contractor/MobileOperations';
