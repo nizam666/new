@@ -119,15 +119,16 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
     }
   };
 
-  const generateInvoiceNumber = async () => {
+  const generateInvoiceNumber = async (isRetry = false) => {
     try {
       const currentYear = new Date().getFullYear();
 
+      // Sort by invoice_number DESC to get the absolute highest value in the sequence
       const { data, error } = await supabase
         .from('invoices')
         .select('invoice_number')
         .like('invoice_number', `INV-${currentYear}-%`)
-        .order('created_at', { ascending: false })
+        .order('invoice_number', { ascending: false })
         .limit(1);
 
       if (error) throw error;
@@ -135,16 +136,23 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
       let nextNumber = 1;
       if (data && data.length > 0) {
         const lastInvoice = data[0].invoice_number;
-        const lastNumber = parseInt(lastInvoice.split('-')[2]);
-        nextNumber = lastNumber + 1;
+        const parts = lastInvoice.split('-');
+        if (parts.length === 3) {
+          const lastNumber = parseInt(parts[2]);
+          nextNumber = isNaN(lastNumber) ? 1 : lastNumber + 1;
+        }
       }
 
       const invoiceNumber = `INV-${currentYear}-${String(nextNumber).padStart(3, '0')}`;
-      setFormData(prev => ({ ...prev, invoice_number: invoiceNumber }));
+      if (!isRetry) {
+        setFormData(prev => ({ ...prev, invoice_number: invoiceNumber }));
+      }
+      return invoiceNumber;
     } catch (error) {
       console.error('Error generating invoice number:', error);
+      return `INV-${new Date().getFullYear()}-001`; // Fallback
     } finally {
-      setGeneratingInvoiceNumber(false);
+      if (!isRetry) setGeneratingInvoiceNumber(false);
     }
   };
 
@@ -222,35 +230,54 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
         recorded_at: new Date().toISOString()
       })).filter(p => p.amount > 0);
 
-      const { error: insertError } = await supabase
-        .from('invoices')
-        .insert([{
-          invoice_number: formData.invoice_number,
-          invoice_date: formData.invoice_date,
-          customer_name: formData.customer_name,
-          delivery_location: formData.delivery_location || null,
-          vehicle_no: formData.vehicle_no || null,
-          material_name: formData.material_name,
-          material_rate: rateVal,
-          empty_weight: emptyVal,
-          gross_weight: grossVal,
-          net_weight: netWeight,
-          total_amount: totalAmount,
-          subtotal: totalAmount,
-          
-          // Payment logistics:
-          amount_paid: totalCalculatedPaid,
-          status: status,
-          payment_history: paymentHistory.length > 0 ? JSON.stringify(paymentHistory) : '[]',
-          payment_mode: paymentHistory.length > 0 ? paymentHistory[0].payment_mode : null,
-          payment_date: paymentHistory.length > 0 ? paymentHistory[0].payment_date : null,
+      let currentInvoiceNumber = formData.invoice_number;
+      let syncResult = null;
+      let attempts = 0;
+      const maxAttempts = 3;
 
-          // Backwards compatibility:
-          due_date: formData.invoice_date,
-          items: JSON.stringify(backupItemFormat)
-        }]);
+      while (attempts < maxAttempts) {
+        const { data: insertData, error: insertError } = await supabase
+          .from('invoices')
+          .insert([{
+            invoice_number: currentInvoiceNumber,
+            invoice_date: formData.invoice_date,
+            customer_name: formData.customer_name,
+            delivery_location: formData.delivery_location || null,
+            vehicle_no: formData.vehicle_no || null,
+            material_name: formData.material_name,
+            material_rate: rateVal,
+            empty_weight: emptyVal,
+            gross_weight: grossVal,
+            net_weight: netWeight,
+            total_amount: totalAmount,
+            subtotal: totalAmount,
+            
+            // Payment logistics:
+            amount_paid: totalCalculatedPaid,
+            status: status,
+            payment_history: paymentHistory.length > 0 ? JSON.stringify(paymentHistory) : '[]',
+            payment_mode: paymentHistory.length > 0 ? paymentHistory[0].payment_mode : null,
+            payment_date: paymentHistory.length > 0 ? paymentHistory[0].payment_date : null,
 
-      if (insertError) throw insertError;
+            // Backwards compatibility:
+            due_date: formData.invoice_date,
+            items: JSON.stringify(backupItemFormat)
+          }]);
+
+        if (insertError) {
+          // Check for unique violation (PostgreSQL code 23505)
+          if (insertError.code === '23505' && attempts < maxAttempts - 1) {
+            console.log(`Invoice number collision detected for ${currentInvoiceNumber}. Retrying with fresh number...`);
+            currentInvoiceNumber = await generateInvoiceNumber(true);
+            attempts++;
+            continue;
+          }
+          throw insertError;
+        }
+
+        syncResult = insertData;
+        break; // Success!
+      }
 
       // Update customer profile if requested
       if (updateProfile && selectedCustomerId && formData.delivery_location) {
@@ -264,7 +291,7 @@ export function InvoiceForm({ onSuccess, onCancel }: InvoiceFormProps) {
 
       if (shouldPrintRef.current) {
         printThermalInvoice({
-          invoice_number: formData.invoice_number,
+          invoice_number: currentInvoiceNumber,
           customer_name: formData.customer_name,
           invoice_date: formData.invoice_date,
           due_date: formData.invoice_date,
