@@ -31,7 +31,6 @@ import { EBRecords } from './components/Crusher/EBRecords';
 import { CrusherMaintenanceForm } from './components/Crusher/CrusherMaintenanceForm';
 import { JCBOperationsForm } from './components/Operations/JCBOperationsForm';
 import { JCBOperationsDetails } from './components/Operations/JCBOperationsDetails';
-import { CustomerForm } from './components/Customers/CustomerForm';
 import { CustomerDetails } from './components/Customers/CustomerDetails';
 import { SelfServiceAttendance } from './components/Attendance/SelfServiceAttendance';
 import { AttendanceReportModule } from './components/Reports/AttendanceReportModule';
