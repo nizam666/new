@@ -11,7 +11,8 @@ import { LoadingForm } from './components/Contractor/LoadingForm';
 import { TransportForm } from './components/Contractor/TransportForm';
 import { MediaForm } from './components/Contractor/MediaForm';
 import { InventoryForm } from './components/Inventory/InventoryForm';
-import { FuelForm } from './components/Fuel/FuelForm';
+import { ItemManagement } from './components/Inventory/ItemManagement';
+import { VendorManagement } from './components/Inventory/VendorManagement';
 import { SafetyForm } from './components/Safety/SafetyForm';
 import { MobileOperations } from './components/Contractor/MobileOperations';
 import { SalesModule } from './components/Sales/SalesModule';
@@ -266,23 +267,27 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Inventory Management</h2>
+              <h2 className="text-2xl font-bold text-slate-900">Inventory Hub</h2>
               <p className="text-slate-600 mt-1">Track equipment, tools, and supplies</p>
             </div>
             <InventoryForm onSuccess={() => window.location.reload()} />
           </div>
         );
 
-      case 'fuel':
+      case 'item-management':
         return (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Fuel Management</h2>
-              <p className="text-slate-600 mt-1">Track fuel consumption and costs</p>
-            </div>
-            <FuelForm onSuccess={() => window.location.reload()} />
+            <ItemManagement />
           </div>
         );
+
+      case 'vendor-management':
+        return (
+          <div className="space-y-6">
+            <VendorManagement />
+          </div>
+        );
+
 
       case 'safety':
         return (
