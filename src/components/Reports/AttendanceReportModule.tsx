@@ -179,6 +179,7 @@ export function AttendanceReportModule() {
             <input
               type="date"
               value={dateTo}
+              max={new Date().toISOString().split('T')[0]}
               onChange={e => setDateTo(e.target.value)}
               className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />

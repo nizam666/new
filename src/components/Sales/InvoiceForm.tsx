@@ -452,6 +452,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
                   type="date"
                   required
                   value={formData.invoice_date}
+                  max={new Date().toISOString().split('T')[0]}
                   onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
                   className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold"
                 />
@@ -734,6 +735,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
                         <input
                           type="date"
                           value={p.payment_date}
+                          max={new Date().toISOString().split('T')[0]}
                           onChange={(e) => updatePayment(p.id, 'payment_date', e.target.value)}
                           className="w-full px-3 py-2 text-sm font-bold border-2 border-slate-100 rounded-lg focus:ring-2 focus:ring-indigo-500"
                         />

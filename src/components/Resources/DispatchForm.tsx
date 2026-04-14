@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Truck, Package, User, RotateCcw, AlertTriangle,
   CheckCircle, Loader2, Search, Calendar,
-  ArrowLeftRight, XCircle
+  ArrowLeftRight, XCircle, Plus, X
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -47,11 +47,8 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [fetchingItems, setFetchingItems] = useState(true);
 
-  // Item search state
   const [itemSearch, setItemSearch] = useState('');
-  const [showItemDropdown, setShowItemDropdown] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const itemRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     dispatch_ref: generateDispatchRef(),
@@ -67,30 +64,55 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
     return_condition: '',
     notes: '',
   });
+  const [outstandingQty, setOutstandingQty] = useState(0);
+
+  // Fetch outstanding returnable quantity for department
+  useEffect(() => {
+    const fetchOutstandingDeptQty = async () => {
+      if (!selectedItem || !formData.department) {
+        setOutstandingQty(0);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('inventory_dispatch')
+          .select('quantity_dispatched')
+          .eq('item_id', selectedItem.id)
+          .eq('department', formData.department)
+          .eq('returnable', true)
+          .eq('returned', false);
+        
+        if (error) throw error;
+        
+        const total = (data || []).reduce((sum, d) => sum + (d.quantity_dispatched || 0), 0);
+        setOutstandingQty(total);
+      } catch (err) {
+        console.error('Error fetching outstanding qty:', err);
+      }
+    };
+
+    fetchOutstandingDeptQty();
+  }, [selectedItem, formData.department]);
 
   // Fetch inventory items on mount
   useEffect(() => {
     const fetchItems = async () => {
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .select('id, item_name, item_code, category, quantity, unit, location, average_price')
-        .gt('quantity', 0)
-        .order('item_name', { ascending: true });
-      if (!error) setInventoryItems(data || []);
-      setFetchingItems(false);
-    };
-    fetchItems();
-  }, []);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (itemRef.current && !itemRef.current.contains(e.target as Node)) {
-        setShowItemDropdown(false);
+      try {
+        const { data, error } = await supabase
+          .from('inventory_items')
+          .select('*')
+          .order('item_name', { ascending: true });
+        
+        if (error) throw error;
+        setInventoryItems(data || []);
+      } catch (err) {
+        toast.error('Failed to load storage items: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      } finally {
+        setFetchingItems(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    fetchItems();
   }, []);
 
   const filteredItems = inventoryItems.filter(item =>
@@ -201,80 +223,150 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
       <form onSubmit={handleSubmit} className="space-y-5">
 
         {/* ── Item Selection ── */}
-        <div className="bg-white rounded-3xl md:rounded-[40px] p-6 md:p-10 shadow-xl border border-slate-100 space-y-4">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Item from Storage</h3>
-
-          <div className="relative" ref={itemRef}>
-            <div className="relative">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300" />
-              <input
-                type="text"
-                value={itemSearch}
-                onChange={(e) => { setItemSearch(e.target.value); setShowItemDropdown(true); if (selectedItem) setSelectedItem(null); }}
-                onFocus={() => setShowItemDropdown(true)}
-                placeholder={fetchingItems ? 'Loading stock...' : 'Search by item name, code or category…'}
-                className="w-full pl-14 pr-6 py-5 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-slate-500/10 placeholder:text-slate-300"
-              />
-            </div>
-
-            {showItemDropdown && filteredItems.length > 0 && (
-              <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-72 overflow-y-auto">
-                {filteredItems.map(item => (
-                  <div
-                    key={item.id}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setSelectedItem(item);
-                      setItemSearch(item.item_name);
-                      update('item_name', item.item_name);
-                      setShowItemDropdown(false);
-                    }}
-                    className="px-6 py-4 hover:bg-slate-900 hover:text-white cursor-pointer transition-all flex items-center justify-between group"
-                  >
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-black text-sm">{item.item_name}</span>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-slate-300">{item.category} · {item.location}</span>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-black text-base">{item.quantity} <span className="text-xs font-bold">{item.unit}</span></p>
-                      <p className="text-[10px] text-slate-400 group-hover:text-slate-300">In stock</p>
-                    </div>
-                  </div>
-                ))}
+        <div className="bg-white rounded-3xl md:rounded-[40px] p-6 md:p-10 shadow-xl border border-slate-100 space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Item from Storage</h3>
+            {!selectedItem && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Stock Available
               </div>
             )}
           </div>
 
-          {/* Selected item pill */}
-          {selectedItem && (
-            <div className="flex flex-wrap gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-100 animate-in fade-in duration-300">
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selected Item</p>
-                <p className="text-xl font-black text-slate-900 truncate">{selectedItem.item_name}</p>
-                <p className="text-xs font-bold text-slate-400">{selectedItem.item_code} · {selectedItem.category}</p>
+          {!selectedItem ? (
+            <div className="space-y-6 animate-in fade-in duration-500">
+               {/* Search Bar */}
+               <div className="relative">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300" />
+                  <input
+                    type="text"
+                    value={itemSearch}
+                    onChange={(e) => setItemSearch(e.target.value)}
+                    placeholder={fetchingItems ? 'Loading stock...' : 'Filter available stock…'}
+                    className="w-full pl-14 pr-6 py-5 rounded-3xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-slate-500/10 placeholder:text-slate-300 shadow-inner group transition-all"
+                  />
+               </div>
+
+               {/* Automatic Item Grid */}
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[460px] overflow-y-auto pr-2 custom-scrollbar p-1">
+                  {fetchingItems ? (
+                    [1,2,3].map(i => (
+                      <div key={i} className="h-32 rounded-3xl bg-slate-50 animate-pulse border border-slate-100" />
+                    ))
+                  ) : filteredItems.length === 0 ? (
+                    <div className="col-span-full py-20 text-center bg-slate-50 rounded-[32px] border border-dashed border-slate-200">
+                       <Package className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                       <p className="text-slate-400 font-bold">No matching stock found</p>
+                    </div>
+                  ) : (
+                    filteredItems.map(item => {
+                      const outOfStock = (item.quantity || 0) <= 0;
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => {
+                            if (outOfStock) {
+                               toast.info(`${item.item_name} is currently out of stock. Please restock first.`);
+                               return;
+                            }
+                            setSelectedItem(item);
+                            setItemSearch('');
+                            update('item_name', item.item_name);
+                          }}
+                          className={`group p-5 rounded-[32px] bg-white border transition-all relative overflow-hidden ${
+                            outOfStock 
+                              ? 'opacity-60 grayscale cursor-not-allowed border-slate-100' 
+                              : 'shadow-sm border-slate-100 hover:shadow-xl hover:border-emerald-500/30 hover:-translate-y-1 cursor-pointer'
+                          }`}
+                        >
+                           <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {!outOfStock && (
+                                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg">
+                                   <Plus className="w-4 h-4" />
+                                </div>
+                              )}
+                           </div>
+                           <div className="flex items-center gap-4 mb-4">
+                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                                outOfStock ? 'bg-slate-100' : 'bg-slate-900/5 group-hover:bg-emerald-500'
+                              }`}>
+                                 <Package className={`w-6 h-6 ${outOfStock ? 'text-slate-300' : 'text-slate-400 group-hover:text-white'}`} />
+                              </div>
+                              <div className="min-w-0">
+                                 <h4 className={`font-black text-sm truncate ${outOfStock ? 'text-slate-400' : 'text-slate-900'}`}>{item.item_name}</h4>
+                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.category}</p>
+                              </div>
+                           </div>
+                           <div className="flex items-end justify-between pt-2 border-t border-slate-50">
+                              <div>
+                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-0.5">
+                                   {outOfStock ? 'Status' : 'Quantity'}
+                                 </p>
+                                 <div className="flex items-baseline gap-1">
+                                    {outOfStock ? (
+                                      <span className="text-xs font-black text-rose-500 uppercase tracking-tighter">Out of Stock</span>
+                                    ) : (
+                                      <>
+                                        <span className="text-xl font-black text-slate-900">{item.quantity}</span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">{item.unit}</span>
+                                      </>
+                                    )}
+                                 </div>
+                              </div>
+                              <div className="text-right">
+                                 <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-tighter">
+                                    {item.location}
+                                 </span>
+                              </div>
+                           </div>
+                        </div>
+                      );
+                    })
+                  )}
+               </div>
+            </div>
+          ) : (
+            /* Selected item pill */
+            <div className="flex flex-col sm:flex-row gap-6 p-1 bg-slate-50 rounded-[32px] border border-slate-100 items-stretch animate-in zoom-in-95 duration-500 relative">
+              <div className="flex-1 p-6 flex items-center gap-5">
+                <div className="w-16 h-16 rounded-[24px] bg-slate-900 text-emerald-400 flex items-center justify-center shadow-2xl">
+                  <Package className="w-8 h-8" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-1">Stock Item Selected</p>
+                  <h4 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">{selectedItem.item_name}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedItem.item_code}</span>
+                     <div className="w-1 h-1 rounded-full bg-slate-300" />
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedItem.category}</span>
+                  </div>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Available Stock</p>
-                <p className="text-2xl font-black text-emerald-600">{selectedItem.quantity}</p>
-                <p className="text-xs font-bold text-slate-400">{selectedItem.unit}</p>
+
+              <div className="sm:w-1/3 bg-white rounded-[28px] p-6 shadow-sm border border-slate-200/50 flex flex-col justify-center">
+                 <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</p>
+                 </div>
+                 <div className="flex items-baseline justify-between">
+                    <div className="flex items-baseline gap-1">
+                       <span className="text-3xl font-black text-slate-900 tracking-tighter">{selectedItem.quantity}</span>
+                       <span className="text-xs font-bold text-slate-400 uppercase">{selectedItem.unit}</span>
+                    </div>
+                    <span className="text-sm font-black text-emerald-600 uppercase tracking-tighter">{selectedItem.location || 'N/A'}</span>
+                 </div>
               </div>
+
+              <button 
+                type="button"
+                onClick={() => setSelectedItem(null)}
+                className="absolute -top-3 -right-3 w-10 h-10 bg-white border border-slate-200 rounded-2xl flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-500 hover:shadow-xl hover:scale-110 transition-all shadow-lg active:scale-95"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           )}
-
-          {/* Manual Item Name */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-              <Package className="h-3 w-3" /> Item Name *
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="Enter or confirm item name"
-              value={formData.item_name}
-              onChange={(e) => update('item_name', e.target.value)}
-              className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-slate-500/10 placeholder:text-slate-300"
-            />
-          </div>
         </div>
 
         {/* ── Dispatch Details ── */}
@@ -331,6 +423,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
                 type="date"
                 required
                 value={formData.dispatch_date}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => update('dispatch_date', e.target.value)}
                 className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-slate-500/10"
               />
@@ -362,7 +455,41 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
           </div>
 
           {formData.returnable && (
-            <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+              {/* Debt Dashboard */}
+              {formData.department && (
+                <div className="p-6 bg-slate-900 rounded-[32px] text-white overflow-hidden relative group">
+                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                      <RotateCcw className="h-20 w-20" />
+                   </div>
+                   <div className="relative z-10">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400 mb-4">Department Inventory Debt</p>
+                      <div className="grid grid-cols-2 gap-8">
+                         <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Previous Unreturned</p>
+                            <div className="flex items-baseline gap-1">
+                               <span className="text-3xl font-black">{outstandingQty}</span>
+                               <span className="text-[10px] font-bold text-slate-400 uppercase">{selectedItem?.unit}</span>
+                            </div>
+                         </div>
+                         <div className="border-l border-white/10 pl-8">
+                            <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1 font-black">Total After Dispatch</p>
+                            <div className="flex items-baseline gap-1">
+                               <span className="text-3xl font-black text-emerald-400">
+                                  {outstandingQty + (parseFloat(formData.quantity_dispatched) || 0)}
+                               </span>
+                               <span className="text-[10px] font-bold text-emerald-400 uppercase">{selectedItem?.unit}</span>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="mt-6 flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl w-fit">
+                         <AlertTriangle className="h-3 w-3 text-amber-400" />
+                         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Responsibility limits may apply to {formData.department}</p>
+                      </div>
+                   </div>
+                </div>
+              )}
+
               {/* Expected Return Date */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Expected Return Date</label>
@@ -398,6 +525,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
                     <input
                       type="date"
                       value={formData.return_date}
+                      max={new Date().toISOString().split('T')[0]}
                       onChange={(e) => update('return_date', e.target.value)}
                       min={formData.dispatch_date}
                       className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-emerald-500/10"
@@ -461,7 +589,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
           )}
           <button
             type="submit"
-            disabled={loading || !selectedItem}
+            disabled={loading}
             className="w-full sm:w-auto px-10 py-5 bg-slate-900 text-white rounded-2xl md:rounded-3xl font-black text-sm shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-3"
           >
             {loading

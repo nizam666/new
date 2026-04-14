@@ -9,7 +9,11 @@ import {
   MapPin,
   DollarSign,
   Sparkles,
-  Factory
+  Factory,
+  TrendingUp,
+  Layers,
+  FileText,
+  History
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -338,7 +342,6 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dbItemCount, setDbItemCount] = useState(0);
-  // Map: lowercase item_name → existing item_reference_number from DB
   const [inventoryRefMap, setInventoryRefMap] = useState<Record<string, string>>({});
 
   const [purchaseBills, setPurchaseBills] = useState<PurchaseBill[]>([]);
@@ -348,24 +351,66 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
   const [selectedBill, setSelectedBill] = useState<PurchaseBill | null>(null);
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
+  const [monthlyStats, setMonthlyStats] = useState({ totalValue: 0, totalItems: 0, billCount: 0 });
+  const [history, setHistory] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [originalQty, setOriginalQty] = useState(0);
+  const [billItems, setBillItems] = useState<any[]>([]);
 
   useEffect(() => {
     const init = async () => {
       try {
         const [billsRes, itemsRes, countRes, refsRes] = await Promise.all([
-          supabase.from('accounts').select('*').in('transaction_type', ['expense', 'invoice']).order('transaction_date', { ascending: false }),
+          supabase.from('accounts').select('*').in('transaction_type', ['expense', 'invoice']).or('status.is.null,status.neq.completed').order('transaction_date', { ascending: false }),
           supabase.from('master_items').select('*').order('name', { ascending: true }),
           supabase.from('inventory_items').select('id', { count: 'exact', head: true }),
-          supabase.from('inventory_items').select('item_name, item_reference_number').not('item_reference_number', 'is', null)
+          supabase.from('inventory_items').select('item_name, item_code').not('item_code', 'is', null)
         ]);
         setPurchaseBills(billsRes.data || []);
         setMasterItems(itemsRes.data || []);
         setDbItemCount(countRes.count || 0);
+
+        // Calculate Monthly Summary
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        
+        let mValue = 0;
+        let mCount = 0;
+        const validBills = (billsRes.data || []).filter(b => b.transaction_date >= startOfMonth);
+        validBills.forEach(b => mValue += (b.amount || 0));
+
+        // Fetch monthly transaction volume
+        const { data: transData } = await supabase
+          .from('inventory_transactions')
+          .select('quantity')
+          .eq('transaction_type', 'in')
+          .gte('date', startOfMonth.split('T')[0]);
+        
+        mCount = (transData || []).reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+
+        setMonthlyStats({
+          totalValue: mValue,
+          totalItems: mCount,
+          billCount: (billsRes.data || []).length
+        });
+
+        // Fetch Detailed History for the bottom list
+        const { data: historyData } = await supabase
+          .from('inventory_transactions')
+          .select(`
+            *,
+            inventory_items!inner(item_name, item_code, category, unit, location)
+          `)
+          .eq('transaction_type', 'in')
+          .gte('date', startOfMonth.split('T')[0])
+          .order('date', { ascending: false });
+        setHistory(historyData || []);
+
         // Build name → ref map for auto-fill
         const refMap: Record<string, string> = {};
         (refsRes.data || []).forEach((r: any) => {
-          if (r.item_name && r.item_reference_number)
-            refMap[r.item_name.toLowerCase()] = r.item_reference_number;
+          if (r.item_name && r.item_code)
+            refMap[r.item_name.toLowerCase()] = r.item_code;
         });
         setInventoryRefMap(refMap);
       } catch (err) {
@@ -377,11 +422,31 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
     init();
   }, []);
 
-  const handleBillSelect = (billId: string) => {
+  const handleBillSelect = async (billId: string) => {
     setSelectedBillId(billId);
+    setBillItems([]); // Reset previous
     const bill = purchaseBills.find(b => b.id === billId);
     setSelectedBill(bill || null);
-    if (bill && lineItems.length === 0) addNewRow();
+    
+    if (bill) {
+      // Fetch already recorded items for this bill
+      try {
+        const { data } = await supabase
+          .from('inventory_transactions')
+          .select(`
+            *,
+            inventory_items(item_name, unit)
+          `)
+          .eq('transaction_type', 'in')
+          .ilike('purpose', `%Bill: ${bill.invoice_number}%`);
+        
+        if (data) setBillItems(data);
+      } catch (err) {
+        console.error('Error fetching bill items:', err);
+      }
+      
+      if (lineItems.length === 0) addNewRow();
+    }
   };
 
   const addNewRow = useCallback(() => {
@@ -432,22 +497,29 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
     const billInvoice = selectedBill.invoice_number;
     setSaving(true);
     try {
+      // 1. Register new items in the master catalog if they don't exist
       const newItemsToRegister = itemsToSave
         .filter(item => !masterItems.some(m => m.name.toLowerCase() === item.item_name.toLowerCase()))
         .reduce((acc: any[], item) => {
           if (!acc.some(a => a.name.toLowerCase() === item.item_name.toLowerCase())) {
-            acc.push({ name: item.item_name, category: item.category || 'General', unit: item.unit || 'Nos' });
+            acc.push({ 
+              name: item.item_name.trim(), 
+              category: item.category || 'General', 
+              unit: item.unit || 'Nos' 
+            });
           }
           return acc;
         }, []);
 
       if (newItemsToRegister.length > 0) {
-        const { error } = await supabase.from('master_items').upsert(newItemsToRegister, { onConflict: 'name' });
-        if (error) throw error;
+        // Use insert instead of upsert to avoid issues with missing unique constraints on 'name'
+        const { error: miError } = await supabase.from('master_items').insert(newItemsToRegister);
+        if (miError) throw miError;
       }
 
+      // 2. Aggregate identical items in the current batch for inventory update
       const aggregated = itemsToSave.reduce((acc: any, curr) => {
-        const name = curr.item_name.toLowerCase();
+        const name = curr.item_name.trim().toLowerCase();
         if (!acc[name]) acc[name] = { ...curr, q: 0, c: 0 };
         const q = parseFloat(curr.quantity) || 0;
         const r = parseFloat(curr.rate_per_unit) || 0;
@@ -456,34 +528,61 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         return acc;
       }, {});
 
-      const { data: existing, error: eError } = await supabase.from('inventory_items').select('*').in('item_name', Object.values(aggregated).map((a: any) => a.item_name));
+      if (Object.keys(aggregated).length === 0) throw new Error('No valid items found in batch');
+
+      // Helper: Generate UUID if not found
+      const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      };
+
+      // 3. Fetch existing inventory items by Name OR Code with robust escaping
+      const itemNames = Object.values(aggregated).map((a: any) => a.item_name.replace(/'/g, "''"));
+      const itemCodes = Object.values(aggregated).map((a: any) => a.item_ref_no.replace(/'/g, "''"));
+
+      const { data: existing, error: eError } = await supabase
+        .from('inventory_items')
+        .select('id, item_name, item_code, quantity')
+        .or(`item_name.in.(${itemNames.map(n => `"${n}"`).join(',')}),item_code.in.(${itemCodes.map(c => `"${c}"`).join(',')})`);
+      
       if (eError) throw eError;
 
+      // 4. Prepare updates/inserts for inventory_items - GURANTEEING ID
       const upserts = Object.values(aggregated).map((item: any) => {
-        const dbItem = existing?.find(e => e.item_name.toLowerCase() === item.item_name.toLowerCase());
+        // Precise matching by item_code (Reliable unique key)
+        const dbItem = existing?.find(e => e.item_code === item.item_ref_no) || 
+                       existing?.find(e => e.item_name.toLowerCase() === item.item_name.toLowerCase());
+
         const totalQty = (dbItem?.quantity || 0) + item.q;
-        const totalValue = ((dbItem?.quantity || 0) * (dbItem?.average_price || 0)) + item.c;
-        const newAvg = totalQty > 0 ? totalValue / totalQty : (item.q > 0 ? item.c / item.q : 0);
         
-        return {
-          id: dbItem?.id,
-          item_name: item.item_name,
-          item_code: dbItem?.item_code || item.item_ref_no,
+        // Build the update payload
+        const upsertRow: any = {
+          // If we found an existing ID, use it for UPDATE. If not, generate a NEW ID for INSERT.
+          // This prevents the 'null value in id' error by never sending a null ID.
+          id: dbItem?.id || generateUUID(),
+          item_name: item.item_name.trim(),
+          item_code: item.item_ref_no,
           category: item.category,
           quantity: totalQty,
-          average_price: newAvg,
           unit: item.unit,
           location: item.storage_location,
           supplier: billCustomer,
-          last_restock_date: transactionDate,
-          item_reference_number: dbItem?.item_reference_number || item.item_ref_no,
+          last_restock_date: transactionDate || new Date().toISOString().split('T')[0],
           updated_at: new Date().toISOString()
         };
+
+        return upsertRow;
       });
 
-      const { data: saved, error: uError } = await supabase.from('inventory_items').upsert(upserts, { onConflict: 'item_code' }).select();
+      const { data: saved, error: uError } = await supabase
+        .from('inventory_items')
+        .upsert(upserts, { onConflict: 'item_code' })
+        .select();
       if (uError) throw uError;
 
+      // 5. Log individual transactions for each line item
       const trans = itemsToSave.map(item => {
         const si = saved?.find(s => s.item_name.toLowerCase() === item.item_name.toLowerCase());
         return {
@@ -491,7 +590,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
           user_id: user.id,
           transaction_type: 'in',
           quantity: parseFloat(item.quantity) || 0,
-          date: transactionDate,
+          date: transactionDate || new Date().toISOString().split('T')[0],
           purpose: `Purchase Ref: ${billInvoice}`,
           notes: `Bill: ${billInvoice} | Rate: ${item.rate_per_unit}`
         };
@@ -500,10 +599,23 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       const { error: tError } = await supabase.from('inventory_transactions').insert(trans);
       if (tError) throw tError;
 
+      // 6. Automatically Close Bill if fully allocated
+      const batchTotal = itemsToSave.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
+      if (Math.abs(batchTotal - selectedBill.amount) < 0.01) {
+        await supabase
+          .from('accounts')
+          .update({ status: 'completed' })
+          .eq('id', selectedBill.id);
+        toast.info('Bill fully allocated and moved to completed registry');
+      }
+
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Procurement Error:', err);
-      toast.error('Commit Failed: ' + (err instanceof Error ? err.message : 'DB Error'));
+      // Display detailed error code/message to aid debugging
+      const errorMsg = err.message || err.details || 'Database Error';
+      const errorCode = err.code ? `[${err.code}] ` : '';
+      toast.error(`Commit Failed: ${errorCode}${errorMsg}`);
       return false;
     } finally {
       setSaving(false);
@@ -521,13 +633,46 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       return toast.warning('Please ensure all items have a Name, valid Quantity (>0), and Category selected');
     }
 
+    const batchTotal = lineItems.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
+    if (batchTotal > selectedBill.amount) {
+      toast.error(`Over-Entry Alert: Total item value (₹${batchTotal.toLocaleString()}) exceeds the bill amount (₹${selectedBill.amount.toLocaleString()}). Please adjust quantities or rates.`);
+      return;
+    }
+
     const success = await performBatchSave(lineItems);
     if (success) {
-      toast.success('Inventory Catalog Updated Successfully!');
+      // If we were editing, delete the old transaction to avoid duplication
+      if (editingId) {
+        // Revert stock for the original item first
+        const oldItem = history.find(h => h.id === editingId);
+        if (oldItem) {
+          const { data: inv } = await supabase.from('inventory_items').select('quantity').eq('id', oldItem.item_id).single();
+          if (inv) {
+             await supabase.from('inventory_items').update({ quantity: inv.quantity - originalQty }).eq('id', oldItem.item_id);
+          }
+        }
+        await supabase.from('inventory_transactions').delete().eq('id', editingId);
+      }
+
+      toast.success(editingId ? 'Transaction Corrected Successfully!' : 'Inventory Catalog Updated Successfully!');
       if (onSuccess) onSuccess();
       setLineItems([]); setSelectedBillId(''); setSelectedBill(null);
+      setEditingId(null); setOriginalQty(0);
+      window.location.reload(); // Simple refresh for now to update all stats
     }
   };
+
+  // Calculate Remaining Allocation: Bill Amount - Value of items already in inventory
+  const totalAllocatedValue = useMemo(() => {
+    return billItems.reduce((acc, item) => {
+      // Parse rate from notes if available (format: "Bill: ... | Rate: 123.45")
+      const rateStr = item.notes?.split('Rate: ')[1];
+      const rate = parseFloat(rateStr) || 0;
+      return acc + (item.quantity * rate);
+    }, 0);
+  }, [billItems]);
+
+  const remainingAllocation = (selectedBill?.amount || 0) - totalAllocatedValue;
 
   if (loading) return <div className="p-20 text-center animate-pulse text-slate-400 font-bold">Initializing Interface...</div>;
 
@@ -535,6 +680,38 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
 
   return (
     <div className="space-y-5 md:space-y-10 pb-24">
+      {/* ── Monthly Summary Dashboard ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
+        <div className="relative overflow-hidden rounded-[40px] bg-white p-8 shadow-xl border border-slate-100 transition-all hover:-translate-y-1">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <TrendingUp className="h-24 w-24 text-slate-900" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Monthly Procurement Spend</p>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-4xl font-black text-slate-900">₹{monthlyStats.totalValue.toLocaleString()}</h3>
+          </div>
+          <p className="text-[10px] font-black text-emerald-500 mt-2 uppercase tracking-widest bg-emerald-50 w-fit px-2 py-1 rounded-lg">Month Target tracking</p>
+        </div>
+
+        <div className="relative overflow-hidden rounded-[40px] bg-slate-900 p-8 shadow-xl transition-all hover:-translate-y-1">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Layers className="h-24 w-24 text-white" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Procured Inventory Volume</p>
+          <h3 className="text-4xl font-black text-white">{monthlyStats.totalItems.toLocaleString()} <span className="text-sm font-bold text-slate-500">Units</span></h3>
+          <p className="text-[10px] font-black text-teal-400 mt-2 uppercase tracking-widest bg-white/10 w-fit px-2 py-1 rounded-lg">Real-time restock depth</p>
+        </div>
+
+        <div className="relative overflow-hidden rounded-[40px] bg-white p-8 shadow-xl border border-slate-100 transition-all hover:-translate-y-1">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <FileText className="h-24 w-24 text-slate-900" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Pending Bill Registry</p>
+          <h3 className="text-4xl font-black text-slate-900">{monthlyStats.billCount} <span className="text-sm font-bold text-slate-500">Invoices</span></h3>
+          <p className="text-[10px] font-black text-slate-400 mt-2 uppercase tracking-widest bg-slate-50 w-fit px-2 py-1 rounded-lg">Available for processing</p>
+        </div>
+      </div>
+
       {/* ── Bill Selector ── */}
       <div className="bg-white rounded-3xl md:rounded-[40px] p-6 md:p-12 shadow-xl border border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-2">
@@ -551,7 +728,9 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         </div>
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Stock Arrival Date</label>
-          <input type="date" value={transactionDate} onChange={(e) => setTransactionDate(e.target.value)}
+          <input type="date" value={transactionDate}
+            max={new Date().toISOString().split('T')[0]}
+            onChange={(e) => setTransactionDate(e.target.value)}
             className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-emerald-500/10" />
         </div>
       </div>
@@ -570,16 +749,56 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
               <p className="text-xl md:text-2xl font-black text-slate-900">₹{(selectedBill.amount || 0).toLocaleString()}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Balance Due</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-rose-400">Remaining Allocation</p>
               <p className="text-xl md:text-2xl font-black text-rose-600">
-                ₹{((selectedBill.amount || 0) - (selectedBill.amount_given || 0)).toLocaleString()}
+                ₹{remainingAllocation.toLocaleString()}
               </p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Pending to be stocked</p>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</p>
               <p className="text-base md:text-xl font-bold text-slate-600">
                 {new Date(selectedBill.transaction_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Recorded Items for this Bill ── */}
+      {selectedBill && billItems.length > 0 && (
+        <div className="bg-slate-900 rounded-3xl md:rounded-[40px] p-6 md:p-10 shadow-2xl border border-white/10 animate-in fade-in duration-500 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-10">
+             <History className="w-32 h-32 text-white" />
+          </div>
+          <div className="relative z-10 space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-lg font-black text-white tracking-tight leading-none">Previously Recorded Items</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Existing stock arrivals for this reference</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {billItems.map((item, i) => (
+                <div key={i} className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center justify-between group hover:bg-white/10 transition-all">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black text-white group-hover:text-emerald-400 transition-colors">
+                      {item.inventory_items?.item_name || 'Generic Item'}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">
+                      Recorded on {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-emerald-400 leading-none">+{item.quantity}</p>
+                    <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">{item.inventory_items?.unit}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -638,19 +857,137 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
               className="flex items-center justify-center gap-2 px-6 py-4 bg-slate-50 rounded-2xl font-black text-xs text-slate-900 border border-slate-200 hover:shadow-xl transition-all">
               <Plus className="h-4 w-4" /> ADD LINE ITEM
             </button>
-            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
               <div className="text-center sm:text-right">
                 <p className="text-[10px] font-black uppercase text-slate-400">Batch Value</p>
                 <p className="text-2xl md:text-3xl font-black text-slate-900">₹{batchTotal.toLocaleString()}</p>
               </div>
-              <button type="submit" disabled={saving || lineItems.length === 0}
-                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-5 bg-emerald-600 text-white rounded-2xl md:rounded-3xl font-black text-sm shadow-xl shadow-emerald-600/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2">
-                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : '✓ COMMIT TO REPOSITORY'}
-              </button>
+              <div className="flex flex-col gap-3 w-full sm:w-auto">
+                <button type="submit" disabled={saving || lineItems.length === 0}
+                  className={`w-full sm:w-auto px-8 md:px-12 py-4 md:py-5 text-white rounded-2xl md:rounded-3xl font-black text-sm shadow-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 ${
+                    editingId ? 'bg-indigo-600 shadow-indigo-600/20' : 'bg-emerald-600 shadow-emerald-600/20'
+                  }`}>
+                  {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : (editingId ? '✓ UPDATE REGISTRY' : '✓ COMMIT TO REPOSITORY')}
+                </button>
+                {editingId && (
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setEditingId(null);
+                      setLineItems([]);
+                      setSelectedBill(null);
+                      setSelectedBillId('');
+                      setOriginalQty(0);
+                      toast.info('Correction mode cancelled');
+                    }}
+                    className="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-colors"
+                  >
+                    Cancel Correction
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </form>
       )}
+
+      {/* ── Procurement History List (Monthly Summary) ── */}
+      <div className="bg-white rounded-[40px] shadow-2xl border border-slate-100 overflow-hidden mt-10">
+        <div className="px-10 py-8 border-b border-slate-50 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center">
+              <History className="h-6 w-6" />
+            </div>
+            <div>
+              <h4 className="text-xl font-black text-slate-900 tracking-tight">Recent Procurements</h4>
+              <p className="text-xs font-bold text-slate-400">Review and correct this month's stock arrivals</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest">
+            <TrendingUp className="h-3 w-3" /> Monthly Activity
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50/50">
+              <tr>
+                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
+                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Item Details</th>
+                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Bill Ref</th>
+                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Quantity</th>
+                <th className="px-10 py-5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {history.map((item) => (
+                <tr key={item.id} className="group hover:bg-slate-50 transition-colors">
+                  <td className="px-10 py-6 text-sm font-bold text-slate-600">
+                    {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </td>
+                  <td className="px-10 py-6">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-black text-slate-900">{item.inventory_items?.item_name || 'Generic Item'}</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.inventory_items?.category}</span>
+                    </div>
+                  </td>
+                  <td className="px-10 py-6">
+                    <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest">
+                      {item.purpose?.split('Purchase Ref: ')[1] || 'Direct'}
+                    </span>
+                  </td>
+                  <td className="px-10 py-6">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-black text-slate-900">{item.quantity}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">{item.inventory_items?.unit}</span>
+                    </div>
+                  </td>
+                  <td className="px-10 py-6 text-right">
+                    <button
+                      onClick={() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        // Resolving Bill context
+                        const billRef = item.purpose?.split('Purchase Ref: ')[1];
+                        const matchedBill = purchaseBills.find(b => b.invoice_number === billRef);
+                        if (matchedBill) {
+                          handleBillSelect(matchedBill.id);
+                        }
+                        
+                        // Loading Item
+                        setEditingId(item.id);
+                        setOriginalQty(item.quantity);
+                        setLineItems([{
+                          id: Math.random().toString(36).substr(2, 9),
+                          item_name: item.inventory_items?.item_name || '',
+                          category: item.inventory_items?.category || 'General',
+                          quantity: item.quantity.toString(),
+                          rate_per_unit: item.notes?.split('Rate: ')[1] || '',
+                          unit: item.inventory_items?.unit || 'Nos',
+                          item_ref_no: item.inventory_items?.item_code || '',
+                          manufacturer: '',
+                          storage_location: item.inventory_items?.location || 'Main Store',
+                          custom_location: ''
+                        }]);
+                        toast.info('Editing entry: Correcting stock arrival recorded on ' + item.date);
+                      }}
+                      className="px-6 py-2 bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all"
+                    >
+                      Edit Entry
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {history.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-10 py-20 text-center">
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No procurement activity recorded this month</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

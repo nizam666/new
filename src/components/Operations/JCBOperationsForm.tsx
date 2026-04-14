@@ -298,6 +298,7 @@ export function JCBOperationsForm({ onSuccess, workArea }: { onSuccess?: () => v
           </label>
           <input
             type="date"
+            max={new Date().toISOString().split('T')[0]}
             name="date"
             value={formData.date}
             onChange={handleChange}

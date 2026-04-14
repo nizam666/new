@@ -325,6 +325,7 @@ export function PermitForm({ onSuccess }: PermitFormProps) {
               type="date"
               required
               value={formData.approval_date}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => setFormData({ ...formData, approval_date: e.target.value })}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
@@ -337,6 +338,7 @@ export function PermitForm({ onSuccess }: PermitFormProps) {
             <input
               type="date"
               value={formData.payment_date}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />

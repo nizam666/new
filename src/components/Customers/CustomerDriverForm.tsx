@@ -135,6 +135,7 @@ export function CustomerDriverForm({ onSuccess, onCancel, initialData }: DriverF
               <input
                 type="date"
                 required
+                min={new Date().toISOString().split('T')[0]}
                 value={formData.license_expiry}
                 onChange={(e) => setFormData({ ...formData, license_expiry: e.target.value })}
                 className="block w-full px-4 py-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors text-slate-700"

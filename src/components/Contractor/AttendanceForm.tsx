@@ -225,12 +225,12 @@ export function AttendanceForm({
 					</label>
 					<input
 						type="date"
+						max={new Date().toISOString().split('T')[0]}
 						value={formData.date}
 						onChange={(e) =>
 							setFormData({ ...formData, date: e.target.value })
 						}
-						required
-						className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+						className="w-full px-4 py-2 border-2 border-slate-100 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-bold bg-slate-50/50"
 					/>
 				</div>
 

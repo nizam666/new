@@ -19,6 +19,7 @@ import {
     Receipt,
     Calculator,
     Database,
+    RotateCcw,
     LucideIcon
 } from 'lucide-react';
 
@@ -72,6 +73,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
             { name: 'Vendor Management', icon: Users, href: '#vendor-management' },
             { name: 'New Bill Entry', icon: Receipt, href: '#vendor-bill-entry' },
             { name: 'Inventory', icon: Package, href: '#inventory' },
+            { name: 'Returnable Assets', icon: RotateCcw, href: '#returnable-assets' },
             { name: 'Storage', icon: Database, href: '#storage' },
             { name: 'Dispatch', icon: Truck, href: '#dispatch-payment' },
         ]
@@ -89,14 +91,6 @@ export const DIRECTOR_NAV: MenuItem[] = [
     { name: 'Permits', icon: FileText, href: '#new-permit' },
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
 
-    {
-        name: 'Stock Management',
-        icon: Package,
-        children: [
-            { name: 'Production Stock', icon: Package, href: '#production-stock' },
-            { name: 'Purchase Requests', icon: ShoppingCart, href: '#purchase-requests' },
-        ]
-    },
     { name: 'User Management', icon: Users, href: '#user-management' },
     {
         name: 'Reports',
@@ -118,7 +112,8 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Selfie Attendance', icon: Camera, href: '#attendance' },
     { name: 'Attendance', icon: Clock, href: '#attendance', roles: ['contractor', 'crusher_manager', 'manager', 'sales', 'worker', 'security', 'driver'] },
     { name: 'Photos/Videos', icon: Camera, href: '#media', roles: ['contractor', 'manager'] },
-    { name: 'Inventory', icon: Package, href: '#inventory', roles: ['contractor', 'manager'] },
+    { name: 'Inventory', icon: Package, href: '#inventory', roles: ['contractor', 'crusher_manager', 'manager'] },
+    { name: 'Returnable Assets', icon: RotateCcw, href: '#returnable-assets', roles: ['crusher_manager', 'manager'] },
     { name: 'Safety', icon: Shield, href: '#safety', roles: ['contractor', 'manager'] },
     { name: 'Crusher Production', icon: Factory, href: '#crusher-production', roles: ['crusher_manager', 'manager'] },
     { name: 'EB Reports', icon: Zap, href: '#eb-reports', roles: ['crusher_manager', 'manager'] },

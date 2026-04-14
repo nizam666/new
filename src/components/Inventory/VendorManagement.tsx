@@ -21,7 +21,11 @@ import {
   DollarSign,
   FileText,
   CreditCard,
-  Receipt
+  Receipt,
+  UploadCloud,
+  Paperclip,
+  Eye,
+  ArrowRightLeft
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -68,7 +72,7 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
     const prefix = vendorName.substring(0, 3).toUpperCase();
     const date = new Date().toISOString().slice(2, 10).replace(/-/g, '');
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `BILL-${prefix}-${date}-${random}`;
+    return `INT-${prefix}-${date}-${random}`;
   };
 
   const [stats, setStats] = useState<VendorStats>({
@@ -94,6 +98,29 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
     date: new Date().toISOString().split('T')[0],
     notes: ''
   });
+
+  const [viewingLedgerVendor, setViewingLedgerVendor] = useState<Vendor | null>(null);
+  const [ledgerRecords, setLedgerRecords] = useState<any[]>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+
+  const fetchVendorLedger = async (vendorName: string) => {
+    try {
+      setLedgerLoading(true);
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('customer_name', vendorName)
+        .order('transaction_date', { ascending: false });
+
+      if (error) throw error;
+      setLedgerRecords(data || []);
+    } catch (err) {
+      console.error('Error fetching ledger:', err);
+      toast.error('Failed to load financial ledger');
+    } finally {
+      setLedgerLoading(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -217,6 +244,11 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
     setSaving(true);
 
     try {
+      if (new Date(paymentData.date) > new Date()) {
+        toast.error('Future dates are not allowed for payments');
+        setSaving(false);
+        return;
+      }
       const { error } = await supabase
         .from('accounts')
         .insert([{
@@ -252,6 +284,8 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
     }
   };
 
+  const [billFile, setBillFile] = useState<File | null>(null);
+
   const handleBillSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!billData.vendor_name || !billData.amount) {
@@ -263,7 +297,43 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
     toast.info('Recording bill in ledger...');
 
     try {
-      console.log('Bill Entry Submission Started:', billData);
+      if (new Date(billData.date) > new Date()) {
+        toast.error('Future dates are not allowed for bill entries');
+        setSaving(false);
+        return;
+      }
+      let billUrl = null;
+
+      // 1. Handle File Upload if present
+      if (billFile) {
+        // Validation: 5MB limit
+        if (billFile.size > 5 * 1024 * 1024) {
+          throw new Error('File size too large. Please upload a file smaller than 5MB.');
+        }
+
+        const fileExt = billFile.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `bills/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('bill-copies')
+          .upload(filePath, billFile);
+
+        if (uploadError) {
+          if (uploadError.message?.toLowerCase().includes('bucket not found')) {
+            throw new Error("Storage bucket 'bill-copies' not found. Please run the provided SQL in your Supabase dashboard to create it.");
+          }
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('bill-copies')
+          .getPublicUrl(filePath);
+        
+        billUrl = publicUrl;
+      }
+
+      // 2. Insert record into accounts
       const { error } = await supabase
         .from('accounts')
         .insert([{
@@ -275,17 +345,16 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
           invoice_number: billData.reference,
           transaction_date: billData.date,
           status: 'pending',
+          bill_soft_copy: billUrl,
           notes: `[BILL_ENTRY]: ${billData.notes}`.trim(),
           created_by: user?.id
         }]);
 
-      if (error) {
-        console.error('Supabase Bill Entry Error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       toast.success('Bill recorded successfully!');
       setShowBillForm(false);
+      setBillFile(null);
       setBillData({
         vendor_name: '',
         amount: '',
@@ -295,7 +364,8 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
       });
       fetchData();
     } catch (err) {
-      toast.error('Failed to record bill: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      console.error('Bill Error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to record bill');
     } finally {
       setSaving(false);
     }
@@ -429,7 +499,15 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
                         {vendor.company_name.charAt(0)}
                       </div>
                       <div>
-                        <p className="text-base font-black text-slate-900 tracking-tight">{vendor.company_name}</p>
+                        <button 
+                          onClick={() => {
+                            setViewingLedgerVendor(vendor);
+                            fetchVendorLedger(vendor.company_name);
+                          }}
+                          className="text-base font-black text-slate-900 tracking-tight hover:text-teal-600 transition-colors cursor-pointer text-left"
+                        >
+                          {vendor.company_name}
+                        </button>
                         <p className="text-xs font-bold text-slate-400 flex items-center gap-1 mt-1">
                           <CheckCircle2 className="h-3.5 w-3.5 text-teal-500" /> Verified Supplier
                         </p>
@@ -444,11 +522,17 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
                   </td>
                   <td className="px-10 py-8">
                     <div className="flex flex-col gap-1">
-                      <span className={`text-lg font-black ${vendor.outstanding_balance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                        ₹{vendor.outstanding_balance.toLocaleString()}
+                      <span className={`text-lg font-black ${
+                        vendor.outstanding_balance > 0 ? 'text-red-500' : 
+                        vendor.outstanding_balance < 0 ? 'text-indigo-600' : 
+                        'text-emerald-500'
+                      }`}>
+                        ₹{Math.abs(vendor.outstanding_balance).toLocaleString()}
                       </span>
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        {vendor.outstanding_balance > 0 ? 'Due for Payment' : 'Settled'}
+                        {vendor.outstanding_balance > 0 ? 'Due for Payment' : 
+                         vendor.outstanding_balance < 0 ? 'Advance Payment' : 
+                         'Settled'}
                       </span>
                     </div>
                   </td>
@@ -632,6 +716,7 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
                   <input
                     type="date"
                     value={paymentData.date}
+                    max={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setPaymentData({ ...paymentData, date: e.target.value })}
                     required
                     className="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none focus:ring-4 focus:ring-teal-500/10 text-slate-900 font-bold"
@@ -737,8 +822,9 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
                     type="date"
                     required
                     value={billData.date}
+                    max={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setBillData(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none focus:ring-4 focus:ring-emerald-500/10 text-slate-900 font-bold"
+                    className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-emerald-500/10"
                   />
                 </div>
               </div>
@@ -769,6 +855,55 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
                 />
               </div>
 
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Bill Soft Copy (PDF / Images Only)</label>
+                {!billFile ? (
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-200 rounded-[32px] cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all group overflow-hidden relative">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <div className="p-3 rounded-2xl bg-white shadow-sm group-hover:scale-110 transition-transform mb-2">
+                        <UploadCloud className="w-6 h-6 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                      </div>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center px-4">Click to upload PDF or Image</p>
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept=".pdf,image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+                          if (!validTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.pdf')) {
+                            toast.error('Please upload only PDF or Image files (JPG, PNG, WEBP)');
+                            return;
+                          }
+                          setBillFile(file);
+                        }
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-2xl border border-emerald-100 animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
+                        <Paperclip className="h-5 w-5 text-emerald-500" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black text-slate-900 truncate max-w-[200px]">{billFile.name}</span>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase">{(billFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                      </div>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => setBillFile(null)}
+                      className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 transition-all font-black text-[10px]"
+                    >
+                      REMOVE
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
@@ -787,6 +922,164 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Vendor Ledger Modal ── */}
+      {viewingLedgerVendor && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-500" onClick={() => setViewingLedgerVendor(null)} />
+          <div
+            className="relative z-10 w-full max-w-5xl bg-white rounded-[40px] shadow-2xl border border-white/20 animate-in zoom-in-95 duration-500 max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-10 py-8 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between shrink-0">
+               <div className="flex items-center gap-6">
+                  <div className="h-16 w-16 rounded-[24px] bg-slate-900 text-teal-400 flex items-center justify-center font-black text-2xl shadow-xl">
+                    {viewingLedgerVendor.company_name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">{viewingLedgerVendor.company_name}</h3>
+                    <div className="flex items-center gap-4 mt-1">
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                         <MapPin className="h-3 w-3" /> {viewingLedgerVendor.address}
+                       </span>
+                       <span className="text-[10px] font-black text-teal-600 uppercase tracking-widest bg-teal-50 px-2 py-0.5 rounded-md">
+                         GST: {viewingLedgerVendor.gst}
+                       </span>
+                    </div>
+                  </div>
+               </div>
+               <div className="flex items-center gap-3">
+                 <button
+                   onClick={() => {
+                     setSelectedVendor(viewingLedgerVendor);
+                     setViewingLedgerVendor(null);
+                     setShowPaymentForm(true);
+                   }}
+                   className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-teal-600 shadow-lg transition-all flex items-center gap-2 active:scale-95 border border-white/10"
+                 >
+                   <DollarSign className="h-4 w-4" /> Pay Vendor
+                 </button>
+                 <button
+                   onClick={() => setViewingLedgerVendor(null)}
+                   className="h-12 w-12 flex items-center justify-center rounded-2xl bg-white text-slate-400 hover:text-red-500 shadow-sm border border-slate-100 transition-all active:scale-95"
+                 >
+                   <X className="h-6 h-6" />
+                 </button>
+               </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-grow overflow-y-auto p-10">
+               {ledgerLoading ? (
+                 <div className="py-20 flex flex-col items-center justify-center gap-4">
+                    <Loader2 className="h-10 w-10 text-teal-500 animate-spin" />
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reconstructing Ledger History...</p>
+                 </div>
+               ) : (
+                 <div className="space-y-8">
+                    {/* Balanced Stats Bar */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                       <div className={`p-6 rounded-3xl border shadow-sm ${
+                         viewingLedgerVendor.outstanding_balance < 0 
+                         ? 'bg-indigo-50 border-indigo-100' 
+                         : 'bg-slate-50 border-slate-100'
+                       }`}>
+                          <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${
+                            viewingLedgerVendor.outstanding_balance < 0 ? 'text-indigo-400' : 'text-slate-400'
+                          }`}>
+                            {viewingLedgerVendor.outstanding_balance < 0 ? 'Advance Credit Balance' : 'Current Ledger Exposure'}
+                          </p>
+                          <h4 className={`text-2xl font-black ${
+                            viewingLedgerVendor.outstanding_balance > 0 ? 'text-red-500' : 
+                            viewingLedgerVendor.outstanding_balance < 0 ? 'text-indigo-600' : 
+                            'text-emerald-500'
+                          }`}>
+                             ₹{Math.abs(viewingLedgerVendor.outstanding_balance).toLocaleString()}
+                          </h4>
+                       </div>
+                       <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Records</p>
+                            <h4 className="text-2xl font-black text-slate-900">{ledgerRecords.length} Transactions</h4>
+                          </div>
+                          <ArrowRightLeft className="h-8 w-8 text-teal-500/20" />
+                       </div>
+                    </div>
+
+                    {/* Transaction List */}
+                    <div className="space-y-4">
+                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-2">Financial Entries</h4>
+                       
+                       {ledgerRecords.length > 0 ? (
+                         <div className="border border-slate-100 rounded-[32px] overflow-hidden">
+                            <table className="w-full border-collapse bg-white">
+                               <thead>
+                                  <tr className="bg-slate-50/50">
+                                     <th className="px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest text-slate-400">Date</th>
+                                     <th className="px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest text-slate-400">Description / Reference</th>
+                                     <th className="px-6 py-4 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Debit (Bill)</th>
+                                     <th className="px-6 py-4 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Credit (Pay)</th>
+                                     <th className="px-6 py-4 text-center text-[9px] font-black uppercase tracking-widest text-slate-400">Digital Doc</th>
+                                  </tr>
+                               </thead>
+                               <tbody className="divide-y divide-slate-50">
+                                  {ledgerRecords.map((record) => (
+                                     <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-5 text-xs font-bold text-slate-500">
+                                           {new Date(record.transaction_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                           <p className="text-sm font-black text-slate-900 leading-tight">{record.reason || 'General Transaction'}</p>
+                                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-1 italic">Ref: {record.invoice_number || 'N/A'}</p>
+                                        </td>
+                                        <td className="px-6 py-5 text-right font-black text-slate-900">
+                                           {record.amount > 0 ? `₹${record.amount.toLocaleString()}` : '-'}
+                                        </td>
+                                        <td className="px-6 py-5 text-right font-black text-emerald-600">
+                                           {record.amount_given > 0 ? `₹${record.amount_given.toLocaleString()}` : '-'}
+                                        </td>
+                                        <td className="px-6 py-5 text-center">
+                                           {record.bill_soft_copy ? (
+                                             <a 
+                                               href={record.bill_soft_copy} 
+                                               target="_blank" 
+                                               rel="noopener noreferrer"
+                                               className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-teal-600 transition-all shadow-sm active:scale-95"
+                                             >
+                                               <Eye className="h-3.5 w-3.5" /> View Bill
+                                             </a>
+                                           ) : (
+                                             <span className="text-[9px] font-bold text-slate-300 uppercase italic">No Doc Attached</span>
+                                           )}
+                                        </td>
+                                     </tr>
+                                  ))}
+                               </tbody>
+                            </table>
+                         </div>
+                       ) : (
+                         <div className="p-20 text-center bg-slate-50 rounded-[40px] border border-dashed border-slate-200">
+                            <Receipt className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No transaction history found for this vendor</p>
+                         </div>
+                       )}
+                    </div>
+                 </div>
+               )}
+            </div>
+
+            <div className="px-10 py-6 border-t border-slate-50 bg-slate-50/30 flex justify-end shrink-0">
+               <button 
+                 onClick={() => setViewingLedgerVendor(null)}
+                 className="px-8 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg active:scale-95"
+               >
+                 Close Ledger
+               </button>
+            </div>
           </div>
         </div>
       )}

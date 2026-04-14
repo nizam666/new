@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Truck, Drill, Factory, ClipboardCheck, Clock, Camera, Package, Fuel, Shield, Wallet, List, Zap, ShoppingCart } from 'lucide-react';
+import { Truck, Drill, Factory, ClipboardCheck, Clock, Camera, Package, Fuel, Shield, Wallet, List, Zap } from 'lucide-react';
 
 import { DrillingDetails } from '../Contractor/DrillingDetails';
 import { BlastingDetails } from '../Contractor/BlastingDetails';
@@ -12,8 +12,6 @@ import { FuelDetails } from '../Fuel/FuelDetails';
 import { SafetyDetails } from '../Safety/SafetyDetails';
 import { AccountsDetails } from '../Accounts/AccountsDetails';
 import { DispatchDetails } from '../Resources/DispatchDetails';
-import { ProductionStockDetails } from '../Stock/ProductionStockDetails';
-import { PurchaseRequestDetails } from '../Stock/PurchaseRequestDetails';
 import { CrusherProductionDetails } from '../Crusher/CrusherProductionDetails';
 import { EBReportDetails } from '../Crusher/EBReportDetails';
 import { JCBOperationsDetails } from '../Operations/JCBOperationsDetails';
@@ -32,8 +30,6 @@ export function OperationsHistoryModule() {
         { id: 'crusher-attendance', name: 'Crusher Attendance', icon: Clock },
         { id: 'media', name: 'Media', icon: Camera },
         { id: 'inventory', name: 'Inventory', icon: Package },
-        { id: 'stock', name: 'Production Stock', icon: Package },
-        { id: 'requests', name: 'Purchase Requests', icon: ShoppingCart },
         { id: 'fuel', name: 'Fuel', icon: Fuel },
         { id: 'safety', name: 'Safety', icon: Shield },
         { id: 'accounts', name: 'Accounts', icon: Wallet },
@@ -54,8 +50,6 @@ export function OperationsHistoryModule() {
             case 'crusher-attendance': return <AttendanceDetails allowedLocations={['Crusher', 'Production']} />;
             case 'media': return <MediaDetails />;
             case 'inventory': return <InventoryDetails />;
-            case 'stock': return <ProductionStockDetails />;
-            case 'requests': return <PurchaseRequestDetails />;
             case 'fuel': return <FuelDetails />;
             case 'safety': return <SafetyDetails />;
             case 'accounts': return <AccountsDetails />;

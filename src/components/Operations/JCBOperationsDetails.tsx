@@ -116,8 +116,9 @@ export function JCBOperationsDetails({ workArea }: { workArea?: 'quarry' | 'crus
           <input
             type="date"
             value={dateFilter}
+            max={new Date().toISOString().split('T')[0]}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm font-medium"
           />
           <button
             onClick={() => window.location.hash = `${workArea}-jcb-operations`}

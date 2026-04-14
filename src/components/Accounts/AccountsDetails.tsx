@@ -14,6 +14,7 @@ interface Account {
   transaction_date: string;
   payment_method: string;
   status: string;
+  category: string;
   notes: string;
   created_at: string;
 }
@@ -82,7 +83,8 @@ export function AccountsDetails() {
       return (
         account.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         account.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        account.reason.toLowerCase().includes(searchTerm.toLowerCase())
+        account.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        account.category?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     });
 
@@ -193,9 +195,16 @@ export function AccountsDetails() {
                     <p className="text-sm text-slate-600 capitalize">{account.transaction_type}</p>
                   </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(account.status)}`}>
-                  {account.status.toUpperCase()}
-                </span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(account.status)}`}>
+                    {account.status.toUpperCase()}
+                  </span>
+                  {account.category && (
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500">
+                      {account.category.replace('_', ' ')}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="mb-4">

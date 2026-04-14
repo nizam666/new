@@ -13,6 +13,7 @@ import { LoadingForm } from './components/Contractor/LoadingForm';
 import { TransportForm } from './components/Contractor/TransportForm';
 import { MediaForm } from './components/Contractor/MediaForm';
 import { InventoryForm } from './components/Inventory/InventoryForm';
+import { AssetReturns } from './components/Inventory/AssetReturns';
 import { ItemManagement } from './components/Inventory/ItemManagement';
 import { VendorManagement } from './components/Inventory/VendorManagement';
 import { SafetyForm } from './components/Safety/SafetyForm';
@@ -24,8 +25,6 @@ import { PermitReport } from './components/Permit/PermitReport';
 import { AccountsForm } from './components/Accounts/AccountsForm';
 import { DispatchForm } from './components/Resources/DispatchForm';
 import { StorageForm } from './components/Resources/StorageForm';
-import { ProductionStockForm } from './components/Stock/ProductionStockForm';
-import { PurchaseRequestForm } from './components/Stock/PurchaseRequestForm';
 import { ReportsModule } from './components/Reports/ReportsModule';
 import { UserManagement } from './components/Users/UserManagement';
 import { CrusherProductionForm } from './components/Crusher/CrusherProductionForm';
@@ -277,6 +276,9 @@ function AppContent() {
           </div>
         );
 
+      case 'returnable-assets':
+        return <AssetReturns />;
+
       case 'item-management':
         return (
           <div className="space-y-6">
@@ -378,28 +380,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track material dispatch, transportation, and balance materials</p>
             </div>
             <DispatchForm onSuccess={() => window.location.reload()} />
-          </div>
-        );
-
-      case 'production-stock':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Production Stock</h2>
-              <p className="text-slate-600 mt-1">Manage production stock and inventory</p>
-            </div>
-            <ProductionStockForm onSuccess={() => window.location.reload()} />
-          </div>
-        );
-
-      case 'purchase-requests':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Purchase Requests</h2>
-              <p className="text-slate-600 mt-1">Manage material purchase requests</p>
-            </div>
-            <PurchaseRequestForm onSuccess={() => window.location.reload()} />
           </div>
         );
 

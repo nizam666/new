@@ -144,7 +144,9 @@ export function SafetyForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date *</label>
-              <input type="date" required value={formData.date} onChange={(e) => update('date', e.target.value)}
+              <input type="date" required value={formData.date}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => update('date', e.target.value)}
                 className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-rose-500/10" />
             </div>
             <div className="space-y-2">
