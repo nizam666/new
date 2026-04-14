@@ -13,13 +13,12 @@ import {
     ShoppingCart,
     FileText,
     Wallet,
-    List,
     BarChart3,
     TrendingUp,
     Wrench,
     Receipt,
     Calculator,
-    Settings,
+    Database,
     LucideIcon
 } from 'lucide-react';
 
@@ -67,15 +66,17 @@ export const DIRECTOR_NAV: MenuItem[] = [
         ]
     },
     {
-        name: 'Resources',
+        name: 'Inventory',
         icon: Package,
         children: [
-            { name: 'Inventory', icon: Package, href: '#inventory' },
-            { name: 'Item Management', icon: Settings, href: '#item-management' },
             { name: 'Vendor Management', icon: Users, href: '#vendor-management' },
-            { name: 'Safety', icon: Shield, href: '#safety' },
+            { name: 'New Bill Entry', icon: Receipt, href: '#vendor-bill-entry' },
+            { name: 'Inventory', icon: Package, href: '#inventory' },
+            { name: 'Storage', icon: Database, href: '#storage' },
+            { name: 'Dispatch', icon: Truck, href: '#dispatch-payment' },
         ]
     },
+    { name: 'Safety', icon: Shield, href: '#safety' },
     {
         name: 'Sales & Customers',
         icon: ShoppingCart,
@@ -87,7 +88,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
     },
     { name: 'Permits', icon: FileText, href: '#new-permit' },
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
-    { name: 'Dispatch List', icon: List, href: '#dispatch-payment' },
+
     {
         name: 'Stock Management',
         icon: Package,

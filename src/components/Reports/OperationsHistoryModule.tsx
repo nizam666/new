@@ -11,7 +11,7 @@ import { InventoryDetails } from '../Inventory/InventoryDetails';
 import { FuelDetails } from '../Fuel/FuelDetails';
 import { SafetyDetails } from '../Safety/SafetyDetails';
 import { AccountsDetails } from '../Accounts/AccountsDetails';
-import { DispatchDetails } from '../Dispatch/DispatchDetails';
+import { DispatchDetails } from '../Resources/DispatchDetails';
 import { ProductionStockDetails } from '../Stock/ProductionStockDetails';
 import { PurchaseRequestDetails } from '../Stock/PurchaseRequestDetails';
 import { CrusherProductionDetails } from '../Crusher/CrusherProductionDetails';

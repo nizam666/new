@@ -1,81 +1,37 @@
 import { useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Shield, Save, X } from 'lucide-react';
+import {
+  Shield, Loader2, X, MapPin, Clock,
+  Users, AlertTriangle, Zap, Flame, Droplets,
+  Wrench, Activity, HelpCircle, ImagePlus, CheckCircle
+} from 'lucide-react';
+import { toast } from 'react-toastify';
 
-const incidentTypes = [
-  'Near Miss',
-  'Minor Injury',
-  'Major Injury',
-  'Equipment Damage',
-  'Environmental',
-  'Fire',
-  'Chemical Spill',
-  'Other'
+const INCIDENT_TYPES = [
+  { value: 'Near Miss',         icon: AlertTriangle, color: 'text-amber-500',  bg: 'bg-amber-50',  border: 'border-amber-200' },
+  { value: 'Minor Injury',      icon: Activity,      color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' },
+  { value: 'Major Injury',      icon: Zap,           color: 'text-red-500',    bg: 'bg-red-50',    border: 'border-red-200' },
+  { value: 'Equipment Damage',  icon: Wrench,        color: 'text-slate-500',  bg: 'bg-slate-50',  border: 'border-slate-200' },
+  { value: 'Fire',              icon: Flame,         color: 'text-rose-500',   bg: 'bg-rose-50',   border: 'border-rose-200' },
+  { value: 'Chemical Spill',    icon: Droplets,      color: 'text-teal-500',   bg: 'bg-teal-50',   border: 'border-teal-200' },
+  { value: 'Environmental',     icon: Activity,      color: 'text-green-500',  bg: 'bg-green-50',  border: 'border-green-200' },
+  { value: 'Other',             icon: HelpCircle,    color: 'text-slate-400',  bg: 'bg-slate-50',  border: 'border-slate-200' },
 ];
 
-const severityLevels = [
-  'Low',
-  'Medium',
-  'High',
-  'Critical'
+const SEVERITY_LEVELS = [
+  { value: 'Low',      bg: 'bg-emerald-500', text: 'text-white', ring: 'ring-emerald-400', desc: 'Minimal impact' },
+  { value: 'Medium',   bg: 'bg-amber-500',   text: 'text-white', ring: 'ring-amber-400',   desc: 'Action required' },
+  { value: 'High',     bg: 'bg-orange-500',  text: 'text-white', ring: 'ring-orange-400',  desc: 'Urgent response' },
+  { value: 'Critical', bg: 'bg-rose-600',    text: 'text-white', ring: 'ring-rose-400',    desc: 'Emergency!' },
 ];
 
 export function SafetyForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [images, setImages] = useState<{ url: string, name: string }[]>([]);
+  const [images, setImages] = useState<{ url: string; name: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      if (!e.target.files || e.target.files.length === 0) return;
-
-      const files = Array.from(e.target.files);
-      const newImages: { url: string, name: string }[] = [];
-
-      for (const file of files) {
-        setUploading(true);
-        setUploadProgress(0);
-
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `safety-incidents/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('safety-images')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('safety-images')
-          .getPublicUrl(filePath);
-
-        newImages.push({
-          url: publicUrl,
-          name: file.name
-        });
-      }
-
-      setImages(prev => [...prev, ...newImages]);
-      setUploading(false);
-
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Error uploading image. Please try again.');
-      setUploading(false);
-    }
-  };
-
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-  };
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -87,305 +43,320 @@ export function SafetyForm({ onSuccess }: { onSuccess?: () => void }) {
     people_involved: '',
     witnesses: '',
     immediate_action: '',
-    corrective_action: ''
+    corrective_action: '',
   });
+
+  const update = (key: string, value: string) => setFormData(prev => ({ ...prev, [key]: value }));
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const files = Array.from(e.target.files);
+    setUploading(true);
+    try {
+      const newImages: { url: string; name: string }[] = [];
+      for (const file of files) {
+        const ext = file.name.split('.').pop();
+        const path = `safety-incidents/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await supabase.storage.from('safety-images').upload(path, file, { cacheControl: '3600', upsert: false });
+        if (error) throw error;
+        const { data: { publicUrl } } = supabase.storage.from('safety-images').getPublicUrl(path);
+        newImages.push({ url: publicUrl, name: file.name });
+      }
+      setImages(prev => [...prev, ...newImages]);
+      toast.success(`${newImages.length} photo${newImages.length > 1 ? 's' : ''} attached`);
+    } catch (err) {
+      toast.error('Failed to upload photo');
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (!formData.incident_type) return toast.warning('Please select an incident type');
+    if (!formData.severity) return toast.warning('Please select a severity level');
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('safety_incidents')
-        .insert([
-          {
-            reported_by: user.id,
-            date: formData.date,
-            time: formData.time,
-            location: formData.location,
-            incident_type: formData.incident_type,
-            severity: formData.severity,
-            description: formData.description,
-            people_involved: formData.people_involved,
-            witnesses: formData.witnesses,
-            immediate_action: formData.immediate_action,
-            corrective_action: formData.corrective_action,
-            status: 'reported',
-            image_urls: images.map(img => img.url)
-          }
-        ]);
-
+      const { error } = await supabase.from('safety_incidents').insert([{
+        reported_by: user.id,
+        date: formData.date,
+        time: formData.time,
+        location: formData.location,
+        incident_type: formData.incident_type,
+        severity: formData.severity,
+        description: formData.description,
+        people_involved: formData.people_involved,
+        witnesses: formData.witnesses,
+        immediate_action: formData.immediate_action,
+        corrective_action: formData.corrective_action,
+        status: 'reported',
+        image_urls: images.map(img => img.url),
+      }]);
       if (error) throw error;
 
+      toast.success('Incident reported successfully');
       setFormData({
         date: new Date().toISOString().split('T')[0],
         time: new Date().toTimeString().slice(0, 5),
-        location: '',
-        incident_type: '',
-        severity: '',
-        description: '',
-        people_involved: '',
-        witnesses: '',
-        immediate_action: '',
-        corrective_action: ''
+        location: '', incident_type: '', severity: '', description: '',
+        people_involved: '', witnesses: '', immediate_action: '', corrective_action: '',
       });
       setImages([]);
-      setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      alert('Safety incident reported successfully!');
       if (onSuccess) onSuccess();
-    } catch (error) {
-      alert('Error reporting incident: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } catch (err) {
+      toast.error('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setLoading(false);
     }
   };
 
+  const selectedSeverity = SEVERITY_LEVELS.find(s => s.value === formData.severity);
+
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-          <Shield className="w-5 h-5 text-red-600" />
+    <div className="space-y-5 pb-24">
+      {/* ── Hero Header ── */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-rose-700 via-red-600 to-orange-500 rounded-3xl md:rounded-[40px] p-8 md:p-12 text-white shadow-2xl shadow-red-500/30">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-4 right-4 w-40 h-40 rounded-full bg-white" />
+          <div className="absolute -bottom-6 -left-6 w-52 h-52 rounded-full bg-white" />
         </div>
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900">Report Safety Incident</h3>
-          <p className="text-sm text-slate-600">Document incidents and near misses</p>
+        <div className="relative flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+            <Shield className="h-7 w-7 text-white" />
+          </div>
+          <div>
+            <p className="text-white/60 text-[10px] font-black uppercase tracking-widest">Safety Management</p>
+            <h2 className="text-2xl md:text-3xl font-black tracking-tight">Report Incident</h2>
+            <p className="text-white/70 text-sm font-medium mt-0.5">Document incidents and near misses immediately</p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Date
-          </label>
-          <input
-            type="date"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-5">
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Time
-          </label>
-          <input
-            type="time"
-            value={formData.time}
-            onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Location
-          </label>
-          <input
-            type="text"
-            value={formData.location}
-            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            placeholder="Where did this occur?"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Incident Type
-          </label>
-          <select
-            value={formData.incident_type}
-            onChange={(e) => setFormData({ ...formData, incident_type: e.target.value })}
-            required
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-          >
-            <option value="">Select incident type</option>
-            {incidentTypes.map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Severity Level
-          </label>
-          <div className="grid grid-cols-4 gap-3">
-            {severityLevels.map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => setFormData({ ...formData, severity: level })}
-                className={`px-4 py-3 rounded-lg border-2 font-medium transition-colors ${formData.severity === level
-                  ? level === 'Critical'
-                    ? 'border-red-600 bg-red-50 text-red-700'
-                    : level === 'High'
-                      ? 'border-orange-600 bg-orange-50 text-orange-700'
-                      : level === 'Medium'
-                        ? 'border-amber-600 bg-amber-50 text-amber-700'
-                        : 'border-green-600 bg-green-50 text-green-700'
-                  : 'border-slate-300 hover:border-slate-400'
-                  }`}
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Description
-          </label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            required
-            rows={4}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            placeholder="Describe what happened in detail..."
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Incident Photos (Optional)
-          </label>
-          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-lg">
-            <div className="space-y-1 text-center">
-              <div className="flex text-sm text-slate-600 justify-center">
-                <label
-                  className="relative cursor-pointer bg-white rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none"
-                >
-                  <span>Upload photos</span>
-                  <input
-                    ref={fileInputRef}
-                    id="file-upload"
-                    name="file-upload"
-                    type="file"
-                    className="sr-only"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploading}
-                  />
-                </label>
-                <p className="pl-1">or drag and drop</p>
-              </div>
-              <p className="text-xs text-slate-500">
-                PNG, JPG, GIF up to 5MB
-              </p>
-              {uploading && (
-                <div className="w-full bg-slate-200 rounded-full h-2.5 mt-2">
-                  <div
-                    className="bg-red-600 h-2.5 rounded-full"
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
-                </div>
-              )}
+        {/* ── Date, Time, Location ── */}
+        <div className="bg-white rounded-3xl md:rounded-[40px] p-6 md:p-10 shadow-xl border border-slate-100 space-y-5">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">When & Where</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date *</label>
+              <input type="date" required value={formData.date} onChange={(e) => update('date', e.target.value)}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-rose-500/10" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1"><Clock className="h-3 w-3" /> Time *</label>
+              <input type="time" required value={formData.time} onChange={(e) => update('time', e.target.value)}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-rose-500/10" />
+            </div>
+            <div className="col-span-2 md:col-span-1 space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1"><MapPin className="h-3 w-3" /> Location *</label>
+              <input type="text" required placeholder="Where did this occur?" value={formData.location} onChange={(e) => update('location', e.target.value)}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-rose-500/10 placeholder:text-slate-300" />
             </div>
           </div>
+        </div>
 
+        {/* ── Incident Type ── */}
+        <div className="bg-white rounded-3xl md:rounded-[40px] p-6 md:p-10 shadow-xl border border-slate-100 space-y-5">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Incident Type *</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {INCIDENT_TYPES.map(({ value, icon: Icon, color, bg, border }) => {
+              const selected = formData.incident_type === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => update('incident_type', value)}
+                  className={`p-4 rounded-2xl border-2 text-left transition-all duration-200 ${
+                    selected
+                      ? `${bg} ${border} scale-[1.02] shadow-md`
+                      : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 mb-2 ${selected ? color : 'text-slate-300'}`} />
+                  <p className={`font-black text-xs ${selected ? 'text-slate-900' : 'text-slate-500'}`}>{value}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Severity ── */}
+        <div className="bg-white rounded-3xl md:rounded-[40px] p-6 md:p-10 shadow-xl border border-slate-100 space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Severity Level *</h3>
+            {selectedSeverity && (
+              <span className={`px-4 py-1.5 rounded-full text-xs font-black ${selectedSeverity.bg} ${selectedSeverity.text}`}>
+                {selectedSeverity.value} — {selectedSeverity.desc}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {SEVERITY_LEVELS.map(({ value, bg, text, desc }) => {
+              const selected = formData.severity === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => update('severity', value)}
+                  className={`py-5 rounded-2xl font-black text-sm transition-all duration-200 ${
+                    selected
+                      ? `${bg} ${text} shadow-lg scale-[1.04] ring-4 ring-offset-2`
+                      : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                  } ${selected ? (value === 'Low' ? 'ring-emerald-300' : value === 'Medium' ? 'ring-amber-300' : value === 'High' ? 'ring-orange-300' : 'ring-rose-300') : ''}`}
+                >
+                  {value}
+                  <p className={`text-[10px] font-medium mt-0.5 ${selected ? 'text-white/70' : 'text-slate-300'}`}>{desc}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Description ── */}
+        <div className="bg-white rounded-3xl md:rounded-[40px] p-6 md:p-10 shadow-xl border border-slate-100 space-y-4">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Incident Details</h3>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description *</label>
+            <textarea
+              required
+              rows={4}
+              value={formData.description}
+              onChange={(e) => update('description', e.target.value)}
+              placeholder="Describe what happened in detail…"
+              className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-medium text-sm text-slate-800 placeholder:text-slate-300 focus:ring-4 focus:ring-rose-500/10 resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1"><Users className="h-3 w-3" /> People Involved</label>
+              <input type="text" placeholder="Names of people involved" value={formData.people_involved}
+                onChange={(e) => update('people_involved', e.target.value)}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-medium text-sm placeholder:text-slate-300 focus:ring-4 focus:ring-rose-500/10" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Witnesses</label>
+              <input type="text" placeholder="Names of witnesses" value={formData.witnesses}
+                onChange={(e) => update('witnesses', e.target.value)}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-medium text-sm placeholder:text-slate-300 focus:ring-4 focus:ring-rose-500/10" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Actions ── */}
+        <div className="bg-white rounded-3xl md:rounded-[40px] p-6 md:p-10 shadow-xl border border-slate-100 space-y-4">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Response & Prevention</h3>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Immediate Action Taken</label>
+            <textarea
+              rows={3}
+              value={formData.immediate_action}
+              onChange={(e) => update('immediate_action', e.target.value)}
+              placeholder="What actions were taken immediately after the incident?"
+              className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-medium text-sm placeholder:text-slate-300 focus:ring-4 focus:ring-rose-500/10 resize-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Corrective Action Recommended</label>
+            <textarea
+              rows={3}
+              value={formData.corrective_action}
+              onChange={(e) => update('corrective_action', e.target.value)}
+              placeholder="What should be done to prevent recurrence?"
+              className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-medium text-sm placeholder:text-slate-300 focus:ring-4 focus:ring-rose-500/10 resize-none"
+            />
+          </div>
+        </div>
+
+        {/* ── Photos ── */}
+        <div className="bg-white rounded-3xl md:rounded-[40px] p-6 md:p-10 shadow-xl border border-slate-100 space-y-5">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Incident Photos</h3>
+
+          {/* Upload Zone */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="w-full flex flex-col items-center justify-center gap-3 py-10 rounded-3xl border-2 border-dashed border-slate-200 hover:border-rose-300 hover:bg-rose-50/30 transition-all group"
+          >
+            {uploading
+              ? <Loader2 className="h-8 w-8 text-rose-400 animate-spin" />
+              : <ImagePlus className="h-8 w-8 text-slate-300 group-hover:text-rose-400 transition-colors" />
+            }
+            <div className="text-center">
+              <p className="font-black text-slate-500 group-hover:text-rose-500 text-sm transition-colors">
+                {uploading ? 'Uploading…' : 'Tap to attach photos'}
+              </p>
+              <p className="text-[10px] text-slate-300 mt-0.5">PNG, JPG up to 5MB each</p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
+              disabled={uploading}
+            />
+          </button>
+
+          {/* Image Grid */}
           {images.length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-sm font-medium text-slate-700 mb-2">Attached Photos ({images.length})</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {images.map((img, index) => (
-                  <div key={index} className="relative group">
-                    <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-slate-100">
-                      <img
-                        src={img.url}
-                        alt={img.name}
-                        className="h-full w-full object-cover object-center"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Remove image"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500 truncate">
-                      {img.name.length > 20 ? `${img.name.substring(0, 17)}...` : img.name}
-                    </p>
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 animate-in fade-in duration-300">
+              {images.map((img, i) => (
+                <div key={i} className="relative group rounded-2xl overflow-hidden bg-slate-100 aspect-square">
+                  <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-200" />
+                  <button
+                    type="button"
+                    onClick={() => setImages(prev => prev.filter((_, j) => j !== i))}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                  <p className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/50 text-white text-[9px] truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                    {img.name}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            People Involved
-          </label>
-          <input
-            type="text"
-            value={formData.people_involved}
-            onChange={(e) => setFormData({ ...formData, people_involved: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            placeholder="Names of people involved"
-          />
-        </div>
+        {/* ── Submit ── */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-3xl md:rounded-[40px] p-5 md:p-8 shadow-xl border border-slate-100">
+          {formData.severity && formData.incident_type ? (
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-5 w-5 text-emerald-500" />
+              <div>
+                <p className="font-black text-sm text-slate-900">{formData.incident_type}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{formData.severity} Severity · {formData.location || 'Location TBD'}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 font-medium">Fill in incident type and severity to continue</p>
+          )}
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Witnesses
-          </label>
-          <input
-            type="text"
-            value={formData.witnesses}
-            onChange={(e) => setFormData({ ...formData, witnesses: e.target.value })}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            placeholder="Names of witnesses"
-          />
+          <button
+            type="submit"
+            disabled={loading || !formData.incident_type || !formData.severity}
+            className="w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-4 md:py-5 rounded-2xl md:rounded-3xl font-black text-sm text-white bg-rose-600 shadow-xl shadow-rose-600/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100"
+          >
+            {loading
+              ? <><Loader2 className="h-5 w-5 animate-spin" /> Reporting…</>
+              : <><Shield className="h-5 w-5" /> REPORT INCIDENT</>
+            }
+          </button>
         </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Immediate Action Taken
-          </label>
-          <textarea
-            value={formData.immediate_action}
-            onChange={(e) => setFormData({ ...formData, immediate_action: e.target.value })}
-            rows={3}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            placeholder="What actions were taken immediately after the incident?"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Recommended Corrective Action
-          </label>
-          <textarea
-            value={formData.corrective_action}
-            onChange={(e) => setFormData({ ...formData, corrective_action: e.target.value })}
-            rows={3}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            placeholder="What should be done to prevent this from happening again?"
-          />
-        </div>
-      </div>
-
-      <div className="mt-6 flex justify-end">
-        <button
-          type="submit"
-          disabled={loading}
-          className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          {loading ? 'Reporting...' : 'Report Incident'}
-        </button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }

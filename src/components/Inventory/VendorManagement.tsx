@@ -45,7 +45,7 @@ interface VendorStats {
 }
 
 
-export function VendorManagement() {
+export function VendorManagement({ initialShowBillForm = false }: { initialShowBillForm?: boolean }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,7 +53,7 @@ export function VendorManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [showBillForm, setShowBillForm] = useState(false);
+  const [showBillForm, setShowBillForm] = useState(initialShowBillForm);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
 
   const [billData, setBillData] = useState({

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { LoginForm } from './components/Auth/LoginForm';
 import { DashboardLayout } from './components/Layout/DashboardLayout';
@@ -20,7 +22,8 @@ import { ApprovalsModule } from './components/Manager/ApprovalsModule';
 import { PermitForm } from './components/Permit/PermitForm';
 import { PermitReport } from './components/Permit/PermitReport';
 import { AccountsForm } from './components/Accounts/AccountsForm';
-import { DispatchForm } from './components/Dispatch/DispatchForm';
+import { DispatchForm } from './components/Resources/DispatchForm';
+import { StorageForm } from './components/Resources/StorageForm';
 import { ProductionStockForm } from './components/Stock/ProductionStockForm';
 import { PurchaseRequestForm } from './components/Stock/PurchaseRequestForm';
 import { ReportsModule } from './components/Reports/ReportsModule';
@@ -282,12 +285,24 @@ function AppContent() {
         );
 
       case 'vendor-management':
+      case 'vendor-bill-entry':
         return (
           <div className="space-y-6">
-            <VendorManagement />
+            <VendorManagement initialShowBillForm={hash === 'vendor-bill-entry'} />
           </div>
         );
 
+
+      case 'storage':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Storage Management</h2>
+              <p className="text-slate-600 mt-1">Manage storage items, quantities, and pricing</p>
+            </div>
+            <StorageForm />
+          </div>
+        );
 
       case 'safety':
         return (
@@ -445,6 +460,7 @@ function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar theme="dark" />
     </AuthProvider>
   );
 }
