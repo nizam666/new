@@ -1068,6 +1068,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
                           quantity: item.quantity.toString(),
                           rate_per_unit: (item.notes?.split('Rate: ')[1] || '').split(' ')[0],
                           unit: item.inventory_items?.unit || 'Nos',
+                          units_per_box: '',
                           item_ref_no: item.inventory_items?.item_code || '',
                           manufacturer: '',
                           storage_location: item.inventory_items?.location || 'Main Store',
