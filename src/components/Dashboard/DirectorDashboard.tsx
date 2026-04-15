@@ -17,7 +17,6 @@ import {
   Activity,
   Layers
 } from 'lucide-react';
-import { AttendanceForm } from '../Contractor/AttendanceForm';
 import { SelfServiceAttendance } from '../Attendance/SelfServiceAttendance';
 
 interface DashboardStats {
@@ -357,18 +356,6 @@ export function DirectorDashboard() {
           Selfie Attendance Terminal
         </h2>
         <SelfServiceAttendance workArea="general" />
-      </div>
-
-      {/* Quick Team Attendance Section (Optional/Legacy toggle) */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-8 opacity-60">
-        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-          <Users className="w-5 h-5 text-slate-500" />
-          Team Attendance Logger (Manual)
-        </h2>
-        <AttendanceForm 
-          onSuccess={() => loadDashboardData()} 
-          title="Daily Attendance Logger"
-        />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
