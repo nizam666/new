@@ -558,7 +558,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
             acc.push({ 
               name: item.item_name.trim(), 
               category: item.category || 'General', 
-              unit: item.unit || 'Nos' 
+              unit: item.unit === 'Box' ? 'Nos' : (item.unit || 'Nos') // Always store base unit as Nos
             });
           }
           return acc;
@@ -621,7 +621,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
           item_code: item.item_ref_no,
           category: item.category,
           quantity: totalQty,
-          unit: item.unit,
+          unit: item.unit === 'Box' ? 'Nos' : item.unit, // Always persist in Nos; box is purchase-level detail
           location: item.storage_location,
           supplier: billCustomer,
           last_restock_date: transactionDate || new Date().toISOString().split('T')[0],
