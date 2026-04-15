@@ -293,6 +293,11 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
       return;
     }
 
+    if (!billFile) {
+      toast.warning('Evidence Mandatory: Please upload a soft copy (Image/PDF) of the original bill.');
+      return;
+    }
+
     setSaving(true);
     toast.info('Recording bill in ledger...');
 
@@ -856,7 +861,10 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
               </div>
 
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Bill Soft Copy (PDF / Images Only)</label>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center justify-between">
+                  <span>Bill Soft Copy *</span>
+                  <span className="text-emerald-500 font-bold lowercase tracking-normal">Mandatory for Audit</span>
+                </label>
                 {!billFile ? (
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-200 rounded-[32px] cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all group overflow-hidden relative">
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">

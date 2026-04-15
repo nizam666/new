@@ -43,6 +43,7 @@ interface LineItem {
   quantity: string;
   rate_per_unit: string;
   unit: string;
+  units_per_box: string; // How many Nos fit in 1 Box (only relevant when unit === 'Box')
   item_ref_no: string;
   manufacturer: string;
   storage_location: string;
@@ -192,7 +193,7 @@ const MobileItemCard = memo(({ index, line, masterItems, onUpdate, onRemove }: {
         </div>
         <div className="space-y-1">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit</label>
-          <select value={line.unit} onChange={(e) => onUpdate({ unit: e.target.value })}
+          <select value={line.unit} onChange={(e) => onUpdate({ unit: e.target.value, units_per_box: '' })}
             className="w-full px-3 py-4 rounded-2xl bg-slate-50 border-none font-black text-xs uppercase text-slate-500 appearance-none">
             <option value="">Unit</option>
             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
@@ -205,6 +206,22 @@ const MobileItemCard = memo(({ index, line, masterItems, onUpdate, onRemove }: {
             className="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none font-black text-lg" />
         </div>
       </div>
+
+      {/* Box breakdown field */}
+      {line.unit === 'Box' && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 rounded-2xl border border-amber-100">
+          <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest whitespace-nowrap">1 Box =</span>
+          <input
+            type="number"
+            min="1"
+            placeholder="e.g. 12"
+            value={line.units_per_box}
+            onChange={(e) => onUpdate({ units_per_box: e.target.value })}
+            className="w-full px-4 py-2 rounded-xl bg-white border border-amber-200 font-black text-amber-900 text-base focus:ring-2 focus:ring-amber-400/30"
+          />
+          <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest whitespace-nowrap">Nos</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
@@ -300,11 +317,26 @@ const InventoryRow = memo(({ index, line, masterItems, onUpdate, onRemove }: {
           className="w-full px-5 py-5 rounded-2xl bg-slate-50 border-none font-black text-xl min-w-[100px]" />
       </td>
       <td className="px-6 py-10 align-middle">
-        <select value={line.unit} onChange={(e) => onUpdate({ unit: e.target.value })}
-          className="w-full px-5 py-5 rounded-2xl font-black text-xs uppercase bg-slate-50 text-slate-500 min-w-[100px]">
-          <option value="">Unit</option>
-          {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-        </select>
+        <div className="flex flex-col gap-2 min-w-[130px]">
+          <select value={line.unit} onChange={(e) => onUpdate({ unit: e.target.value, units_per_box: '' })}
+            className="w-full px-5 py-5 rounded-2xl font-black text-xs uppercase bg-slate-50 text-slate-500">
+            <option value="">Unit</option>
+            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+          {line.unit === 'Box' && (
+            <div className="flex items-center gap-1 px-3 py-2 bg-amber-50 rounded-xl border border-amber-100">
+              <span className="text-[9px] font-black text-amber-600 uppercase whitespace-nowrap">1 Box=</span>
+              <input
+                type="number"
+                min="1"
+                placeholder="Nos"
+                value={line.units_per_box}
+                onChange={(e) => onUpdate({ units_per_box: e.target.value })}
+                className="w-full px-2 py-1 rounded-lg bg-white border border-amber-200 font-black text-amber-900 text-sm focus:ring-2 focus:ring-amber-400/30"
+              />
+            </div>
+          )}
+        </div>
       </td>
       <td className="px-6 py-10 align-middle">
         <div className="relative min-w-[140px]">
@@ -357,70 +389,91 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
   const [originalQty, setOriginalQty] = useState(0);
   const [billItems, setBillItems] = useState<any[]>([]);
 
+  const fetchData = useCallback(async () => {
+    if (!supabase) return;
+    try {
+      setLoading(true);
+      // Fetch latest monthly stats
+      const startOfMontObj = new Date();
+      startOfMontObj.setDate(1);
+      startOfMontObj.setHours(0, 0, 0, 0);
+      const startOfMonth = startOfMontObj.toISOString();
+
+      const { data: statsData } = await supabase
+        .from('inventory_transactions')
+        .select(`
+          quantity,
+          notes,
+          inventory_items(item_name)
+        `)
+        .eq('transaction_type', 'in')
+        .gte('date', startOfMonth.split('T')[0]);
+
+      let totalVal = 0;
+      let totalI = 0;
+      (statsData || []).forEach(s => {
+        const rate = parseFloat(s.notes?.split('Rate: ')[1]) || 0;
+        totalVal += (s.quantity || 0) * rate;
+        totalI += (s.quantity || 0);
+      });
+
+      // Fetch pending bills from accounts
+      const { data: billsData } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('transaction_type', 'expense')
+        .eq('status', 'pending');
+
+      setMonthlyStats({
+        totalValue: totalVal,
+        totalItems: totalI,
+        billCount: (billsData || []).length
+      });
+      setPurchaseBills(billsData || []);
+
+      // Fetch master items lookup
+      const { data: masterData } = await supabase
+        .from('inventory_items')
+        .select('id, item_name, item_code, category, unit, location');
+      
+      const mappedMaster: MasterItem[] = (masterData || []).map((m: any) => ({
+        id: m.id,
+        name: m.item_name,
+        category: m.category,
+        unit: m.unit
+      }));
+      setMasterItems(mappedMaster);
+      setDbItemCount(mappedMaster.length);
+
+      // Fetch recent history
+      const { data: hData } = await supabase
+        .from('inventory_transactions')
+        .select(`
+          *,
+          inventory_items!inner(item_name, item_code, category, unit, location)
+        `)
+        .eq('transaction_type', 'in')
+        .gte('date', startOfMonth.split('T')[0])
+        .order('date', { ascending: false });
+      setHistory(hData || []);
+
+      // Build name → ref map for auto-fill
+      const refMap: Record<string, string> = {};
+      (masterData || []).forEach((r: any) => {
+        if (r.item_name && r.item_code)
+          refMap[r.item_name.toLowerCase()] = r.item_code;
+      });
+      setInventoryRefMap(refMap);
+    } catch (err) {
+      console.error('Initialization Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
   useEffect(() => {
-    const init = async () => {
-      try {
-        const [billsRes, itemsRes, countRes, refsRes] = await Promise.all([
-          supabase.from('accounts').select('*').in('transaction_type', ['expense', 'invoice']).or('status.is.null,status.neq.completed').order('transaction_date', { ascending: false }),
-          supabase.from('master_items').select('*').order('name', { ascending: true }),
-          supabase.from('inventory_items').select('id', { count: 'exact', head: true }),
-          supabase.from('inventory_items').select('item_name, item_code').not('item_code', 'is', null)
-        ]);
-        setPurchaseBills(billsRes.data || []);
-        setMasterItems(itemsRes.data || []);
-        setDbItemCount(countRes.count || 0);
-
-        // Calculate Monthly Summary
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-        
-        let mValue = 0;
-        let mCount = 0;
-        const validBills = (billsRes.data || []).filter(b => b.transaction_date >= startOfMonth);
-        validBills.forEach(b => mValue += (b.amount || 0));
-
-        // Fetch monthly transaction volume
-        const { data: transData } = await supabase
-          .from('inventory_transactions')
-          .select('quantity')
-          .eq('transaction_type', 'in')
-          .gte('date', startOfMonth.split('T')[0]);
-        
-        mCount = (transData || []).reduce((acc, curr) => acc + (curr.quantity || 0), 0);
-
-        setMonthlyStats({
-          totalValue: mValue,
-          totalItems: mCount,
-          billCount: (billsRes.data || []).length
-        });
-
-        // Fetch Detailed History for the bottom list
-        const { data: historyData } = await supabase
-          .from('inventory_transactions')
-          .select(`
-            *,
-            inventory_items!inner(item_name, item_code, category, unit, location)
-          `)
-          .eq('transaction_type', 'in')
-          .gte('date', startOfMonth.split('T')[0])
-          .order('date', { ascending: false });
-        setHistory(historyData || []);
-
-        // Build name → ref map for auto-fill
-        const refMap: Record<string, string> = {};
-        (refsRes.data || []).forEach((r: any) => {
-          if (r.item_name && r.item_code)
-            refMap[r.item_name.toLowerCase()] = r.item_code;
-        });
-        setInventoryRefMap(refMap);
-      } catch (err) {
-        console.error('Initialization Error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    init();
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
   const handleBillSelect = async (billId: string) => {
     setSelectedBillId(billId);
@@ -438,7 +491,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
             inventory_items(item_name, unit)
           `)
           .eq('transaction_type', 'in')
-          .ilike('purpose', `%Bill: ${bill.invoice_number}%`);
+          .ilike('purpose', `%Purchase Ref: ${bill.invoice_number}%`);
         
         if (data) setBillItems(data);
       } catch (err) {
@@ -455,7 +508,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       {
         id: Math.random().toString(36).substr(2, 9),
         item_name: '', category: 'General', quantity: '', rate_per_unit: '',
-        unit: 'Nos', item_ref_no: generateItemRefNo(dbItemCount, prev.length),
+        unit: 'Nos', units_per_box: '', item_ref_no: generateItemRefNo(dbItemCount, prev.length),
         manufacturer: '', storage_location: 'Main Store', custom_location: ''
       }
     ]);
@@ -521,7 +574,9 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       const aggregated = itemsToSave.reduce((acc: any, curr) => {
         const name = curr.item_name.trim().toLowerCase();
         if (!acc[name]) acc[name] = { ...curr, q: 0, c: 0 };
-        const q = parseFloat(curr.quantity) || 0;
+        const boxes = parseFloat(curr.quantity) || 0;
+        const unitsPerBox = curr.unit === 'Box' && curr.units_per_box ? parseFloat(curr.units_per_box) : 1;
+        const q = boxes * unitsPerBox; // Always accumulate in Nos
         const r = parseFloat(curr.rate_per_unit) || 0;
         acc[name].q += q;
         acc[name].c += q * r;
@@ -585,14 +640,20 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       // 5. Log individual transactions for each line item
       const trans = itemsToSave.map(item => {
         const si = saved?.find(s => s.item_name.toLowerCase() === item.item_name.toLowerCase());
+        const boxes = parseFloat(item.quantity) || 0;
+        const unitsPerBox = item.unit === 'Box' && item.units_per_box ? parseFloat(item.units_per_box) : 1;
+        const actualQty = boxes * unitsPerBox; // Always store in Nos
+        const boxNote = item.unit === 'Box' && item.units_per_box
+          ? ` | Box: ${boxes} × ${unitsPerBox} Nos`
+          : '';
         return {
           item_id: si?.id,
           user_id: user.id,
           transaction_type: 'in',
-          quantity: parseFloat(item.quantity) || 0,
+          quantity: actualQty,
           date: transactionDate || new Date().toISOString().split('T')[0],
           purpose: `Purchase Ref: ${billInvoice}`,
-          notes: `Bill: ${billInvoice} | Rate: ${item.rate_per_unit}`
+          notes: `Bill: ${billInvoice} | Rate: ${item.rate_per_unit}${boxNote}`
         };
       });
 
@@ -601,7 +662,15 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
 
       // 6. Automatically Close Bill if fully allocated
       const batchTotal = itemsToSave.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
-      if (Math.abs(batchTotal - selectedBill.amount) < 0.01) {
+      const currentTotalAllocated = billItems.reduce((acc, item) => {
+        const notes = item.notes || '';
+        const parts = notes.split('Rate: ');
+        const rate = parseFloat(parts.length > 1 ? parts[1].split(' ')[0] : '0') || 0;
+        return acc + ((parseFloat(item.quantity) || 0) * rate);
+      }, 0);
+      const isFullyAllocated = Math.abs(currentTotalAllocated + batchTotal - selectedBill.amount) < 0.01 || (currentTotalAllocated + batchTotal >= selectedBill.amount);
+
+      if (isFullyAllocated) {
         await supabase
           .from('accounts')
           .update({ status: 'completed' })
@@ -634,49 +703,83 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
     }
 
     const batchTotal = lineItems.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
-    if (batchTotal > selectedBill.amount) {
-      toast.error(`Over-Entry Alert: Total item value (₹${batchTotal.toLocaleString()}) exceeds the bill amount (₹${selectedBill.amount.toLocaleString()}). Please adjust quantities or rates.`);
+    if (batchTotal > (remainingAllocation + 0.01)) {
+      toast.error(`Over-Entry Alert: Total item value (₹${batchTotal.toLocaleString()}) exceeds the remaining pending balance (₹${remainingAllocation.toLocaleString()}). Please adjust quantities or rates.`);
       return;
     }
+
+    // Capture bill ID before async save (state may shift)
+    const savedBillId = selectedBill!.id;
+    const wasEditing = !!editingId;
 
     const success = await performBatchSave(lineItems);
     if (success) {
       // If we were editing, delete the old transaction to avoid duplication
-      if (editingId) {
-        // Revert stock for the original item first
+      if (wasEditing) {
         const oldItem = history.find(h => h.id === editingId);
         if (oldItem) {
           const { data: inv } = await supabase.from('inventory_items').select('quantity').eq('id', oldItem.item_id).single();
           if (inv) {
-             await supabase.from('inventory_items').update({ quantity: inv.quantity - originalQty }).eq('id', oldItem.item_id);
+            await supabase.from('inventory_items').update({ quantity: inv.quantity - originalQty }).eq('id', oldItem.item_id);
           }
         }
         await supabase.from('inventory_transactions').delete().eq('id', editingId);
       }
 
-      toast.success(editingId ? 'Transaction Corrected Successfully!' : 'Inventory Catalog Updated Successfully!');
+      toast.success(wasEditing ? 'Transaction Corrected Successfully!' : 'Inventory Catalog Updated Successfully!');
+
+      // Refresh global data (re-fetches purchaseBills with status='pending' only)
+      await fetchData();
+
+      // PARTIAL ENTRY LOGIC: Check the live DB to see if the bill is still pending.
+      // We cannot use the pre-save 'remainingAllocation' here — it's stale.
+      const { data: freshBill } = await supabase
+        .from('accounts')
+        .select('status')
+        .eq('id', savedBillId)
+        .single();
+
+      const billStillPending = freshBill?.status === 'pending';
+
+      if (billStillPending && !wasEditing) {
+        // Keep bill context but clear line items for the next partial entry
+        setLineItems([]);
+        setEditingId(null);
+        setOriginalQty(0);
+        // Refresh billItems panel and allocation counter
+        handleBillSelect(savedBillId);
+        toast.info('Partial Save: Bill still has a remaining balance. Add more items to complete it.');
+      } else {
+        // Bill fully allocated or this was an edit — reset everything
+        setLineItems([]);
+        setSelectedBillId('');
+        setSelectedBill(null);
+        setBillItems([]);
+        setEditingId(null);
+        setOriginalQty(0);
+      }
+      
       if (onSuccess) onSuccess();
-      setLineItems([]); setSelectedBillId(''); setSelectedBill(null);
-      setEditingId(null); setOriginalQty(0);
-      window.location.reload(); // Simple refresh for now to update all stats
     }
   };
 
   // Calculate Remaining Allocation: Bill Amount - Value of items already in inventory
   const totalAllocatedValue = useMemo(() => {
     return billItems.reduce((acc, item) => {
-      // Parse rate from notes if available (format: "Bill: ... | Rate: 123.45")
-      const rateStr = item.notes?.split('Rate: ')[1];
+      // Parse rate from notes if available (format: "... | Rate: 123.45")
+      const notes = item.notes || '';
+      const parts = notes.split('Rate: ');
+      const rateStr = parts.length > 1 ? parts[1].split(' ')[0] : '0';
       const rate = parseFloat(rateStr) || 0;
-      return acc + (item.quantity * rate);
+      const qtyCount = parseFloat(item.quantity) || 0;
+      return acc + (qtyCount * rate);
     }, 0);
   }, [billItems]);
 
-  const remainingAllocation = (selectedBill?.amount || 0) - totalAllocatedValue;
+  const batchTotal = lineItems.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
+  const remainingAllocation = (selectedBill?.amount || 0) - totalAllocatedValue - batchTotal;
 
   if (loading) return <div className="p-20 text-center animate-pulse text-slate-400 font-bold">Initializing Interface...</div>;
-
-  const batchTotal = lineItems.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
 
   return (
     <div className="space-y-5 md:space-y-10 pb-24">
@@ -749,11 +852,13 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
               <p className="text-xl md:text-2xl font-black text-slate-900">₹{(selectedBill.amount || 0).toLocaleString()}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-rose-400">Remaining Allocation</p>
-              <p className="text-xl md:text-2xl font-black text-rose-600">
+              <p className={`text-[10px] font-black uppercase tracking-widest ${remainingAllocation < -0.01 ? 'text-rose-500' : 'text-slate-400'}`}>Remaining Allocation</p>
+              <p className={`text-xl md:text-2xl font-black ${remainingAllocation < -0.01 ? 'text-rose-600 animate-pulse' : 'text-slate-900'}`}>
                 ₹{remainingAllocation.toLocaleString()}
               </p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Pending to be stocked</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                {remainingAllocation < -0.01 ? 'OVER-ALLOCATED: Adjust rates/qty' : 'Pending to be stocked'}
+              </p>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</p>
@@ -961,7 +1066,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
                           item_name: item.inventory_items?.item_name || '',
                           category: item.inventory_items?.category || 'General',
                           quantity: item.quantity.toString(),
-                          rate_per_unit: item.notes?.split('Rate: ')[1] || '',
+                          rate_per_unit: (item.notes?.split('Rate: ')[1] || '').split(' ')[0],
                           unit: item.inventory_items?.unit || 'Nos',
                           item_ref_no: item.inventory_items?.item_code || '',
                           manufacturer: '',
