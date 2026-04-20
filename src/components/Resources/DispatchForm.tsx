@@ -63,6 +63,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
     return_date: '',
     return_condition: '',
     notes: '',
+    given_price: '',
   });
   const [outstandingQty, setOutstandingQty] = useState(0);
 
@@ -150,6 +151,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
         return_date: formData.returned && formData.return_date ? formData.return_date : null,
         return_condition: formData.returned && formData.return_condition ? formData.return_condition : null,
         notes: formData.notes || null,
+        given_price: formData.given_price ? parseFloat(formData.given_price) : null,
         created_by: user?.id,
       }]);
       if (dError) throw dError;
@@ -191,6 +193,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
         return_date: '',
         return_condition: '',
         notes: '',
+        given_price: '',
       });
       if (onSuccess) onSuccess();
     } catch (err) {
@@ -426,6 +429,20 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
                 max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => update('dispatch_date', e.target.value)}
                 className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-slate-500/10"
+              />
+            </div>
+
+            {/* Given Price */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-bold">Given Price (₹)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={formData.given_price}
+                onChange={(e) => update('given_price', e.target.value)}
+                className="w-full px-5 py-4 rounded-2xl bg-amber-50 border-none font-bold text-base text-amber-900 focus:ring-4 focus:ring-amber-400/20 placeholder:text-amber-300"
               />
             </div>
           </div>

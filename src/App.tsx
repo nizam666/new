@@ -34,6 +34,7 @@ import { EBRecords } from './components/Crusher/EBRecords';
 import { CrusherMaintenanceForm } from './components/Crusher/CrusherMaintenanceForm';
 import { JCBOperationsForm } from './components/Operations/JCBOperationsForm';
 import { JCBOperationsDetails } from './components/Operations/JCBOperationsDetails';
+import { QuarryStorage } from './components/Operations/QuarryStorage';
 import { CustomerDetails } from './components/Customers/CustomerDetails';
 import { SelfServiceAttendance } from './components/Attendance/SelfServiceAttendance';
 import { AttendanceReportModule } from './components/Reports/AttendanceReportModule';
@@ -399,6 +400,9 @@ function AppContent() {
             />
           </div>
         );
+
+      case 'quarry-storage-management':
+        return <QuarryStorage />;
 
       case 'quarry-jcb-operations-list':
         return <JCBOperationsDetails workArea="quarry" />;

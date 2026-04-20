@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Truck, Save } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { fetchQuarryBalances } from '../../utils/quarryStock';
 
 const MATERIAL_TYPES = [
   'KVSS Good Boulders',
@@ -44,6 +45,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
     notes: '',
     custom_material_type: ''
   });
+  const [dieselStock, setDieselStock] = useState<number | null>(null);
 
   const getRunningHours = () => {
     const start = parseFloat(formData.starting_hours);
@@ -93,7 +95,15 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
     if (formData.vehicle_used) {
       fetchLastEndingHours(formData.vehicle_used);
     }
+    fetchStock();
   }, [formData.vehicle_used, fetchLastEndingHours]);
+
+  const fetchStock = async () => {
+    const balances = await fetchQuarryBalances();
+    if (balances['diesel']) {
+      setDieselStock(balances['diesel'].remaining);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +127,16 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
 
     setLoading(true);
     try {
+      // 🚨 Stock Validation 🚨
+      const balances = await fetchQuarryBalances();
+      const available = balances['diesel']?.remaining || 0;
+      const requested = parseFloat(formData.diesel) || 0;
+
+      if (requested > available) {
+        setLoading(false);
+        toast.error(`Insufficient Diesel stock. Available: ${available.toFixed(1)} L, Requested: ${requested} L`);
+        return;
+      }
       const insertData = {
         contractor_id: user.id,
         date: formData.date,
@@ -288,8 +308,13 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
 
         {/* Diesel Input */}
         <div className="relative">
-          <label className="block text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 ml-1">
-            Diesel Refilled <span className="text-red-500 text-base">*</span>
+          <label className="block text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 ml-1 flex items-center justify-between">
+            <span>Diesel Refilled <span className="text-red-500 text-base">*</span></span>
+            {dieselStock !== null && (
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded ${dieselStock <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                Available: {dieselStock.toFixed(1)} L
+              </span>
+            )}
           </label>
           <div className="relative">
             <input
@@ -299,7 +324,9 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
               onChange={(e) => setFormData({ ...formData, diesel: e.target.value })}
               required
               min="0"
-              className="w-full px-4 sm:px-5 py-3 sm:py-4 border-2 border-slate-100 bg-slate-50/50 rounded-xl sm:rounded-2xl text-sm sm:text-base focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all font-bold text-slate-900 pr-16"
+              className={`w-full px-4 sm:px-5 py-3 sm:py-4 border-2 rounded-xl sm:rounded-2xl text-sm sm:text-base focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all font-bold text-slate-900 pr-16 ${
+                dieselStock !== null && parseFloat(formData.diesel) > dieselStock ? 'border-red-500 bg-red-50' : 'border-slate-100 bg-slate-50/50'
+              }`}
               placeholder="0.0"
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 uppercase tracking-widest">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { fetchQuarryBalances } from '../../utils/quarryStock';
 import { Truck, Save, Calendar, ChevronDown, Clock, FileUp, Download, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -79,13 +80,22 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const [summaryTotals, setSummaryTotals] = useState({ fuel: 0, quantity: 0, trips: 0, gross: 0, empty: 0, qc: 0, qs: 0, sc: 0, soil: 0, wr: 0, ar: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
   const [recentVehicles, setRecentVehicles] = useState<{number: string, type: string}[]>([]);
+  const [dieselStock, setDieselStock] = useState<number | null>(null);
   
   useEffect(() => {
     if (user) {
       fetchNextTripRef();
       fetchRecentVehicles();
+      fetchStock();
     }
   }, [user]);
+
+  const fetchStock = async () => {
+    const balances = await fetchQuarryBalances();
+    if (balances['diesel']) {
+      setDieselStock(balances['diesel'].remaining);
+    }
+  };
 
   useEffect(() => {
     if (formData.material_transported === 'Good Boulders') {
@@ -478,6 +488,17 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
     setLoading(true);
     try {
+      // 🚨 Stock Validation 🚨
+      const balances = await fetchQuarryBalances();
+      const available = balances['diesel']?.remaining || 0;
+      const requested = parseFloat(formData.fuel_consumed) || 0;
+
+      if (requested > available) {
+        setLoading(false);
+        alert(`Insufficient Diesel stock in Quarry Store. Available: ${available.toFixed(1)} L, Requested: ${requested} L`);
+        return;
+      }
+
       const { error } = await supabase
         .from('transport_records')
         .insert([
@@ -712,8 +733,13 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Diesel
+          <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center justify-between">
+            <span>Diesel (L)</span>
+            {dieselStock !== null && (
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded ${dieselStock <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                Available: {dieselStock.toFixed(1)} L
+              </span>
+            )}
           </label>
           <input
             type="number"
@@ -721,7 +747,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             value={formData.fuel_consumed}
             onChange={(e) => setFormData({ ...formData, fuel_consumed: e.target.value })}
             min="0"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                dieselStock !== null && parseFloat(formData.fuel_consumed) > dieselStock ? 'border-red-500 bg-red-50 text-red-900 font-bold' : 'border-slate-300'
+            }`}
             placeholder="0.0"
           />
         </div>

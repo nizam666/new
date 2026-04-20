@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Drill, Save, AlertCircle, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { fetchQuarryBalances } from '../../utils/quarryStock';
 
 const LOCATIONS = ['Site 1', 'Storage Bay'];
 const MATERIAL_TYPES = ['Good Boulders', 'Weathered Rocks', 'Soil'];
@@ -80,6 +81,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
     diesel_consumed: '',
     notes: ''
   });
+  const [dieselStock, setDieselStock] = useState<number | null>(null);
 
   const [monthlyStats, setMonthlyStats] = useState<{
     date: string;
@@ -172,7 +174,15 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
   useEffect(() => {
     fetchMonthlyStats();
+    fetchStock();
   }, [fetchMonthlyStats]);
+
+  const fetchStock = async () => {
+    const balances = await fetchQuarryBalances();
+    if (balances['diesel']) {
+      setDieselStock(balances['diesel'].remaining);
+    }
+  };
 
   const drillingProduction = (totalFeet() * 0.8) || 0;
 
@@ -185,6 +195,17 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
     setError(null);
 
     try {
+      // 🚨 Stock Validation 🚨
+      const balances = await fetchQuarryBalances();
+      const available = balances['diesel']?.remaining || 0;
+      const requested = parseFloat(formData.diesel_consumed) || 0;
+
+      if (requested > available) {
+        setLoading(false);
+        setError(`Insufficient Diesel stock. Available: ${available.toFixed(1)} L, Requested: ${requested} L`);
+        toast.error('Stock validation failed: Diesel not available in Quarry Store.');
+        return;
+      }
       const set1Data: Record<string, number> = {};
       const set2Data: Record<string, number> = {};
 
@@ -274,14 +295,23 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             />
           </div>
           <div>
-            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Diesel Consumed (L)</label>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 flex items-center justify-between">
+              <span>Diesel Consumed (L)</span>
+              {dieselStock !== null && (
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded ${dieselStock <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                  Available: {dieselStock.toFixed(1)} L
+                </span>
+              )}
+            </label>
             <input
               type="number"
               step="0.01"
               value={formData.diesel_consumed}
               onChange={(e) => setFormData({ ...formData, diesel_consumed: e.target.value })}
               min="0"
-              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+              className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm ${
+                dieselStock !== null && parseFloat(formData.diesel_consumed) > dieselStock ? 'border-red-500 bg-red-50' : 'border-slate-300'
+              }`}
               placeholder="0.00"
             />
           </div>

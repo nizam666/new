@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Bomb, Save, AlertCircle, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { fetchQuarryBalances } from '../../utils/quarryStock';
 
 const MATERIAL_TYPES = ['Good Boulders', 'Weathered Rocks', 'Soil'];
 const MATERIAL_TYPES_TAMIL = {
@@ -46,6 +47,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     material_type: '',
     notes: ''
   });
+  const [quarryBalances, setQuarryBalances] = useState<any>(null);
 
   const [monthlyStats, setMonthlyStats] = useState<{
     date: string;
@@ -128,7 +130,13 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
 
   useEffect(() => {
     fetchMonthlyStats();
+    fetchBalances();
   }, [fetchMonthlyStats]);
+
+  const fetchBalances = async () => {
+    const b = await fetchQuarryBalances();
+    setQuarryBalances(b);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,9 +147,24 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     setErrorStatus(null);
 
     try {
-      // Convert nos to boxes if unit 'nos' is selected (1 box = 200 nos)
+      // 🚨 Stock Validation 🚨
+      const b = await fetchQuarryBalances();
+      
+      const check = (key: string, qty: number, label: string) => {
+        const available = b[key]?.remaining || 0;
+        if (qty > available) {
+          throw new Error(`Insufficient ${label} stock. Available: ${available.toFixed(1)}, Requested: ${qty}`);
+        }
+      };
+
       const rawPg = parseFloat(formData.pg_nos) || 0;
       const finalPg = formData.pg_unit === 'nos' ? rawPg / 200 : rawPg;
+      
+      check('pg', finalPg, 'PG (boxes)');
+      check('ed', parseFloat(formData.ed_nos) || 0, 'ED');
+      check('edet', parseFloat(formData.edet_nos) || 0, 'EDET');
+      check('nonel_3m', parseFloat(formData.nonel_3m_nos) || 0, 'NONEL 3m');
+      check('nonel_4m', parseFloat(formData.nonel_4m_nos) || 0, 'NONEL 4m');
 
       const { error } = await supabase
         .from('blasting_records')
@@ -283,50 +306,86 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
         {/* Explosives Grid */}
         <div className="bg-slate-50 p-3 sm:p-4 rounded-lg sm:rounded-2xl border border-slate-100 space-y-3 sm:space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">ED (nos)</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>ED (nos)</span>
+              {quarryBalances?.['ed'] && (
+                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${quarryBalances['ed'].remaining <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                  Avail: {quarryBalances['ed'].remaining.toFixed(0)}
+                </span>
+              )}
+            </label>
             <input
               type="number"
               step="0.01"
               value={formData.ed_nos}
               onChange={(e) => setFormData({ ...formData, ed_nos: e.target.value })}
               min="0"
-              className="w-full px-3 sm:px-4 py-2 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
+              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
+                quarryBalances?.['ed'] && parseFloat(formData.ed_nos) > quarryBalances['ed'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+              }`}
               placeholder="0"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">EDET (nos)</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>EDET (nos)</span>
+              {quarryBalances?.['edet'] && (
+                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${quarryBalances['edet'].remaining <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                  Avail: {quarryBalances['edet'].remaining.toFixed(0)}
+                </span>
+              )}
+            </label>
             <input
               type="number"
               step="0.01"
               value={formData.edet_nos}
               onChange={(e) => setFormData({ ...formData, edet_nos: e.target.value })}
               min="0"
-              className="w-full px-3 sm:px-4 py-2 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
+              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
+                quarryBalances?.['edet'] && parseFloat(formData.edet_nos) > quarryBalances['edet'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+              }`}
               placeholder="0"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">NONEL 3m (nos)</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>NONEL 3m (nos)</span>
+              {quarryBalances?.['nonel_3m'] && (
+                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${quarryBalances['nonel_3m'].remaining <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                  Avail: {quarryBalances['nonel_3m'].remaining.toFixed(0)}
+                </span>
+              )}
+            </label>
             <input
               type="number"
               step="0.01"
               value={formData.nonel_3m_nos}
               onChange={(e) => setFormData({ ...formData, nonel_3m_nos: e.target.value })}
               min="0"
-              className="w-full px-3 sm:px-4 py-2 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
+              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
+                quarryBalances?.['nonel_3m'] && parseFloat(formData.nonel_3m_nos) > quarryBalances['nonel_3m'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+              }`}
               placeholder="0"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">NONEL 4m (nos)</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>NONEL 4m (nos)</span>
+              {quarryBalances?.['nonel_4m'] && (
+                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${quarryBalances['nonel_4m'].remaining <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                  Avail: {quarryBalances['nonel_4m'].remaining.toFixed(0)}
+                </span>
+              )}
+            </label>
             <input
               type="number"
               step="0.01"
               value={formData.nonel_4m_nos}
               onChange={(e) => setFormData({ ...formData, nonel_4m_nos: e.target.value })}
               min="0"
-              className="w-full px-3 sm:px-4 py-2 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
+              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
+                quarryBalances?.['nonel_4m'] && parseFloat(formData.nonel_4m_nos) > quarryBalances['nonel_4m'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+              }`}
               placeholder="0"
             />
           </div>
@@ -334,14 +393,23 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
 
         {/* PG Quantity */}
         <div>
-          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">PG Quantity</label>
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 flex items-center justify-between">
+            <span>PG Quantity</span>
+            {quarryBalances?.['pg'] && (
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded ${quarryBalances['pg'].remaining <= 0 ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                Available: {quarryBalances['pg'].remaining.toFixed(1)} boxes
+              </span>
+            )}
+          </label>
           <input
             type="number"
             step="0.01"
             value={formData.pg_nos}
             onChange={(e) => setFormData({ ...formData, pg_nos: e.target.value })}
             min="0"
-            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm"
+            className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
+              quarryBalances?.['pg'] && (formData.pg_unit === 'nos' ? parseFloat(formData.pg_nos)/200 : parseFloat(formData.pg_nos)) > quarryBalances['pg'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+            }`}
             placeholder={formData.pg_unit === 'nos' ? "Enter quantity in nos (e.g. 200)" : "Enter quantity in boxes"}
           />
           {formData.pg_nos && formData.pg_unit === 'nos' && (
