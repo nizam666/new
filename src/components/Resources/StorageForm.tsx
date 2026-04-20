@@ -31,6 +31,7 @@ interface InventoryItem {
   unit: string;
   location: string;
   last_restock_date: string;
+  allIds?: string[]; // Added for consolidated items
 }
 
 interface DispatchRecord {
@@ -96,7 +97,36 @@ export function StorageForm() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setInventoryItems(data || []);
+      
+      // Consolidate duplicates (case-insensitive)
+      const consolidatedMap = new Map<string, InventoryItem>();
+      
+      (data || []).forEach(item => {
+        const key = item.item_name.toLowerCase().trim();
+        if (consolidatedMap.has(key)) {
+          const existing = consolidatedMap.get(key)!;
+          // Weighted average price logic
+          const totalVal = (existing.average_price * existing.quantity) + (item.average_price * item.quantity);
+          const totalQty = existing.quantity + item.quantity;
+          
+          existing.quantity = totalQty;
+          existing.average_price = totalQty > 0 ? totalVal / totalQty : 0;
+          existing.allIds?.push(item.id);
+          
+          // Keep latest date
+          if (item.last_restock_date && (!existing.last_restock_date || item.last_restock_date > existing.last_restock_date)) {
+            existing.last_restock_date = item.last_restock_date;
+          }
+        } else {
+          consolidatedMap.set(key, { 
+            ...item, 
+            item_name: item.item_name.toUpperCase(),
+            allIds: [item.id]
+          });
+        }
+      });
+
+      setInventoryItems(Array.from(consolidatedMap.values()));
     } catch (error) {
       console.error('Error fetching inventory:', error);
     } finally {
@@ -117,10 +147,11 @@ export function StorageForm() {
     });
 
     try {
+      const targetIds = item.allIds || [item.id];
       const { data: trans, error: tError } = await supabase
         .from('inventory_transactions')
         .select('*')
-        .eq('item_id', item.id)
+        .in('item_id', targetIds)
         .eq('transaction_type', 'in')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -162,13 +193,13 @@ export function StorageForm() {
         });
       }
 
-      // Fetch Recent Dispatches
+      // Fetch Recent Dispatches for all variants
       const { data: dispatches, error: dError } = await supabase
         .from('inventory_dispatch')
         .select('id, dispatch_ref, dispatched_to, quantity_dispatched, unit, dispatch_date')
-        .eq('item_id', item.id)
+        .in('item_id', targetIds)
         .order('dispatch_date', { ascending: false })
-        .limit(5);
+        .limit(10);
 
       if (!dError && dispatches) {
         setPurchaseDetail(prev => prev ? { ...prev, recentDispatches: dispatches } : null);
