@@ -66,6 +66,24 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
     given_price: '',
   });
   const [outstandingQty, setOutstandingQty] = useState(0);
+  const [employeeList, setEmployeeList] = useState<{full_name: string, id: string, employee_id?: string}[]>([]);
+  const [showEmployeeSuggestions, setShowEmployeeSuggestions] = useState(false);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, full_name, employee_id')
+          .order('full_name');
+        if (error) throw error;
+        setEmployeeList(data || []);
+      } catch (err) {
+        console.error('Error fetching employees:', err);
+      }
+    };
+    fetchEmployees();
+  }, []);
 
   // Fetch outstanding returnable quantity for department
   useEffect(() => {
@@ -378,16 +396,60 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Dispatched To */}
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><User className="h-3 w-3" /> Issued To *</label>
-              <input
-                type="text"
-                required
-                placeholder="Person's name or ID"
-                value={formData.dispatched_to}
-                onChange={(e) => update('dispatched_to', e.target.value)}
-                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-slate-500/10"
-              />
+            <div className="md:col-span-2 space-y-2 relative">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                <User className="h-3 w-3" /> Issued To *
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  placeholder="Type name to search..."
+                  value={formData.dispatched_to}
+                  onChange={(e) => update('dispatched_to', e.target.value)}
+                  onFocus={() => setShowEmployeeSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowEmployeeSuggestions(false), 200)}
+                  className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-slate-500/10"
+                />
+                
+                {showEmployeeSuggestions && (
+                  <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-3xl shadow-2xl max-h-60 overflow-y-auto overflow-x-hidden p-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="px-4 py-2 border-b border-slate-50 mb-1">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Employee</p>
+                    </div>
+                    {employeeList
+                      .filter(emp => emp.full_name.toLowerCase().includes(formData.dispatched_to.toLowerCase()))
+                      .map(emp => (
+                        <button
+                          key={emp.id}
+                          type="button"
+                          onClick={() => {
+                            update('dispatched_to', emp.full_name);
+                            setShowEmployeeSuggestions(false);
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group transition-all rounded-2xl"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs group-hover:bg-slate-900 group-hover:text-emerald-400 transition-colors">
+                               {emp.full_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                               <p className="font-bold text-slate-900 text-sm">{emp.full_name}</p>
+                               {emp.employee_id && <p className="text-[10px] font-medium text-slate-400">ID: {emp.employee_id}</p>}
+                            </div>
+                          </div>
+                          <Plus className="w-4 h-4 text-slate-200 group-hover:text-emerald-500 transition-colors" />
+                        </button>
+                      ))}
+                    
+                    {formData.dispatched_to && !employeeList.some(e => e.full_name.toLowerCase() === formData.dispatched_to.toLowerCase()) && (
+                      <div className="p-4 text-center">
+                        <p className="text-[10px] font-bold text-slate-400 italic">User not in system. Press enter to use custom name.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Department */}
