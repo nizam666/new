@@ -42,16 +42,18 @@ export async function fetchQuarryBalances(): Promise<Record<string, QuarryBalanc
 
     if (dispError) throw dispError;
 
-    // 2. Fetch consumption data from all 3 operation tables
-    const [drillingRes, loadingRes, blastingRes] = await Promise.all([
+    // 2. Fetch consumption data from all 4 operation sources
+    const [drillingRes, loadingRes, blastingRes, transportDieselRes] = await Promise.all([
       supabase.from('drilling_records').select('diesel_consumed'),
       supabase.from('loading_records').select('quantity_loaded'),
-      supabase.from('blasting_records').select('pg_nos, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos')
+      supabase.from('blasting_records').select('pg_nos, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos'),
+      supabase.from('transport_diesel_records').select('diesel_liters')
     ]);
 
     const globalConsumed = {
       diesel: (drillingRes.data || []).reduce((sum, r) => sum + (Number(r.diesel_consumed) || 0), 0) +
-              (loadingRes.data || []).reduce((sum, r) => sum + (Number(r.quantity_loaded) || 0), 0),
+              (loadingRes.data || []).reduce((sum, r) => sum + (Number(r.quantity_loaded) || 0), 0) +
+              (transportDieselRes.data || []).reduce((sum, r) => sum + (Number(r.diesel_liters) || 0), 0),
       pg: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.pg_nos) || 0), 0),
       ed: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.ed_nos) || 0), 0),
       edet: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.edet_nos) || 0), 0),

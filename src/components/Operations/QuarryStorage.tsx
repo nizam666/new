@@ -66,15 +66,17 @@ export function QuarryStorage() {
       if (error) throw error;
 
       // 2. Fetch consumption data from operations
-      const [drillingRes, loadingRes, blastingRes] = await Promise.all([
+      const [drillingRes, loadingRes, blastingRes, transportDieselRes] = await Promise.all([
         supabase.from('drilling_records').select('id, date, diesel_consumed'),
         supabase.from('loading_records').select('id, date, quantity_loaded'),
-        supabase.from('blasting_records').select('id, date, pg_nos, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos')
+        supabase.from('blasting_records').select('id, date, pg_nos, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos'),
+        supabase.from('transport_diesel_records').select('id, date, diesel_liters, vehicle_number')
       ]);
 
       const globalConsumed = {
         diesel: (drillingRes.data || []).reduce((sum, r) => sum + (Number(r.diesel_consumed) || 0), 0) +
-                (loadingRes.data || []).reduce((sum, r) => sum + (Number(r.quantity_loaded) || 0), 0),
+                (loadingRes.data || []).reduce((sum, r) => sum + (Number(r.quantity_loaded) || 0), 0) +
+                (transportDieselRes.data || []).reduce((sum, r) => sum + (Number(r.diesel_liters) || 0), 0),
         pg: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.pg_nos) || 0), 0),
         ed: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.ed_nos) || 0), 0),
         edet: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.edet_nos) || 0), 0),
@@ -85,7 +87,8 @@ export function QuarryStorage() {
       const usedHistoryMap = {
         diesel: [
           ...(drillingRes.data || []).filter(r => r.diesel_consumed > 0).map(r => ({ id: `drill-${r.id || Math.random()}`, date: r.date, quantity: Number(r.diesel_consumed), operation_type: 'Drilling Operation' })),
-          ...(loadingRes.data || []).filter(r => r.quantity_loaded > 0).map(r => ({ id: `load-${r.id || Math.random()}`, date: r.date, quantity: Number(r.quantity_loaded), operation_type: 'Excavator/Loading' }))
+          ...(loadingRes.data || []).filter(r => r.quantity_loaded > 0).map(r => ({ id: `load-${r.id || Math.random()}`, date: r.date, quantity: Number(r.quantity_loaded), operation_type: 'Excavator/Loading' })),
+          ...(transportDieselRes.data || []).filter(r => r.diesel_liters > 0).map(r => ({ id: `transport-${r.id || Math.random()}`, date: r.date, quantity: Number(r.diesel_liters), operation_type: `Transport (${r.vehicle_number})` }))
         ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
         pg: (blastingRes.data || []).filter(r => r.pg_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.pg_nos), operation_type: 'Blasting' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
         ed: (blastingRes.data || []).filter(r => r.ed_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.ed_nos), operation_type: 'Blasting' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
