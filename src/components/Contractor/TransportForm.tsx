@@ -81,12 +81,16 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [recentVehicles, setRecentVehicles] = useState<{number: string, type: string}[]>([]);
   const [dieselStock, setDieselStock] = useState<number | null>(null);
+  const [dieselForm, setDieselForm] = useState({ date: new Date().toISOString().split('T')[0], vehicle_number: '', diesel: '' });
+  const [dieselLoading, setDieselLoading] = useState(false);
+  const [recentDieselRecords, setRecentDieselRecords] = useState<any[]>([]);
   
   useEffect(() => {
     if (user) {
       fetchNextTripRef();
       fetchRecentVehicles();
       fetchStock();
+      fetchRecentDiesel();
     }
   }, [user]);
 
@@ -94,6 +98,50 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     const balances = await fetchQuarryBalances();
     if (balances['diesel']) {
       setDieselStock(balances['diesel'].remaining);
+    }
+  };
+
+  const fetchRecentDiesel = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from('transport_diesel_records')
+        .select('*')
+        .eq('contractor_id', user.id)
+        .order('date', { ascending: false })
+        .limit(10);
+      setRecentDieselRecords(data || []);
+    } catch (err) {
+      console.error('Error fetching diesel records:', err);
+    }
+  };
+
+  const handleSaveDiesel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (!dieselForm.vehicle_number.trim() || !dieselForm.diesel.trim()) {
+      alert('Please fill Vehicle No and Diesel amount.');
+      return;
+    }
+    setDieselLoading(true);
+    try {
+      const { error } = await supabase
+        .from('transport_diesel_records')
+        .insert([{
+          contractor_id: user.id,
+          date: dieselForm.date,
+          vehicle_number: dieselForm.vehicle_number.toUpperCase().replace(/\s/g, ''),
+          diesel_liters: parseFloat(dieselForm.diesel) || 0,
+          created_at: new Date().toISOString()
+        }]);
+      if (error) throw error;
+      alert('Diesel record saved!');
+      setDieselForm({ date: new Date().toISOString().split('T')[0], vehicle_number: '', diesel: '' });
+      fetchRecentDiesel();
+    } catch (err: any) {
+      alert('Error saving diesel record: ' + (err.message || 'unknown error'));
+    } finally {
+      setDieselLoading(false);
     }
   };
 
@@ -933,6 +981,112 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         </button>
       </div>
       </form>
+
+      {/* ── Diesel Record Section ─────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 22h18M4 9h1m5 0h1m5 0h1M4 5h16a1 1 0 0 1 1 1v3H3V6a1 1 0 0 1 1-1ZM9 22V9m6 13V9"/><path d="m14 6-2-3-2 3"/></svg>
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Diesel Record</h3>
+            <p className="text-xs text-slate-500">Log diesel filled per vehicle trip</p>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <form onSubmit={handleSaveDiesel} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+            {/* Date */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Date</label>
+              <input
+                type="date"
+                value={dieselForm.date}
+                onChange={e => setDieselForm({ ...dieselForm, date: e.target.value })}
+                required
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-medium"
+              />
+            </div>
+
+            {/* Vehicle No */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Vehicle No</label>
+              <input
+                type="text"
+                value={dieselForm.vehicle_number}
+                onChange={e => setDieselForm({ ...dieselForm, vehicle_number: e.target.value.toUpperCase().replace(/\s/g, '') })}
+                required
+                placeholder="TN00AB0000"
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-bold uppercase"
+              />
+            </div>
+
+            {/* Diesel */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>Diesel (L)</span>
+                {dieselStock !== null && (
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${dieselStock <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                    Avail: {dieselStock.toFixed(1)} L
+                  </span>
+                )}
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={dieselForm.diesel}
+                  onChange={e => setDieselForm({ ...dieselForm, diesel: e.target.value })}
+                  required
+                  placeholder="0.0"
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-bold pr-8 ${
+                    dieselStock !== null && parseFloat(dieselForm.diesel) > dieselStock ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                  }`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">L</span>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div>
+              <button
+                type="submit"
+                disabled={dieselLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 font-bold text-sm shadow-sm shadow-red-200"
+              >
+                <Save className="w-4 h-4" />
+                {dieselLoading ? 'Saving...' : 'Save Diesel'}
+              </button>
+            </div>
+          </form>
+
+          {/* Recent Diesel Records */}
+          {recentDieselRecords.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Recent Diesel Records</h4>
+              <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
+                <div className="grid grid-cols-3 bg-slate-100 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span>Date</span>
+                  <span>Vehicle No</span>
+                  <span className="text-right">Diesel (L)</span>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                  {recentDieselRecords.map((rec, i) => (
+                    <div key={rec.id || i} className="grid grid-cols-3 px-4 py-3 text-sm items-center hover:bg-white transition-colors">
+                      <span className="font-medium text-slate-700">
+                        {new Date(rec.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span className="font-bold text-slate-900 font-mono text-xs">{rec.vehicle_number}</span>
+                      <span className="text-right font-black text-red-600">{parseFloat(rec.diesel_liters).toFixed(1)} L</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ── Monthly Transport Summary ─────────────────────────────────────── */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-8">
