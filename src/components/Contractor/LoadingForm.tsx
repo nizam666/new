@@ -171,6 +171,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
       });
 
       toast.success('Excavator breaking/loading record submitted successfully!', { position: 'top-right' });
+      fetchStock(); // Refresh stock level
       if (onSuccess) onSuccess();
     } catch (error: any) {
       console.error('Loading record submission error:', error);
@@ -404,7 +405,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
         <div className="pt-4 sm:pt-6">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (dieselStock !== null && parseFloat(formData.diesel) > dieselStock)}
             className="w-full flex items-center justify-center gap-3 px-8 py-4 sm:py-5 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-black text-sm sm:text-lg uppercase tracking-widest rounded-2xl sm:rounded-3xl hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-8 focus:ring-green-500/10 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-green-200"
           >
             {loading ? (

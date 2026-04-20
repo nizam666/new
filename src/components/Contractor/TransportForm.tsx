@@ -126,13 +126,24 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     }
     setDieselLoading(true);
     try {
+      // 🚨 Strict Stock Validation 🚨
+      const balances = await fetchQuarryBalances();
+      const available = balances['diesel']?.remaining || 0;
+      const requested = parseFloat(dieselForm.diesel) || 0;
+
+      if (requested > available) {
+        setDieselLoading(false);
+        alert(`Insufficient Diesel stock. Available: ${available.toFixed(1)} L, Requested: ${requested} L`);
+        return;
+      }
+
       const { error } = await supabase
         .from('transport_diesel_records')
         .insert([{
           contractor_id: user.id,
           date: dieselForm.date,
           vehicle_number: dieselForm.vehicle_number.toUpperCase().replace(/\s/g, ''),
-          diesel_liters: parseFloat(dieselForm.diesel) || 0,
+          diesel_liters: requested,
           created_at: new Date().toISOString()
         }]);
       if (error) throw error;
@@ -972,16 +983,14 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
       </div>
 
-      <div className="mt-6 flex justify-end">
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (dieselStock !== null && parseFloat(formData.fuel_consumed) > dieselStock)}
           className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           {loading ? 'Saving...' : 'Save Record'}
         </button>
-      </div>
       </form>
 
       {/* ── Diesel Record Section ─────────────────────────────────────────── */}
@@ -1096,7 +1105,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             <div>
               <button
                 type="submit"
-                disabled={dieselLoading}
+                disabled={dieselLoading || (dieselStock !== null && parseFloat(dieselForm.diesel) > dieselStock)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 font-bold text-sm shadow-sm shadow-red-200"
               >
                 <Save className="w-4 h-4" />

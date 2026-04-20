@@ -234,6 +234,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
       setRodMeasurements(INITIAL_ROD_STATE);
       toast.success('Drilling record saved successfully!');
       fetchMonthlyStats();
+      fetchStock(); // Refresh stock level
       if (onSuccess) onSuccess();
     } catch (err) {
       console.error('Drilling save error:', err);
@@ -481,7 +482,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
         <div className="flex justify-end pt-2 pb-6 border-b border-slate-200">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (dieselStock !== null && parseFloat(formData.diesel_consumed) > dieselStock)}
             className="flex items-center gap-2 px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg sm:rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 font-semibold text-xs sm:text-sm shadow-md shadow-blue-600/20"
           >
             <Save className="w-4 sm:w-5 h-4 sm:h-5" />
