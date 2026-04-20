@@ -84,6 +84,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const [dieselForm, setDieselForm] = useState({ date: new Date().toISOString().split('T')[0], vehicle_number: '', diesel: '' });
   const [dieselLoading, setDieselLoading] = useState(false);
   const [recentDieselRecords, setRecentDieselRecords] = useState<any[]>([]);
+  const [showDieselSuggestions, setShowDieselSuggestions] = useState(false);
   
   useEffect(() => {
     if (user) {
@@ -1009,16 +1010,58 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
 
             {/* Vehicle No */}
-            <div>
+            <div className="relative">
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Vehicle No</label>
-              <input
-                type="text"
-                value={dieselForm.vehicle_number}
-                onChange={e => setDieselForm({ ...dieselForm, vehicle_number: e.target.value.toUpperCase().replace(/\s/g, '') })}
-                required
-                placeholder="TN00AB0000"
-                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-bold uppercase"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={dieselForm.vehicle_number}
+                  onChange={e => setDieselForm({ ...dieselForm, vehicle_number: e.target.value.toUpperCase().replace(/\s/g, '') })}
+                  onFocus={() => setShowDieselSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowDieselSuggestions(false), 200)}
+                  required
+                  placeholder="TN00AB0000"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-bold uppercase"
+                />
+                {showDieselSuggestions && recentVehicles.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    {recentVehicles
+                      .filter(v => v.number.toLowerCase().includes(dieselForm.vehicle_number.toLowerCase()))
+                      .map(v => (
+                        <button
+                          key={v.number}
+                          type="button"
+                          className="w-full px-4 py-2.5 text-left hover:bg-red-50 flex items-center justify-between border-b border-slate-50 last:border-0"
+                          onClick={() => {
+                            setDieselForm({ ...dieselForm, vehicle_number: v.number });
+                            setShowDieselSuggestions(false);
+                          }}
+                        >
+                          <span className="font-bold text-slate-900">{v.number}</span>
+                          <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase">{v.type}</span>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+              
+              {recentVehicles.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex flex-wrap gap-1">
+                    {recentVehicles.slice(0, 3).map((v: {number: string, type: string}) => (
+                      <button
+                        key={v.number}
+                        type="button"
+                        onClick={() => setDieselForm({ ...dieselForm, vehicle_number: v.number })}
+                        className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all flex items-center gap-1 active:scale-95"
+                      >
+                        <Truck className="w-2.5 h-2.5 opacity-60" />
+                        {v.number}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Diesel */}
