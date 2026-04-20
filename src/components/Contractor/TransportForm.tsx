@@ -143,6 +143,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       alert('Error saving diesel record: ' + (err.message || 'unknown error'));
     } finally {
       setDieselLoading(false);
+      fetchStock(); // Refresh stock after saving usage
     }
   };
 
@@ -1104,30 +1105,51 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
           </form>
 
-          {/* Recent Diesel Records */}
-          {recentDieselRecords.length > 0 && (
-            <div className="mt-6">
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Recent Diesel Records</h4>
-              <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
-                <div className="grid grid-cols-3 bg-slate-100 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          {/* Recent Diesel Logs & Stock Status */}
+          <div className="mt-8 space-y-6">
+            {recentDieselRecords.length > 0 && (
+              <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-inner">
+                <div className="px-4 py-3 bg-slate-100/50 border-b border-slate-200 flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    Last 10 Usage Logs
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-slate-400 capitalize">Quarry Store Balance:</span>
+                    <span className={`text-[11px] font-black px-2 py-0.5 rounded ${dieselStock !== null && dieselStock < 100 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                      {dieselStock !== null ? dieselStock.toFixed(1) : '---'} L
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 bg-slate-50/80 px-4 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                   <span>Date</span>
                   <span>Vehicle No</span>
-                  <span className="text-right">Diesel (L)</span>
+                  <span className="text-right">Quantity</span>
                 </div>
-                <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
                   {recentDieselRecords.map((rec, i) => (
-                    <div key={rec.id || i} className="grid grid-cols-3 px-4 py-3 text-sm items-center hover:bg-white transition-colors">
-                      <span className="font-medium text-slate-700">
+                    <div key={rec.id || i} className="grid grid-cols-3 px-4 py-3 text-xs items-center hover:bg-white transition-colors group">
+                      <span className="font-bold text-slate-500">
                         {new Date(rec.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
-                      <span className="font-bold text-slate-900 font-mono text-xs">{rec.vehicle_number}</span>
-                      <span className="text-right font-black text-red-600">{parseFloat(rec.diesel_liters).toFixed(1)} L</span>
+                      <span className="font-black text-slate-900 font-mono group-hover:text-red-600 transition-colors uppercase tracking-tight">
+                        {rec.vehicle_number}
+                      </span>
+                      <span className="text-right font-black text-red-600 text-sm">
+                        {parseFloat(rec.diesel_liters).toFixed(1)} <span className="text-[10px] opacity-60">L</span>
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-          )}
+            )}
+            
+            {recentDieselRecords.length === 0 && (
+              <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No diesel logs found for your account</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
