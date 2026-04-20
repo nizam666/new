@@ -44,7 +44,6 @@ const ACCESS_MODULES = [
       { key: 'loading', label: 'Breaking / Loading', icon: ClipboardCheck },
       { key: 'transport', label: 'Transport', icon: Truck },
       { key: 'quarry_attendance', label: 'Quarry Attendance', icon: Clock },
-      { key: 'quarry_jcb', label: 'JCB Operations', icon: Truck },
       { key: 'quarry_storage', label: 'Storage Management', icon: Database },
     ]
   },

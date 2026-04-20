@@ -43,7 +43,6 @@ export const DIRECTOR_NAV: MenuItem[] = [
             { name: 'Breaking/Loading', icon: ClipboardCheck, href: '#loading' },
             { name: 'Transport', icon: Truck, href: '#transport' },
             { name: 'Attendance', icon: Clock, href: '#quarry-attendance' },
-            { name: 'JCB Operations', icon: Truck, href: '#quarry-jcb-operations' },
             { name: 'Storage Management', icon: Database, href: '#quarry-storage-management' },
         ]
     },
