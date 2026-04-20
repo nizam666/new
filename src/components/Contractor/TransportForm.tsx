@@ -74,8 +74,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const [summaryMonth, setSummaryMonth] = useState(now.getMonth());
   const [summaryYear, setSummaryYear] = useState(now.getFullYear());
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryRows, setSummaryRows] = useState<any[]>([]);
-  const [summaryTotals, setSummaryTotals] = useState({ fuel: 0, quantity: 0, trips: 0 });
+  const [summaryRows, setSummaryRows] = useState<any[]>([]); // Detailed
+  const [dailySummaryRows, setDailySummaryRows] = useState<any[]>([]); // Aggregated
+  const [summaryTotals, setSummaryTotals] = useState({ fuel: 0, quantity: 0, trips: 0, gross: 0, empty: 0, qc: 0, qs: 0, sc: 0, soil: 0, wr: 0, ar: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
   const [recentVehicles, setRecentVehicles] = useState<{number: string, type: string}[]>([]);
   
@@ -98,10 +99,15 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const fetchNextTripRef = async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('transport_records')
-        .select('trip_ref')
-        .eq('contractor_id', user.id)
+        .select('trip_ref');
+
+      if (user.role !== 'director' && user.role !== 'manager') {
+        query = query.eq('contractor_id', user.id);
+      }
+
+      const { data, error } = await query
         .order('trip_ref', { ascending: false })
         .limit(50); // Get a batch to find the highest numeric part
 
@@ -137,10 +143,15 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const fetchRecentVehicles = async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('transport_records')
-        .select('vehicle_number, vehicle_type')
-        .eq('contractor_id', user.id)
+        .select('vehicle_number, vehicle_type');
+
+      if (user.role !== 'director' && user.role !== 'manager') {
+        query = query.eq('contractor_id', user.id);
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -167,46 +178,58 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     if (!user) return;
     setSummaryLoading(true);
     try {
-      const firstDay = new Date(summaryYear, summaryMonth, 1);
-      const lastDay = new Date(summaryYear, summaryMonth + 1, 0);
-      const fromStr = firstDay.toISOString().split('T')[0];
-      const toStr = lastDay.toISOString().split('T')[0];
-
-      const { data, error } = await supabase
+      const fromStr = `${summaryYear}-${(summaryMonth + 1).toString().padStart(2, '0')}-01`;
+      const lastDayDate = new Date(summaryYear, summaryMonth + 1, 0).getDate();
+      const toStr = `${summaryYear}-${(summaryMonth + 1).toString().padStart(2, '0')}-${lastDayDate.toString().padStart(2, '0')}`;
+      
+      let query = supabase
         .from('transport_records')
-        .select('date, fuel_consumed, quantity, number_of_trips, from_location, to_location, material_transported')
-        .eq('contractor_id', user.id)
+        .select('*');
+
+      // Directors and Managers should see all records; others only see their own
+      if (user.role !== 'director' && user.role !== 'manager') {
+        query = query.eq('contractor_id', user.id);
+      }
+
+      const { data, error } = await query
         .gte('date', fromStr)
         .lte('date', toStr)
-        .order('date', { ascending: true });
+        .order('date', { ascending: false });
 
       if (error) throw error;
 
       if (data) {
-        // Group by date
-        const grouped: Record<string, any> = {};
         let totalFuel = 0, totalQty = 0, totalTrips = 0;
+        let totalGross = 0, totalEmpty = 0;
         let totalQC = 0, totalQS = 0, totalSC = 0;
         let totalSoil = 0, totalWR = 0, totalAR = 0;
 
-        data.forEach(row => {
-          if (!grouped[row.date]) {
-            grouped[row.date] = { 
-              date: row.date, 
-              fuel: 0, qty: 0, trips: 0,
-              qc: 0, qs: 0, sc: 0,
-              soil: 0, wr: 0, ar: 0
-            };
-          }
+        const grouped: Record<string, any> = {};
+ 
+        const processed = data.map(row => {
           const f = parseFloat(row.fuel_consumed) || 0;
           const q = parseFloat(row.quantity) || 0;
-          const t = parseInt(row.number_of_trips) || 0;
+          const g = parseFloat(row.gross_weight) || 0;
+          const e = parseFloat(row.empty_vehicle_weight) || 0;
+          const t = parseInt(row.number_of_trips) || 1;
+ 
+          totalFuel += f;
+          totalQty += q;
+          totalTrips += t;
+          totalGross += g;
+          totalEmpty += e;
 
+          // Aggregation logic
+          if (!grouped[row.date]) {
+            grouped[row.date] = { 
+              date: row.date, fuel: 0, qty: 0, trips: 0,
+              qc: 0, qs: 0, sc: 0, soil: 0, wr: 0, ar: 0
+            };
+          }
           grouped[row.date].fuel += f;
           grouped[row.date].qty += q;
           grouped[row.date].trips += t;
 
-          // Categorize
           if (row.from_location === 'Quarry' && row.to_location === 'Crusher') {
             grouped[row.date].qc += t;
             totalQC += t;
@@ -229,17 +252,28 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             totalAR += t;
           }
 
-          totalFuel += f;
-          totalQty += q;
-          totalTrips += t;
+          // Extract Excel S.No from notes if present
+          let excelSno = '-';
+          if (row.notes && row.notes.includes('Excel S.No:')) {
+            const parts = row.notes.split('|');
+            const snoPart = parts.find((p: string) => p.includes('Excel S.No:'));
+            if (snoPart) {
+              const val = snoPart.replace('Excel S.No:', '').trim();
+              excelSno = (val === 'N/A' || !val) ? '-' : val;
+            }
+          }
+ 
+          return { ...row, excelSno, fuel: f, qty: q, gross: g, empty: e };
         });
-
-        setSummaryRows(Object.values(grouped));
+ 
+        setSummaryRows(processed);
+        setDailySummaryRows(Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)));
         setSummaryTotals({ 
           fuel: totalFuel, quantity: totalQty, trips: totalTrips,
+          gross: totalGross, empty: totalEmpty,
           qc: totalQC, qs: totalQS, sc: totalSC,
           soil: totalSoil, wr: totalWR, ar: totalAR
-        } as any);
+        });
       }
     } catch (err) {
       console.error('Error fetching summary:', err);
@@ -325,45 +359,75 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           const recordsToInsert: any[] = [];
 
           data.forEach((row: any) => {
-            const partyName = row['Party Name']?.toString().trim();
+            const getVal = (keys: string[]) => {
+              const foundKey = Object.keys(row).find(k => 
+                keys.some(tk => k.toLowerCase().trim() === tk.toLowerCase())
+              );
+              return foundKey ? row[foundKey] : null;
+            };
+
+            const partyName = (getVal(['Party Name']) || '').toString().trim();
             
-            // STRICT FILTER: Only accept KVSS Q TO C
-            if (partyName !== 'KVSS Q TO C') {
-              return; // Skip other parties silently or log if needed
+            // STRICT FILTER: Accept KVSS Q TO C and KVSS Q TO S
+            if (partyName !== 'KVSS Q TO C' && partyName !== 'KVSS Q TO S') {
+              return; // Skip other parties
             }
 
-            // Parse Date from "Gross Date Time" (expected DD/MM/YYYY ...)
+            // ── Robust Date Parsing ──────────────────────────────────────────
             let date = new Date().toISOString().split('T')[0];
-            const rawDateTime = row['Gross Date Time']?.toString();
-            if (rawDateTime) {
-              const part = rawDateTime.split(' ')[0]; // Get DD/MM/YYYY
-              const [d, m, y] = part.split('/');
-              if (d && m && y) {
-                date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            const rawDateVal = getVal(['Gross Date', 'Gross Date Time', 'Date', 'Trip Date', 'Entry Date']);
+            
+            if (rawDateVal) {
+              if (rawDateVal instanceof Date) {
+                // Native JS Date
+                date = rawDateVal.toISOString().split('T')[0];
+              } else if (typeof rawDateVal === 'number') {
+                // Excel Serial Date (e.g., 45402)
+                const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                const convertedDate = new Date(excelEpoch.getTime() + rawDateVal * 86400000);
+                date = convertedDate.toISOString().split('T')[0];
+              } else {
+                // String format
+                const part = rawDateVal.toString().trim().split(' ')[0];
+                if (part.includes('/')) {
+                  const [d, m, y] = part.split('/');
+                  if (d && m && y) {
+                    const year = y.length === 2 ? `20${y}` : y;
+                    date = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                  }
+                } else if (part.includes('-')) {
+                  date = part;
+                }
               }
             }
+            // ─────────────────────────────────────────────────────────────────
+
+            // Sequential ID
+            const currentTripRef = `TRP-${(nextId++).toString().padStart(3, '0')}`;
+            const excelSNo = getVal(['S.No', 's.no', 'SNo', 'Sr.no', 'Sr No', 'Serial', 'SrNo', 'Sl.No', 'Sl No', 'S.No.', 'Sr.No.']);
 
             // Map fields and scale weights (KG to Tons)
             recordsToInsert.push({
               contractor_id: user.id,
               date: date,
-              vehicle_number: row['Vehicle No']?.toString().toUpperCase().replace(/\s/g, ''),
-              vehicle_type: 'Truck', // Defaulting based on format
-              from_location: 'Quarry', // Defaulting based on context
-              to_location: 'Crusher', // Defaulting based on context
-              material_transported: 'Good Boulders', // Defaulting based on screenshot "BOULDERS"
-              gross_weight: (parseFloat(row['Load Weight']) || 0) / 1000,
-              empty_vehicle_weight: (parseFloat(row['Empty Weight']) || 0) / 1000,
-              quantity: (parseFloat(row['Net Weight']) || 0) / 1000,
-              party_name: 'KVSS Q TO C',
-              trip_ref: `TRP-${(nextId++).toString().padStart(3, '0')}`,
+              vehicle_number: (getVal(['Vehicle No', 'Vehicle Number']) || '').toString().toUpperCase().replace(/\s/g, ''),
+              vehicle_type: 'Truck',
+              from_location: 'Quarry',
+              to_location: partyName === 'KVSS Q TO C' ? 'Crusher' : 'Stockyard',
+              material_transported: 'Good Boulders',
+              gross_weight: (parseFloat(getVal(['Load Weight', 'Gross Weight']) || '0')) / 1000,
+              empty_vehicle_weight: (parseFloat(getVal(['Empty Weight']) || '0')) / 1000,
+              quantity: (parseFloat(getVal(['Net Weight', 'Quantity']) || '0')) / 1000,
+              party_name: partyName,
+              trip_ref: currentTripRef,
               status: 'pending',
-              number_of_trips: 1
+              number_of_trips: 1,
+              notes: `Excel S.No: ${excelSNo || 'N/A'} | System Ref: ${currentTripRef}`
             });
           });
 
           if (recordsToInsert.length === 0) {
-            alert('No valid records found for "KVSS Q TO C" in this file.');
+            alert('No valid records found for "KVSS Q TO C" or "KVSS Q TO S" in this file.');
             setLoading(false);
             return;
           }
@@ -375,7 +439,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           if (insertError) throw insertError;
 
           alert(`Successfully uploaded ${recordsToInsert.length} records!`);
-          setRefreshKey(prev => prev + 1);
+          setRefreshKey(prev => prev + 1); // Trigger summary refresh
           fetchNextTripRef();
         } catch (err: any) {
           console.error('Bulk upload processing error:', err);
@@ -515,6 +579,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Auto-converts Kilograms to Tons (e.g., 35310 → 35.31)</li>
                 <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Enforces "KVSS Q TO C" Party Name strict filter</li>
                 <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Sequences sequential Trip IDs from latest record</li>
+                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Preserves Excel S.No and System sequence in records</li>
               </ul>
             </div>
           </div>
@@ -883,55 +948,107 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             <p className="font-medium">No records found for this month</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-3 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                  <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">Q➔C</th>
-                  <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">Q➔S</th>
-                  <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">S➔C</th>
-                  <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider border-l border-slate-200">Soil</th>
-                  <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">W.Rock</th>
-                  <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">Agg.Reh</th>
-                  <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Diesel</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {summaryRows.map((row: any, idx: number) => (
-                  <tr key={row.date} className={`hover:bg-slate-50 transition-colors ${idx % 2 !== 0 ? 'bg-slate-50/40' : ''}`}>
-                    <td className="px-3 py-3 text-xs font-medium text-slate-900 whitespace-nowrap">
-                      {new Date(row.date + 'T00:00:00').toLocaleDateString('en-IN', {
-                        day: '2-digit', month: 'short',
-                      })}
-                    </td>
-                    <td className="px-2 py-3 text-xs text-center text-slate-600 border-l border-slate-100">{row.qc || '-'}</td>
-                    <td className="px-2 py-3 text-xs text-center text-slate-600">{row.qs || '-'}</td>
-                    <td className="px-2 py-3 text-xs text-center text-slate-600">{row.sc || '-'}</td>
-                    <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium border-l border-slate-100">{row.soil || '-'}</td>
-                    <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.wr || '-'}</td>
-                    <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.ar || '-'}</td>
-                    <td className="px-3 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.fuel.toFixed(1)}</td>
+          <div className="space-y-12">
+            {/* 1. Daily Trip Summary (Restored Aggregated View) */}
+            <div className="overflow-x-auto">
+              <div className="px-3 py-2 bg-slate-50 border-y border-slate-200">
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">1. Daily Trip Summary (Aggregated)</h4>
+              </div>
+              <table className="min-w-full">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="px-3 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">Q➔C</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">Q➔S</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">S➔C</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider border-l border-slate-200">Soil</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">W.Rock</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">Agg.Reh</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Qty (T)</th>
+                    <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Diesel</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-purple-50 border-t-2 border-purple-200">
-                  <td className="px-3 py-3 text-[10px] font-black text-purple-900 uppercase">
-                    TOTALS
-                  </td>
-                  <td className="px-2 py-3 text-center text-xs font-bold text-purple-900 border-l border-purple-100">{(summaryTotals as any).qc}</td>
-                  <td className="px-2 py-3 text-center text-xs font-bold text-purple-900">{(summaryTotals as any).qs}</td>
-                  <td className="px-2 py-3 text-center text-xs font-bold text-purple-900">{(summaryTotals as any).sc}</td>
-                  <td className="px-2 py-3 text-center text-xs font-bold text-blue-800 border-l border-purple-100">{(summaryTotals as any).soil}</td>
-                  <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{(summaryTotals as any).wr}</td>
-                  <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{(summaryTotals as any).ar}</td>
-                  <td className="px-3 py-3 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.fuel.toFixed(1)}</td>
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {dailySummaryRows.map((row: any, idx: number) => (
+                    <tr key={row.date} className={`hover:bg-slate-50 transition-colors ${idx % 2 !== 0 ? 'bg-slate-50/40' : ''}`}>
+                      <td className="px-3 py-3 text-xs font-medium text-slate-900 whitespace-nowrap">
+                        {new Date(row.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                      </td>
+                      <td className="px-2 py-3 text-xs text-center text-slate-600 border-l border-slate-100">{row.qc || '-'}</td>
+                      <td className="px-2 py-3 text-xs text-center text-slate-600">{row.qs || '-'}</td>
+                      <td className="px-2 py-3 text-xs text-center text-slate-600">{row.sc || '-'}</td>
+                      <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium border-l border-slate-100">{row.soil || '-'}</td>
+                      <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.wr || '-'}</td>
+                      <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.ar || '-'}</td>
+                      <td className="px-2 py-3 text-xs text-right text-slate-600 border-l border-slate-100 font-bold">{row.qty.toFixed(2)}</td>
+                      <td className="px-3 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.fuel.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-purple-50 border-t-2 border-purple-200">
+                    <td className="px-3 py-3 text-[10px] font-black text-purple-900 uppercase">TOTALS</td>
+                    <td className="px-2 py-3 text-center text-xs font-bold text-purple-900 border-l border-purple-100">{summaryTotals.qc}</td>
+                    <td className="px-2 py-3 text-center text-xs font-bold text-purple-900">{summaryTotals.qs}</td>
+                    <td className="px-2 py-3 text-center text-xs font-bold text-purple-900">{summaryTotals.sc}</td>
+                    <td className="px-2 py-3 text-center text-xs font-bold text-blue-800 border-l border-purple-100">{summaryTotals.soil}</td>
+                    <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{summaryTotals.wr}</td>
+                    <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{summaryTotals.ar}</td>
+                    <td className="px-2 py-3 text-right text-xs font-black text-slate-900 border-l border-purple-100">{summaryTotals.quantity.toFixed(2)}</td>
+                    <td className="px-3 py-3 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.fuel.toFixed(1)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* 2. Detailed Transport Ledger (Granular Weights) */}
+            <div className="overflow-x-auto">
+              <div className="px-3 py-2 bg-slate-50 border-y border-slate-200">
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">2. Detailed Transport Ledger (Record Level)</h4>
+              </div>
+              <table className="min-w-full">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="px-3 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gross Date</th>
+                    <th className="px-2 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Ref No.</th>
+                    <th className="px-2 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Excel S.No</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Vehicle No</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Load WT</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Empty WT</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">Net WT</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {summaryRows.map((row: any, idx: number) => (
+                    <tr key={row.id || idx} className={`hover:bg-slate-50 transition-colors ${idx % 2 !== 0 ? 'bg-slate-50/40' : ''}`}>
+                      <td className="px-3 py-3 text-xs font-semibold text-slate-900 whitespace-nowrap">
+                        {new Date(row.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="px-2 py-3 text-xs text-slate-600 border-l border-slate-100 font-mono">{row.trip_ref || '-'}</td>
+                      <td className="px-2 py-3 text-xs text-slate-600 font-medium">{row.excelSno || '-'}</td>
+                      <td className="px-2 py-3 text-xs text-center text-slate-900 font-bold border-l border-slate-100">{row.vehicle_number}</td>
+                      <td className="px-2 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.gross?.toFixed(2)}</td>
+                      <td className="px-2 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.empty?.toFixed(2)}</td>
+                      <td className="px-2 py-3 text-xs text-right text-purple-700 border-l border-slate-100 font-black">{row.qty?.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-purple-50 border-t-2 border-purple-200">
+                    <td colSpan={3} className="px-3 py-4 text-xs font-black text-purple-900 uppercase">
+                      Monthly Weight Totals
+                    </td>
+                    <td className="border-l border-purple-100"></td>
+                    <td className="px-2 py-4 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.gross.toFixed(2)}</td>
+                    <td className="px-2 py-4 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.empty.toFixed(2)}</td>
+                    <td className="px-2 py-4 text-right text-xs font-black text-purple-900 border-l border-purple-100 bg-purple-100/50">{summaryTotals.quantity.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
-        )}
+        )
+      }
       </div>
     </div>
   );

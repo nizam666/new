@@ -25,7 +25,8 @@ import {
   UploadCloud,
   Paperclip,
   Eye,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -119,6 +120,40 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
       toast.error('Failed to load financial ledger');
     } finally {
       setLedgerLoading(false);
+    }
+  };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (!window.confirm('Are you sure you want to PERMANENTLY delete this financial record? This cannot be undone and may affect vendor balances.')) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', transactionId);
+
+      if (error) {
+        if (error.message.includes('permission denied')) {
+          throw new Error('Access Denied: Only Directors can delete financial records.');
+        }
+        throw error;
+      }
+
+      toast.success('Transaction deleted successfully');
+      
+      // Refresh both the ledger and overall vendor list
+      if (viewingLedgerVendor) {
+        fetchVendorLedger(viewingLedgerVendor.company_name);
+      }
+      fetchData();
+    } catch (err) {
+      console.error('Delete Error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete transaction');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -220,6 +255,7 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
         }]);
 
       if (error) throw error;
+      const justRegistered = formData.company_name;
       toast.success('Vendor registered in official directory!');
       setFormData({
         company_name: '',
@@ -230,6 +266,15 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
         address: '',
       });
       setShowAddForm(false);
+      
+      // Auto-prepare and show bill entry for the new vendor
+      setBillData(prev => ({
+        ...prev,
+        vendor_name: justRegistered,
+        reference: generateBillReference(justRegistered)
+      }));
+      setShowBillForm(true);
+
       fetchData();
     } catch (err) {
       toast.error('Failed to register vendor: ' + (err instanceof Error ? err.message : 'Unknown error'));
@@ -1032,6 +1077,7 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
                                      <th className="px-6 py-4 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Debit (Bill)</th>
                                      <th className="px-6 py-4 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Credit (Pay)</th>
                                      <th className="px-6 py-4 text-center text-[9px] font-black uppercase tracking-widest text-slate-400">Digital Doc</th>
+                                     <th className="px-6 py-4 text-right text-[9px] font-black uppercase tracking-widest text-slate-400">Actions</th>
                                   </tr>
                                </thead>
                                <tbody className="divide-y divide-slate-50">
@@ -1063,6 +1109,15 @@ export function VendorManagement({ initialShowBillForm = false }: { initialShowB
                                            ) : (
                                              <span className="text-[9px] font-bold text-slate-300 uppercase italic">No Doc Attached</span>
                                            )}
+                                        </td>
+                                        <td className="px-6 py-5 text-right">
+                                           <button
+                                             onClick={() => handleDeleteTransaction(record.id)}
+                                             className="p-3 bg-rose-50 text-rose-400 hover:bg-rose-500 hover:text-white rounded-xl transition-all active:scale-95 group/del"
+                                             title="Delete Transaction"
+                                           >
+                                             <Trash2 className="h-4 w-4 group-hover/del:scale-110 transition-transform" />
+                                           </button>
                                         </td>
                                      </tr>
                                   ))}

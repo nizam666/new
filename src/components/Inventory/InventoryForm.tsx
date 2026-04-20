@@ -13,7 +13,9 @@ import {
   TrendingUp,
   Layers,
   FileText,
-  History
+  History,
+  X,
+  PackagePlus
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -73,8 +75,18 @@ const generateItemRefNo = (baseCount: number, index: number) => {
   return `ITEM-${year}-${sequence}`;
 };
 
+// ── Quick Ref No Generator: ITEM-DDMMYY-001 ──
+const generateQuickRefNo = () => {
+  const now = new Date();
+  const dd = now.getDate().toString().padStart(2, '0');
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+  const yy = now.getFullYear().toString().slice(-2);
+  const seq = Math.floor(Math.random() * 90 + 10).toString().padStart(3, '0'); // 010–099 range
+  return `ITEM-${dd}${mm}${yy}-${seq}`;
+};
+
 // ── Shared: Item Name Search Field ──
-const ItemNameField = ({ line, showSuggestions, suggestions, containerRef, onSearch, onFocus, onSelect, onHide, isExistingItem }: any) => (
+const ItemNameField = ({ line, showSuggestions, suggestions, containerRef, onSearch, onFocus, onSelect, onHide, isExistingItem, onRegisterItem }: any) => (
   <div className="relative" ref={containerRef}>
     <input
       type="text"
@@ -83,15 +95,28 @@ const ItemNameField = ({ line, showSuggestions, suggestions, containerRef, onSea
       onChange={(e) => onSearch(e.target.value)}
       onFocus={onFocus}
       placeholder="Search or add item..."
-      className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none focus:ring-4 focus:ring-emerald-500/10 text-slate-900 font-bold placeholder:text-slate-300 text-base"
+      className={`w-full px-5 py-4 rounded-2xl border-none focus:ring-4 text-slate-900 font-bold placeholder:text-slate-300 text-base transition-all ${
+        !isExistingItem && line.item_name.length >= 2
+          ? 'bg-amber-50 focus:ring-amber-400/20 ring-2 ring-amber-300'
+          : 'bg-slate-50 focus:ring-emerald-500/10'
+      }`}
     />
-    {!isExistingItem && line.item_name.length > 2 && (
-      <div className="absolute -top-3 -right-2 px-2 py-1 rounded-lg bg-emerald-500 text-white text-[8px] font-black uppercase shadow-lg animate-bounce z-10 flex items-center gap-1">
-        <Sparkles className="h-2 w-2" /> NEW
+    {/* NEW item indicator + quick register button */}
+    {!isExistingItem && line.item_name.length >= 2 && (
+      <div className="absolute top-full left-0 right-0 z-50 mt-2">
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); onRegisterItem(line.item_name); }}
+          className="w-full flex items-center gap-3 px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-xl transition-all active:scale-95 font-black text-sm"
+        >
+          <PackagePlus className="h-5 w-5" />
+          <span>Register &ldquo;{line.item_name}&rdquo; in Master Catalog</span>
+          <ChevronRight className="h-4 w-4 ml-auto" />
+        </button>
       </div>
     )}
     {showSuggestions && suggestions.length > 0 && (
-      <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+      <div className="absolute top-full left-0 right-0 z-40 mt-2 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
         {suggestions.map((item: MasterItem) => (
           <div
             key={item.id}
@@ -111,9 +136,9 @@ const ItemNameField = ({ line, showSuggestions, suggestions, containerRef, onSea
 );
 
 // ── Mobile Card Item ──
-const MobileItemCard = memo(({ index, line, masterItems, onUpdate, onRemove }: {
+const MobileItemCard = memo(({ index, line, masterItems, onUpdate, onRemove, onRegisterItem }: {
   index: number; line: LineItem; masterItems: MasterItem[];
-  onUpdate: (u: Partial<LineItem>) => void; onRemove: () => void;
+  onUpdate: (u: Partial<LineItem>) => void; onRemove: () => void; onRegisterItem: (name: string) => void;
 }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<MasterItem[]>([]);
@@ -164,6 +189,7 @@ const MobileItemCard = memo(({ index, line, masterItems, onUpdate, onRemove }: {
           }}
           onSelect={(item: MasterItem) => onUpdate({ item_name: item.name, category: item.category, unit: item.unit })}
           onHide={() => setShowSuggestions(false)}
+          onRegisterItem={onRegisterItem}
         />
       </div>
 
@@ -244,9 +270,9 @@ const MobileItemCard = memo(({ index, line, masterItems, onUpdate, onRemove }: {
 MobileItemCard.displayName = 'MobileItemCard';
 
 // ── Desktop Table Row ──
-const InventoryRow = memo(({ index, line, masterItems, onUpdate, onRemove }: {
+const InventoryRow = memo(({ index, line, masterItems, onUpdate, onRemove, onRegisterItem }: {
   index: number; line: LineItem; masterItems: MasterItem[];
-  onUpdate: (updates: Partial<LineItem>) => void; onRemove: () => void;
+  onUpdate: (updates: Partial<LineItem>) => void; onRemove: () => void; onRegisterItem: (name: string) => void;
 }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<MasterItem[]>([]);
@@ -289,6 +315,7 @@ const InventoryRow = memo(({ index, line, masterItems, onUpdate, onRemove }: {
           }}
           onSelect={(item: MasterItem) => onUpdate({ item_name: item.name, category: item.category, unit: item.unit })}
           onHide={() => setShowSuggestions(false)}
+          onRegisterItem={onRegisterItem}
         />
       </td>
       <td className="px-6 py-10 align-middle">
@@ -389,6 +416,45 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
   const [originalQty, setOriginalQty] = useState(0);
   const [billItems, setBillItems] = useState<any[]>([]);
 
+  // ── Quick Register new item state ──
+  const [quickRegister, setQuickRegister] = useState<{
+    show: boolean; name: string; category: string; unit: string; refNo: string; saving: boolean; lineIndex: number;
+  }>({ show: false, name: '', category: '', unit: '', refNo: '', saving: false, lineIndex: -1 });
+
+  const handleQuickRegister = async () => {
+    if (!quickRegister.name || !quickRegister.category || !quickRegister.unit) {
+      toast.warning('Please fill in Item Name, Category, and Unit');
+      return;
+    }
+    setQuickRegister(prev => ({ ...prev, saving: true }));
+    try {
+      const { error } = await supabase.from('master_items').upsert([{
+        name: quickRegister.name.trim(),
+        category: quickRegister.category,
+        unit: quickRegister.unit,
+        min_stock_level: 0,
+        description: ''
+      }], { onConflict: 'name' });
+      if (error) throw error;
+      toast.success(`"${quickRegister.name}" registered in Master Catalog!`);
+      // Refresh master items list
+      const { data: masterData } = await supabase.from('master_items').select('id, name, category, unit');
+      setMasterItems((masterData || []).map((m: any) => ({ id: m.id, name: m.name, category: m.category, unit: m.unit })));
+      // Auto-fill the triggering line item with Category, Unit and Ref No
+      if (quickRegister.lineIndex >= 0) {
+        updateItem(quickRegister.lineIndex, {
+          category: quickRegister.category,
+          unit: quickRegister.unit,
+          item_ref_no: quickRegister.refNo,
+        });
+      }
+      setQuickRegister({ show: false, name: '', category: '', unit: '', refNo: '', saving: false, lineIndex: -1 });
+    } catch (err: any) {
+      toast.error('Failed to register: ' + (err.message || 'Unknown error'));
+      setQuickRegister(prev => ({ ...prev, saving: false }));
+    }
+  };
+
   const fetchData = useCallback(async () => {
     if (!supabase) return;
     try {
@@ -399,37 +465,42 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       startOfMontObj.setHours(0, 0, 0, 0);
       const startOfMonth = startOfMontObj.toISOString();
 
+      // 1. Fetch all expenses for this month to calculate true Procurement Spend
+      const { data: monthBills } = await supabase
+        .from('accounts')
+        .select('amount')
+        .eq('transaction_type', 'expense')
+        .gte('transaction_date', startOfMonth.split('T')[0]);
+
+      const totalVal = (monthBills || []).reduce((acc, b) => acc + (parseFloat(b.amount) || 0), 0);
+
+      // 2. Fetch inventory items to calculate item count
       const { data: statsData } = await supabase
         .from('inventory_transactions')
-        .select(`
-          quantity,
-          notes,
-          inventory_items(item_name)
-        `)
+        .select('quantity')
         .eq('transaction_type', 'in')
         .gte('date', startOfMonth.split('T')[0]);
 
-      let totalVal = 0;
       let totalI = 0;
       (statsData || []).forEach(s => {
-        const rate = parseFloat(s.notes?.split('Rate: ')[1]) || 0;
-        totalVal += (s.quantity || 0) * rate;
         totalI += (s.quantity || 0);
       });
 
-      // Fetch pending bills from accounts
-      const { data: billsData } = await supabase
+      // 3. Fetch all expense bills for the selection dropdown (including closed ones for editing)
+      const { data: allBills } = await supabase
         .from('accounts')
         .select('*')
         .eq('transaction_type', 'expense')
-        .eq('status', 'pending');
+        .order('transaction_date', { ascending: false });
+
+      const pendingCount = (allBills || []).filter((b: any) => b.status === 'pending').length;
 
       setMonthlyStats({
         totalValue: totalVal,
         totalItems: totalI,
-        billCount: (billsData || []).length
+        billCount: pendingCount
       });
-      setPurchaseBills(billsData || []);
+      setPurchaseBills(allBills || []);
 
       // Fetch master items lookup
       const { data: masterData } = await supabase
@@ -491,7 +562,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
             inventory_items(item_name, unit)
           `)
           .eq('transaction_type', 'in')
-          .ilike('purpose', `%Purchase Ref: ${bill.invoice_number}%`);
+          .eq('purpose', `Purchase Ref: ${bill.invoice_number}`);
         
         if (data) setBillItems(data);
       } catch (err) {
@@ -565,8 +636,8 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         }, []);
 
       if (newItemsToRegister.length > 0) {
-        // Use insert instead of upsert to avoid issues with missing unique constraints on 'name'
-        const { error: miError } = await supabase.from('master_items').insert(newItemsToRegister);
+        // Use upsert on 'name' to ensure we don't create duplicates and we populate the master catalog correctly
+        const { error: miError } = await supabase.from('master_items').upsert(newItemsToRegister, { onConflict: 'name' });
         if (miError) throw miError;
       }
 
@@ -614,14 +685,12 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         
         // Build the update payload
         const upsertRow: any = {
-          // If we found an existing ID, use it for UPDATE. If not, generate a NEW ID for INSERT.
-          // This prevents the 'null value in id' error by never sending a null ID.
           id: dbItem?.id || generateUUID(),
           item_name: item.item_name.trim(),
           item_code: item.item_ref_no,
           category: item.category,
           quantity: totalQty,
-          unit: item.unit === 'Box' ? 'Nos' : item.unit, // Always persist in Nos; box is purchase-level detail
+          unit: item.unit === 'Box' ? 'Nos' : item.unit,
           location: item.storage_location,
           supplier: billCustomer,
           last_restock_date: transactionDate || new Date().toISOString().split('T')[0],
@@ -662,15 +731,26 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
 
       // 6. Automatically Close Bill if fully allocated
       const batchTotal = itemsToSave.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
-      const currentTotalAllocated = billItems.reduce((acc, item) => {
-        const notes = item.notes || '';
-        const parts = notes.split('Rate: ');
-        const rate = parseFloat(parts.length > 1 ? parts[1].split(' ')[0] : '0') || 0;
-        return acc + ((parseFloat(item.quantity) || 0) * rate);
-      }, 0);
-      const isFullyAllocated = Math.abs(currentTotalAllocated + batchTotal - selectedBill.amount) < 0.01 || (currentTotalAllocated + batchTotal >= selectedBill.amount);
+      
+      const currentSpentValue = billItems
+        .filter(item => item.id !== editingId)
+        .reduce((acc, item) => {
+          const notes = item.notes || '';
+          const rateMatch = notes.match(/Rate:\s*([\d.]+)/);
+          const rate = rateMatch ? parseFloat(rateMatch[1]) : 0;
+          
+          const boxMatch = notes.match(/Box:\s*([\d.]+)\s*×\s*([\d.]+)\s*Nos/);
+          if (boxMatch) {
+            const boxCount = parseFloat(boxMatch[1]) || 0;
+            return acc + (boxCount * rate);
+          }
+          return acc + ((parseFloat(item.quantity) || 0) * rate);
+        }, 0);
 
-      if (isFullyAllocated) {
+      const totalAfterBatch = currentSpentValue + batchTotal;
+      const isActuallyComplete = Math.abs(totalAfterBatch - selectedBill.amount) < 0.05;
+
+      if (isActuallyComplete) {
         await supabase
           .from('accounts')
           .update({ status: 'completed' })
@@ -702,9 +782,8 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       return toast.warning('Please ensure all items have a Name, valid Quantity (>0), and Category selected');
     }
 
-    const batchTotal = lineItems.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
-    if (batchTotal > (remainingAllocation + 0.01)) {
-      toast.error(`Over-Entry Alert: Total item value (₹${batchTotal.toLocaleString()}) exceeds the remaining pending balance (₹${remainingAllocation.toLocaleString()}). Please adjust quantities or rates.`);
+    if (remainingAllocation < -0.01) {
+      toast.error(`Over-Entry Alert: This entry would exceed the bill's total amount by ₹${Math.abs(remainingAllocation).toLocaleString()}. Please adjust your quantities or rates.`);
       return;
     }
 
@@ -765,16 +844,29 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
 
   // Calculate Remaining Allocation: Bill Amount - Value of items already in inventory
   const totalAllocatedValue = useMemo(() => {
-    return billItems.reduce((acc, item) => {
-      // Parse rate from notes if available (format: "... | Rate: 123.45")
-      const notes = item.notes || '';
-      const parts = notes.split('Rate: ');
-      const rateStr = parts.length > 1 ? parts[1].split(' ')[0] : '0';
-      const rate = parseFloat(rateStr) || 0;
-      const qtyCount = parseFloat(item.quantity) || 0;
-      return acc + (qtyCount * rate);
-    }, 0);
-  }, [billItems]);
+    return billItems
+      .filter(item => item.id !== editingId) // Ignore the record we are currently correcting/editing
+      .reduce((acc, item) => {
+        const notes = item.notes || '';
+        // Robust Extraction: Look for 'Rate: ' followed by a numeric value
+        const rateMatch = notes.match(/Rate:\s*([\d.]+)/);
+        const rate = rateMatch ? parseFloat(rateMatch[1]) : 0;
+        
+        // BOX-AWARE LOGIC:
+        // If notes contain "| Box: [Qty] × [Units] Nos", we calculate based on the Box count
+        // because the stored rate was 'Rate per Box'.
+        const boxMatch = notes.match(/Box:\s*([\d.]+)\s*×\s*([\d.]+)\s*Nos/);
+        
+        if (boxMatch) {
+          const boxCount = parseFloat(boxMatch[1]) || 0;
+          return acc + (boxCount * rate);
+        } else {
+          // Regular 'Nos' entry
+          const qtyCount = parseFloat(item.quantity) || 0;
+          return acc + (qtyCount * rate);
+        }
+      }, 0);
+  }, [billItems, editingId]);
 
   const batchTotal = lineItems.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
   const remainingAllocation = (selectedBill?.amount || 0) - totalAllocatedValue - batchTotal;
@@ -824,7 +916,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
             <option value="">Select a Purchase Bill / Expense</option>
             {purchaseBills.map(b => (
               <option key={b.id} value={b.id}>
-                {b.invoice_number ? `${b.invoice_number} - ` : ''}{b.customer_name} (₹{b.amount?.toLocaleString()})
+                {b.invoice_number ? `${b.invoice_number} - ` : ''}{b.customer_name} (₹{b.amount?.toLocaleString()}) {b.status === 'completed' ? '✓ CLOSED' : ''}
               </option>
             ))}
           </select>
@@ -856,9 +948,14 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
               <p className={`text-xl md:text-2xl font-black ${remainingAllocation < -0.01 ? 'text-rose-600 animate-pulse' : 'text-slate-900'}`}>
                 ₹{remainingAllocation.toLocaleString()}
               </p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
-                {remainingAllocation < -0.01 ? 'OVER-ALLOCATED: Adjust rates/qty' : 'Pending to be stocked'}
-              </p>
+              <div className="flex flex-col">
+                <p className={`text-[8px] font-bold uppercase tracking-widest ${remainingAllocation < -0.01 ? 'text-rose-400' : 'text-slate-400'}`}>
+                  {remainingAllocation < -0.01 ? 'OVER-ALLOCATED: Adjust rates/qty' : 'Pending to be stocked'}
+                </p>
+                <p className="text-[8px] font-black text-slate-900 uppercase tracking-widest mt-0.5">
+                  Total Spent: ₹{totalAllocatedValue.toLocaleString()}
+                </p>
+              </div>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</p>
@@ -901,6 +998,21 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
                   <div className="text-right">
                     <p className="text-sm font-black text-emerald-400 leading-none">+{item.quantity}</p>
                     <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">{item.inventory_items?.unit}</p>
+                    {(() => {
+                      const notes = item.notes || '';
+                      const rateMatch = notes.match(/Rate:\s*([\d.]+)/);
+                      const rate = rateMatch ? parseFloat(rateMatch[1]) : 0;
+                      
+                      const boxMatch = notes.match(/Box:\s*([\d.]+)\s*×\s*([\d.]+)\s*Nos/);
+                      const val = boxMatch 
+                        ? (parseFloat(boxMatch[1]) || 0) * rate 
+                        : (item.quantity || 0) * rate;
+
+                      if (val > 0) {
+                        return <p className="text-[9px] font-black text-white/50 mt-1">₹{val.toLocaleString()}</p>;
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
               ))}
@@ -920,6 +1032,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
                 key={line.id} index={idx} line={line} masterItems={masterItems}
                 onUpdate={(u) => updateItem(idx, u)}
                 onRemove={() => removeItem(line.id)}
+                onRegisterItem={(name: string) => setQuickRegister({ show: true, name, category: '', unit: '', refNo: generateQuickRefNo(), saving: false, lineIndex: idx })}
               />
             ))}
           </div>
@@ -949,6 +1062,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
                       key={line.id} index={idx} line={line} masterItems={masterItems}
                       onUpdate={(u) => updateItem(idx, u)}
                       onRemove={() => removeItem(line.id)}
+                      onRegisterItem={(name: string) => setQuickRegister({ show: true, name, category: '', unit: '', refNo: generateQuickRefNo(), saving: false, lineIndex: idx })}
                     />
                   ))}
                 </tbody>
@@ -1094,6 +1208,108 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
           </table>
         </div>
       </div>
+
+      {/* ── Quick Register Item Modal ── */}
+      {quickRegister.show && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-xl animate-in fade-in duration-300"
+            onClick={() => setQuickRegister(prev => ({ ...prev, show: false }))} />
+          <div
+            className="relative z-10 w-full max-w-lg bg-white rounded-[40px] shadow-2xl p-10 border border-white/20 animate-in zoom-in-95 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl bg-amber-100 flex items-center justify-center">
+                  <PackagePlus className="h-7 w-7 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">Register New Item</h3>
+                  <p className="text-xs font-bold text-slate-400 mt-0.5">Add to Master Catalog</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setQuickRegister(prev => ({ ...prev, show: false }))}
+                className="h-10 w-10 flex items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Item name (pre-filled) */}
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Item Name *</label>
+                <input
+                  type="text"
+                  value={quickRegister.name}
+                  onChange={(e) => setQuickRegister(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-5 py-4 rounded-2xl bg-amber-50 border-2 border-amber-200 text-slate-900 font-black text-base focus:outline-none focus:ring-4 focus:ring-amber-400/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Category *</label>
+                  <select
+                    value={quickRegister.category}
+                    onChange={(e) => setQuickRegister(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none font-bold text-slate-900 appearance-none focus:ring-4 focus:ring-amber-400/20"
+                  >
+                    <option value="">Select Category</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Default Unit *</label>
+                  <select
+                    value={quickRegister.unit}
+                    onChange={(e) => setQuickRegister(prev => ({ ...prev, unit: e.target.value }))}
+                    className="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none font-bold text-slate-900 appearance-none focus:ring-4 focus:ring-amber-400/20"
+                  >
+                    <option value="">Select Unit</option>
+                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Ref No */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Ref No / Item Code</label>
+                <input
+                  type="text"
+                  value={quickRegister.refNo}
+                  onChange={(e) => setQuickRegister(prev => ({ ...prev, refNo: e.target.value }))}
+                  placeholder="e.g. PG-100, NONEL-3M..."
+                  className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none text-slate-900 font-bold uppercase text-sm focus:outline-none focus:ring-4 focus:ring-amber-400/20"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickRegister(prev => ({ ...prev, show: false }))}
+                  className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black text-xs hover:bg-slate-100 transition-all uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleQuickRegister}
+                  disabled={quickRegister.saving}
+                  className="flex-1 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-xs shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95"
+                >
+                  {quickRegister.saving
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <PackagePlus className="h-4 w-4" />}
+                  {quickRegister.saving ? 'REGISTERING...' : 'SAVE TO CATALOG'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

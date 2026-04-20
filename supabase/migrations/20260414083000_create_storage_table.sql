@@ -1,4 +1,4 @@
--- Create storage table
+@-- Create storage table
 CREATE TABLE IF NOT EXISTS storage (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   serial_number bigserial,
