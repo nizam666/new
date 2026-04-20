@@ -124,6 +124,10 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       alert('Please fill Vehicle No and Diesel amount.');
       return;
     }
+    if (dieselForm.date > new Date().toISOString().split('T')[0]) {
+      alert('Date cannot be in the future.');
+      return;
+    }
     setDieselLoading(true);
     try {
       // 🚨 Strict Stock Validation 🚨
@@ -1013,6 +1017,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
               <input
                 type="date"
                 value={dieselForm.date}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={e => setDieselForm({ ...dieselForm, date: e.target.value })}
                 required
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-medium"
