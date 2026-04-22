@@ -68,6 +68,9 @@ const CATEGORIES = [
 
 const UNITS = ['Nos', 'Liters', 'Kgs', 'Tons', 'Meters', 'Feet', 'Box', 'Set'];
 
+const PG_BOX_SIZE = 200;
+const isPGItem = (name: string) => name?.toUpperCase() === 'PG';
+
 // ── Utility: Reference Generator ──
 const generateItemRefNo = (baseCount: number, index: number) => {
   const year = new Date().getFullYear();
@@ -144,7 +147,10 @@ const MobileItemCard = memo(({ index, line, masterItems, onUpdate, onRemove, onR
   const [suggestions, setSuggestions] = useState<MasterItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const isExistingItem = useMemo(() => masterItems.some(m => m.name.toLowerCase() === line.item_name.toLowerCase()), [masterItems, line.item_name]);
-  const lineTotal = (parseFloat(line.quantity) || 0) * (parseFloat(line.rate_per_unit) || 0);
+  const quantity = parseFloat(line.quantity) || 0;
+  const rate = parseFloat(line.rate_per_unit) || 0;
+  const unitsPerBox = line.unit === 'Box' ? (parseFloat(line.units_per_box) || 1) : 1;
+  const lineTotal = quantity * unitsPerBox * rate;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -278,7 +284,10 @@ const InventoryRow = memo(({ index, line, masterItems, onUpdate, onRemove, onReg
   const [suggestions, setSuggestions] = useState<MasterItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const isExistingItem = useMemo(() => masterItems.some(m => m.name.toLowerCase() === line.item_name.toLowerCase()), [masterItems, line.item_name]);
-  const lineTotal = (parseFloat(line.quantity) || 0) * (parseFloat(line.rate_per_unit) || 0);
+  const quantity = parseFloat(line.quantity) || 0;
+  const rate = parseFloat(line.rate_per_unit) || 0;
+  const unitsPerBox = line.unit === 'Box' ? (parseFloat(line.units_per_box) || 1) : 1;
+  const lineTotal = quantity * unitsPerBox * rate;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -588,7 +597,15 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
   const updateItem = useCallback((idx: number, u: Partial<LineItem>) => {
     setLineItems(prev => {
       const next = [...prev];
-      next[idx] = { ...next[idx], ...u };
+      const currentItem = { ...next[idx], ...u };
+      
+      // Special logic for PG
+      if (isPGItem(currentItem.item_name)) {
+        currentItem.unit = 'Box';
+        currentItem.units_per_box = PG_BOX_SIZE.toString();
+      }
+
+      next[idx] = currentItem;
       // If the item_name changed, resolve the correct ref number:
       // 1. Existing DB item → use its stored ref
       // 2. Another row in this batch with the same name → share its ref
@@ -730,7 +747,12 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       if (tError) throw tError;
 
       // 6. Automatically Close Bill if fully allocated
-      const batchTotal = itemsToSave.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
+      const batchTotal = itemsToSave.reduce((acc, item) => {
+        const qty = parseFloat(item.quantity) || 0;
+        const rate = parseFloat(item.rate_per_unit) || 0;
+        const upb = item.unit === 'Box' ? (parseFloat(item.units_per_box) || 1) : 1;
+        return acc + (qty * upb * rate);
+      }, 0);
       
       const currentSpentValue = billItems
         .filter(item => item.id !== editingId)
@@ -742,7 +764,8 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
           const boxMatch = notes.match(/Box:\s*([\d.]+)\s*×\s*([\d.]+)\s*Nos/);
           if (boxMatch) {
             const boxCount = parseFloat(boxMatch[1]) || 0;
-            return acc + (boxCount * rate);
+            const upb = parseFloat(boxMatch[2]) || 1;
+            return acc + (boxCount * upb * rate);
           }
           return acc + ((parseFloat(item.quantity) || 0) * rate);
         }, 0);
@@ -859,7 +882,8 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         
         if (boxMatch) {
           const boxCount = parseFloat(boxMatch[1]) || 0;
-          return acc + (boxCount * rate);
+          const upb = parseFloat(boxMatch[2]) || 1;
+          return acc + (boxCount * upb * rate);
         } else {
           // Regular 'Nos' entry
           const qtyCount = parseFloat(item.quantity) || 0;
@@ -868,7 +892,12 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       }, 0);
   }, [billItems, editingId]);
 
-  const batchTotal = lineItems.reduce((acc, item) => acc + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate_per_unit) || 0), 0);
+  const batchTotal = lineItems.reduce((acc, item) => {
+    const qty = parseFloat(item.quantity) || 0;
+    const rate = parseFloat(item.rate_per_unit) || 0;
+    const upb = item.unit === 'Box' ? (parseFloat(item.units_per_box) || 1) : 1;
+    return acc + (qty * upb * rate);
+  }, 0);
   const remainingAllocation = (selectedBill?.amount || 0) - totalAllocatedValue - batchTotal;
 
   if (loading) return <div className="p-20 text-center animate-pulse text-slate-400 font-bold">Initializing Interface...</div>;

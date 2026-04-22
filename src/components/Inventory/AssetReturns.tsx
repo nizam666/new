@@ -32,6 +32,9 @@ const RETURN_CONDITIONS = [
   { value: 'damaged', label: 'Damaged', color: 'bg-rose-500', desc: 'Broken / Unusable' },
 ];
 
+const PG_BOX_SIZE = 200;
+const isPGItem = (name: string) => name?.toUpperCase() === 'PG';
+
 export function AssetReturns() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -49,10 +52,11 @@ export function AssetReturns() {
 
   useEffect(() => {
     if (selectedRecord) {
+      const isPG = isPGItem(selectedRecord.item_name);
       const remaining = selectedRecord.quantity_dispatched - (selectedRecord.quantity_returned || 0);
       setReturnForm(prev => ({
         ...prev,
-        return_qty: remaining
+        return_qty: isPG ? remaining / PG_BOX_SIZE : remaining
       }));
     }
   }, [selectedRecord]);
@@ -87,13 +91,16 @@ export function AssetReturns() {
 
     setProcessing(true);
     try {
+      const isPG = isPGItem(selectedRecord.item_name);
+      const returningNowRaw = Number(returnForm.return_qty);
+      const returningNow = isPG ? returningNowRaw * PG_BOX_SIZE : returningNowRaw;
+
       // 1. Update dispatch record with robust numeric comparison
       const currentReturned = Number(selectedRecord.quantity_returned || 0);
-      const returningNow = Number(returnForm.return_qty);
       const totalDispatched = Number(selectedRecord.quantity_dispatched);
       
       const newReturnedQty = currentReturned + returningNow;
-      const isConfiguredFullyReturned = newReturnedQty >= totalDispatched;
+      const isConfiguredFullyReturned = newReturnedQty >= totalDispatched - 0.01; // Tiny tolerance
 
       const { error: dError } = await supabase
         .from('inventory_dispatch')
@@ -120,7 +127,7 @@ export function AssetReturns() {
       const { error: iError } = await supabase
         .from('inventory_items')
         .update({ 
-          returned_qty: currentReturnedQty + Number(returnForm.return_qty), 
+          returned_qty: currentReturnedQty + returningNow, 
           updated_at: new Date().toISOString() 
         })
         .eq('id', selectedRecord.item_id);
@@ -134,7 +141,7 @@ export function AssetReturns() {
         quantity: returningNow,
         date: returnForm.return_date,
         purpose: isConfiguredFullyReturned ? `Full Return from ${selectedRecord.dispatched_to}` : `Partial Return from ${selectedRecord.dispatched_to}`,
-        notes: `Ref: ${selectedRecord.dispatch_ref} | Condition: ${returnForm.return_condition} | Remaining: ${Math.max(0, totalDispatched - newReturnedQty)}`
+        notes: `Ref: ${selectedRecord.dispatch_ref} | Condition: ${returnForm.return_condition} | Remaining: ${Math.max(0, totalDispatched - newReturnedQty)}${isPG ? ' | Returned (Boxes): ' + returningNowRaw : ''}`
       }]);
 
       toast.success(isConfiguredFullyReturned ? 'Asset returned fully!' : `Partial return of ${returnForm.return_qty} recorded!`);
@@ -258,9 +265,13 @@ export function AssetReturns() {
                           <div>
                             <p className="text-sm font-black text-slate-900">{record.item_name}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total: {record.quantity_dispatched} {record.unit}</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                Total: {isPGItem(record.item_name) ? (record.quantity_dispatched / PG_BOX_SIZE).toFixed(2) : record.quantity_dispatched} {isPGItem(record.item_name) ? 'Box' : record.unit}
+                              </p>
                               {record.quantity_returned > 0 && (
-                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-full">Ret: {record.quantity_returned}</p>
+                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                                  Ret: {isPGItem(record.item_name) ? (record.quantity_returned / PG_BOX_SIZE).toFixed(2) : record.quantity_returned}
+                                </p>
                               )}
                             </div>
                           </div>
@@ -336,7 +347,10 @@ export function AssetReturns() {
                 </div>
                 <div className="text-right">
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quantity</p>
-                   <p className="text-2xl font-black text-slate-900">{selectedRecord.quantity_dispatched} <span className="text-xs text-slate-400">{selectedRecord.unit}</span></p>
+                   <p className="text-2xl font-black text-slate-900">
+                     {isPGItem(selectedRecord.item_name) ? (selectedRecord.quantity_dispatched / PG_BOX_SIZE).toFixed(2) : selectedRecord.quantity_dispatched} 
+                     <span className="text-xs text-slate-400">{isPGItem(selectedRecord.item_name) ? 'Box' : selectedRecord.unit}</span>
+                   </p>
                 </div>
               </div>
 
@@ -358,13 +372,17 @@ export function AssetReturns() {
                     <input
                       type="number"
                       required
-                      min={1}
-                      max={selectedRecord.quantity_dispatched - (selectedRecord.quantity_returned || 0)}
+                      min={0.01}
+                      step="0.01"
+                      max={isPGItem(selectedRecord.item_name) ? (selectedRecord.quantity_dispatched - (selectedRecord.quantity_returned || 0)) / PG_BOX_SIZE : selectedRecord.quantity_dispatched - (selectedRecord.quantity_returned || 0)}
                       value={returnForm.return_qty}
                       onChange={(e) => setReturnForm({ ...returnForm, return_qty: Number(e.target.value) })}
                       className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-bold text-base focus:ring-4 focus:ring-emerald-500/10"
                     />
-                    <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Max: {selectedRecord.quantity_dispatched - (selectedRecord.quantity_returned || 0)} {selectedRecord.unit}</p>
+                    <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">
+                      Max: {isPGItem(selectedRecord.item_name) ? ((selectedRecord.quantity_dispatched - (selectedRecord.quantity_returned || 0)) / PG_BOX_SIZE).toFixed(2) : selectedRecord.quantity_dispatched - (selectedRecord.quantity_returned || 0)} 
+                      {isPGItem(selectedRecord.item_name) ? ' Box' : ` ${selectedRecord.unit}`}
+                    </p>
                   </div>
                 </div>
 

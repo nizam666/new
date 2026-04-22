@@ -76,6 +76,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
             { name: 'Returnable Assets', icon: RotateCcw, href: '#returnable-assets' },
             { name: 'Storage', icon: Database, href: '#storage' },
             { name: 'Dispatch', icon: Truck, href: '#dispatch-payment' },
+            { name: 'Dispatch Reports', icon: FileText, href: '#inventory-dispatch-report' },
         ]
     },
     { name: 'Safety', icon: Shield, href: '#safety' },
@@ -114,6 +115,7 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Photos/Videos', icon: Camera, href: '#media', roles: ['contractor', 'manager'] },
     { name: 'Inventory', icon: Package, href: '#inventory', roles: ['contractor', 'crusher_manager', 'manager'] },
     { name: 'Returnable Assets', icon: RotateCcw, href: '#returnable-assets', roles: ['crusher_manager', 'manager'] },
+    { name: 'Dispatch Reports', icon: FileText, href: '#inventory-dispatch-report', roles: ['crusher_manager', 'manager'] },
     { name: 'Safety', icon: Shield, href: '#safety', roles: ['contractor', 'manager'] },
     { name: 'Crusher Production', icon: Factory, href: '#crusher-production', roles: ['crusher_manager', 'manager'] },
     { name: 'EB Reports', icon: Zap, href: '#eb-reports', roles: ['crusher_manager', 'manager'] },

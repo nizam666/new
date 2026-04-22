@@ -286,16 +286,20 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
             <thead>
               <tr>
                 <th>Material/Description</th>
-                <th style="text-align: right;">Quantity</th>
+                <th style="text-align: right;">Quantity (Net)</th>
+                <th style="text-align: right;">Weights (G/E)</th>
                 <th style="text-align: right;">Rate</th>
                 <th style="text-align: right;">Amount</th>
               </tr>
             </thead>
             <tbody>
-              ${items.map((item: { material: string; quantity: number; rate: number; amount: number }) => `
+              ${items.map((item: { material: string; quantity: number; rate: number; amount: number; gross_weight?: number; empty_weight?: number }) => `
                 <tr>
                   <td>${item.material}</td>
-                  <td style="text-align: right;">${item.quantity}</td>
+                  <td style="text-align: right;">${item.quantity.toFixed(3)}</td>
+                  <td style="text-align: right;">
+                    ${item.gross_weight !== undefined ? `${item.gross_weight.toFixed(3)} / ${item.empty_weight?.toFixed(3)}` : '-'}
+                  </td>
                   <td style="text-align: right;">₹${item.rate.toFixed(2)}</td>
                   <td style="text-align: right;">₹${item.amount.toFixed(2)}</td>
                 </tr>
@@ -424,7 +428,7 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <input
             type="text"
             placeholder="Search by invoice number or customer..."
@@ -435,7 +439,7 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
           >
             <option value="all">All Status</option>
             <option value="unpaid">Unpaid</option>
@@ -457,8 +461,8 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
               key={invoice.id}
               className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-4">
+                <div className="flex items-start gap-3">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                     <FileText className="w-6 h-6 text-blue-600" />
                   </div>
@@ -483,7 +487,7 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 mt-4 sm:mt-0">
                   <button
                     onClick={() => onView?.(invoice)}
                     className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -498,21 +502,21 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
-                  <div className="h-6 w-px bg-slate-200 mx-1" />
+                  <div className="hidden sm:block h-6 w-px bg-slate-200 mx-1" />
                   
                   {invoice.status !== 'paid' && (
                     <button
                       onClick={() => handleRecordPayment(invoice)}
-                      className="flex items-center gap-2 px-3 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 text-sm font-bold whitespace-nowrap"
                     >
                       <CreditCard className="w-4 h-4" />
                       Record Payment
                     </button>
                   )}
-                  <div className="relative print-menu-container">
+                  <div className="relative print-menu-container flex-1 sm:flex-none">
                     <button
                       onClick={() => setShowPrintMenu(showPrintMenu === invoice.id ? null : invoice.id)}
-                      className="flex items-center gap-2 px-3 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50"
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-bold"
                     >
                       <Printer className="w-4 h-4" />
                       Print

@@ -61,6 +61,9 @@ const units = [
   'units'
 ];
 
+const PG_BOX_SIZE = 200;
+const isPGItem = (name: string) => name?.toUpperCase() === 'PG';
+
 export function ItemManagement() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -145,7 +148,13 @@ export function ItemManagement() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [name]: value };
+      if (name === 'name' && isPGItem(value)) {
+        next.unit = 'boxes';
+      }
+      return next;
+    });
   };
 
   const resetForm = () => {
@@ -353,8 +362,13 @@ export function ItemManagement() {
                     </td>
                     <td className="px-8 py-6 min-w-[200px]">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-black text-slate-900">{item.current_quantity || 0} <span className="text-slate-400 font-bold">{item.unit}</span></span>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Min Level: {item.min_stock_level}</span>
+                        <span className="text-xs font-black text-slate-900">
+                          {isPGItem(item.name) ? ((item.current_quantity || 0) / PG_BOX_SIZE).toFixed(2) : (item.current_quantity || 0)} 
+                          <span className="text-slate-400 font-bold"> {isPGItem(item.name) ? 'Box' : item.unit}</span>
+                        </span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                          Min Level: {isPGItem(item.name) ? ((item.min_stock_level || 0) / PG_BOX_SIZE).toFixed(2) : item.min_stock_level}
+                        </span>
                       </div>
                       <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                         <div 

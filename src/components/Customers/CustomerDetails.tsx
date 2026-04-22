@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Search, User, Building, Phone, Mail, MapPin, Edit, Plus, ArrowUpRight, ArrowDownRight, Wallet, X, CreditCard, AlertCircle, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomerForm } from './CustomerForm';
+import { CustomerPricing } from './CustomerPricing';
 
 interface Payment {
   id: string;
@@ -61,7 +62,7 @@ export function CustomerDetails() {
   const [totalBilled, setTotalBilled] = useState(0);
   const [totalPaid, setTotalPaid] = useState(0);
   const [totalBalance, setTotalBalance] = useState(0);
-  const [activeTab, setActiveTab] = useState<'statement' | 'invoices' | 'payments'>('statement');
+  const [activeTab, setActiveTab] = useState<'statement' | 'invoices' | 'payments' | 'pricing'>('statement');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -477,6 +478,14 @@ export function CustomerDetails() {
                 >
                   Payment History
                 </button>
+                <button
+                  onClick={() => setActiveTab('pricing')}
+                  className={`px-4 py-2 text-sm font-black rounded-lg transition-all ${
+                    activeTab === 'pricing' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'
+                  }`}
+                >
+                  Custom Pricing
+                </button>
               </div>
             </div>
 
@@ -630,6 +639,12 @@ export function CustomerDetails() {
                   </tbody>
                 </table>
               </div>
+            )}
+            {activeTab === 'pricing' && (
+              <CustomerPricing
+                customerId={selectedCustomer.id}
+                customerName={selectedCustomer.company || selectedCustomer.name}
+              />
             )}
           </div>
         </div>

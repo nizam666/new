@@ -85,9 +85,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className={`fixed inset-0 bg-slate-900/50 z-40 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`} onClick={() => setSidebarOpen(false)} />
+      <div className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setSidebarOpen(false)} />
 
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full shadow-2xl'}`}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-slate-800">
           <h1 className="text-xl font-bold text-white">Quarry ERP</h1>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-white">
@@ -100,7 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
       </aside>
 
-      <div className="lg:pl-64">
+      <div className="lg:pl-72 transition-all duration-300">
         <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
           <div className="flex items-center justify-between h-16 px-4 lg:px-8">
             <button

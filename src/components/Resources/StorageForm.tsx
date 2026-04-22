@@ -74,6 +74,9 @@ function BoxIcon(props: any) {
   );
 }
 
+const PG_BOX_SIZE = 200;
+const isPGItem = (name: string) => name?.toUpperCase() === 'PG';
+
 export function StorageForm() {
   const [fetching, setFetching] = useState(true);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -305,7 +308,8 @@ export function StorageForm() {
                        Quantity
                     </p>
                     <p className="text-xl font-black text-slate-900 tracking-tight">
-                      {item.quantity} <span className="text-[10px] uppercase text-slate-400">{item.unit}</span>
+                      {isPGItem(item.item_name) ? (item.quantity / PG_BOX_SIZE).toFixed(2) : item.quantity} 
+                      <span className="text-[10px] uppercase text-slate-400">{isPGItem(item.item_name) ? 'Box' : item.unit}</span>
                     </p>
                   </div>
 
@@ -376,8 +380,12 @@ export function StorageForm() {
                       <HardDrive className="w-3 h-3" /> Current Stock
                     </p>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-black text-white">{selectedItem.quantity}</span>
-                      <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">{selectedItem.unit}</span>
+                      <span className="text-4xl font-black text-white">
+                        {isPGItem(selectedItem.item_name) ? (selectedItem.quantity / PG_BOX_SIZE).toFixed(2) : selectedItem.quantity}
+                      </span>
+                      <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                        {isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}
+                      </span>
                     </div>
                  </div>
 
@@ -512,8 +520,12 @@ export function StorageForm() {
                                   <div className="text-right">
                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Quantity</p>
                                      <div className="flex items-center justify-end gap-1">
-                                        <span className="text-sm font-black text-slate-900">{dispatch.quantity_dispatched}</span>
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase">{dispatch.unit}</span>
+                                        <span className="text-sm font-black text-slate-900">
+                                          {isPGItem(selectedItem.item_name) ? (dispatch.quantity_dispatched / PG_BOX_SIZE).toFixed(2) : dispatch.quantity_dispatched}
+                                        </span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                          {isPGItem(selectedItem.item_name) ? 'Box' : dispatch.unit}
+                                        </span>
                                      </div>
                                      <p className="text-[9px] font-bold text-slate-400 mt-0.5">
                                         {new Date(dispatch.dispatch_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}

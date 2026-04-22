@@ -3,6 +3,8 @@ interface InvoiceItem {
   quantity: number;
   rate: number;
   amount: number;
+  empty_weight?: number;
+  gross_weight?: number;
 }
 
 interface ThermalInvoiceData {
@@ -214,10 +216,13 @@ export function printThermalInvoice(invoice: ThermalInvoiceData, showCompanyName
           <hr class="dotted-line">
           ${items.map((item: InvoiceItem) => `
           <div class="item-row">
-            <pre>${item.material}</pre>
+            <pre class="bold">${item.material}</pre>
             <pre>${item.amount.toFixed(2)}</pre>
           </div>
-          <pre>${item.quantity} x ${item.rate.toFixed(2)}</pre>
+          <pre>${item.quantity.toFixed(3)} x ${item.rate.toFixed(2)}</pre>
+          ${item.gross_weight !== undefined && item.empty_weight !== undefined ? `
+          <pre style="font-size: 8pt; color: #666;">(G: ${item.gross_weight.toFixed(3)} | E: ${item.empty_weight.toFixed(3)})</pre>
+          ` : ''}
           `).join('')}
         </div>
         
@@ -399,8 +404,11 @@ export function printThermalInvoice58mm(invoice: ThermalInvoiceData, showCompany
         
         <div class="section">
           ${items.map((item: InvoiceItem) => `
-          <pre>${item.material.substring(0, 24)}</pre>
-          <pre>${formatLine(`${item.quantity}x${item.rate}`, `₹${item.amount.toFixed(2)}`, 24)}</pre>
+          <pre class="bold">${item.material.substring(0, 24)}</pre>
+          <pre>${formatLine(`${item.quantity.toFixed(2)}x${item.rate}`, `₹${item.amount.toFixed(2)}`, 24)}</pre>
+          ${item.gross_weight !== undefined && item.empty_weight !== undefined ? `
+          <pre style="font-size: 7.5pt; color: #666;">W: ${item.gross_weight.toFixed(2)}-${item.empty_weight.toFixed(2)}</pre>
+          ` : ''}
           `).join('')}
         </div>
         

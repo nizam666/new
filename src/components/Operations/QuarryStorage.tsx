@@ -16,17 +16,23 @@ import {
   Settings
 } from 'lucide-react';
 
+
+const PG_BOX_SIZE = 200;
+const isPGItem = (name: string) => name?.toUpperCase() === 'PG';
+
 interface ConsumeRecord {
   id: string;
   date: string;
   quantity: number;
   operation_type: string;
+  unit: string;
 }
 
 interface UsageRecord {
   id: string;
   dispatched_to: string;
   quantity: number;
+  unit: string;
   date: string;
   price: number;
 }
@@ -69,32 +75,29 @@ export function QuarryStorage() {
       const [drillingRes, loadingRes, blastingRes, transportDieselRes] = await Promise.all([
         supabase.from('drilling_records').select('id, date, diesel_consumed'),
         supabase.from('loading_records').select('id, date, quantity_loaded'),
-        supabase.from('blasting_records').select('id, date, pg_nos, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos'),
+        supabase.from('blasting_records').select('id, date, pg_nos, pg_unit, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos'),
         supabase.from('transport_diesel_records').select('id, date, diesel_liters, vehicle_number')
       ]);
 
-      const globalConsumed = {
-        diesel: (drillingRes.data || []).reduce((sum, r) => sum + (Number(r.diesel_consumed) || 0), 0) +
-                (loadingRes.data || []).reduce((sum, r) => sum + (Number(r.quantity_loaded) || 0), 0) +
-                (transportDieselRes.data || []).reduce((sum, r) => sum + (Number(r.diesel_liters) || 0), 0),
-        pg: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.pg_nos) || 0), 0),
-        ed: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.ed_nos) || 0), 0),
-        edet: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.edet_nos) || 0), 0),
-        nonel_3m: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.nonel_3m_nos) || 0), 0),
-        nonel_4m: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.nonel_4m_nos) || 0), 0),
-      };
+
 
       const usedHistoryMap = {
         diesel: [
-          ...(drillingRes.data || []).filter(r => r.diesel_consumed > 0).map(r => ({ id: `drill-${r.id || Math.random()}`, date: r.date, quantity: Number(r.diesel_consumed), operation_type: 'Drilling Operation' })),
-          ...(loadingRes.data || []).filter(r => r.quantity_loaded > 0).map(r => ({ id: `load-${r.id || Math.random()}`, date: r.date, quantity: Number(r.quantity_loaded), operation_type: 'Excavator/Loading' })),
-          ...(transportDieselRes.data || []).filter(r => r.diesel_liters > 0).map(r => ({ id: `transport-${r.id || Math.random()}`, date: r.date, quantity: Number(r.diesel_liters), operation_type: `Transport (${r.vehicle_number})` }))
+          ...(drillingRes.data || []).filter(r => r.diesel_consumed > 0).map(r => ({ id: `drill-${r.id || Math.random()}`, date: r.date, quantity: Number(r.diesel_consumed), operation_type: 'Drilling Operation', unit: 'nos' })),
+          ...(loadingRes.data || []).filter(r => r.quantity_loaded > 0).map(r => ({ id: `load-${r.id || Math.random()}`, date: r.date, quantity: Number(r.quantity_loaded), operation_type: 'Excavator/Loading', unit: 'nos' })),
+          ...(transportDieselRes.data || []).filter(r => r.diesel_liters > 0).map(r => ({ id: `transport-${r.id || Math.random()}`, date: r.date, quantity: Number(r.diesel_liters), operation_type: `Transport (${r.vehicle_number})`, unit: 'nos' }))
         ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-        pg: (blastingRes.data || []).filter(r => r.pg_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.pg_nos), operation_type: 'Blasting' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-        ed: (blastingRes.data || []).filter(r => r.ed_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.ed_nos), operation_type: 'Blasting' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-        edet: (blastingRes.data || []).filter(r => r.edet_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.edet_nos), operation_type: 'Blasting' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-        nonel_3m: (blastingRes.data || []).filter(r => r.nonel_3m_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.nonel_3m_nos), operation_type: 'Blasting' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-        nonel_4m: (blastingRes.data || []).filter(r => r.nonel_4m_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.nonel_4m_nos), operation_type: 'Blasting' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        pg: (blastingRes.data || []).filter(r => r.pg_nos > 0).map(r => ({ 
+          id: `blast-${r.id || Math.random()}`, 
+          date: r.date, 
+          quantity: Number(r.pg_nos), 
+          operation_type: 'Blasting',
+          unit: r.pg_unit || 'nos'
+        })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+        ed: (blastingRes.data || []).filter(r => r.ed_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.ed_nos), operation_type: 'Blasting', unit: 'nos' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+        edet: (blastingRes.data || []).filter(r => r.edet_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.edet_nos), operation_type: 'Blasting', unit: 'nos' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+        nonel_3m: (blastingRes.data || []).filter(r => r.nonel_3m_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.nonel_3m_nos), operation_type: 'Blasting', unit: 'nos' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+        nonel_4m: (blastingRes.data || []).filter(r => r.nonel_4m_nos > 0).map(r => ({ id: `blast-${r.id || Math.random()}`, date: r.date, quantity: Number(r.nonel_4m_nos), operation_type: 'Blasting', unit: 'nos' })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       };
 
       // Aggregate by item
@@ -117,9 +120,12 @@ export function QuarryStorage() {
         
         const qty = parseFloat(curr.quantity_dispatched) || 0;
         const price = parseFloat(curr.given_price) || 0;
+        const isNos = curr.unit?.toLowerCase() === 'nos';
+        const isPG = isPGItem(curr.item_name);
 
         acc[key].total_quantity += qty;
-        acc[key].total_value += (qty * price);
+        // If PG and stored in Nos, we assume price is per Box so we divide qty by 200
+        acc[key].total_value += (isPG && isNos ? (qty / PG_BOX_SIZE) * price : qty * price);
         
         if (new Date(curr.dispatch_date) > new Date(acc[key].last_dispatch_date)) {
           acc[key].last_dispatch_date = curr.dispatch_date;
@@ -129,6 +135,7 @@ export function QuarryStorage() {
           id: curr.id,
           dispatched_to: curr.dispatched_to,
           quantity: qty,
+          unit: curr.unit || '',
           date: curr.dispatch_date,
           price: price
         });
@@ -138,21 +145,33 @@ export function QuarryStorage() {
 
       // Sort usages and calculate consumptions
       const values = Object.values(aggregated).map(item => {
-        let consumed = 0;
         let used_history: ConsumeRecord[] = [];
         const name = item.item_name.toLowerCase();
         
-        if (name.includes('diesel')) { consumed = globalConsumed.diesel; used_history = usedHistoryMap.diesel; }
-        else if (name === 'pg' || name.includes('powergel') || name.includes('power gel')) { consumed = globalConsumed.pg; used_history = usedHistoryMap.pg; }
-        else if (name === 'ed' || name.includes('electric detonator')) { consumed = globalConsumed.ed; used_history = usedHistoryMap.ed; }
-        else if (name === 'edet' || name.includes('electronic detonator')) { consumed = globalConsumed.edet; used_history = usedHistoryMap.edet; }
-        else if (name.includes('nonel') && name.includes('3m')) { consumed = globalConsumed.nonel_3m; used_history = usedHistoryMap.nonel_3m; }
-        else if (name.includes('nonel') && name.includes('4m')) { consumed = globalConsumed.nonel_4m; used_history = usedHistoryMap.nonel_4m; }
+        if (name.includes('diesel')) { used_history = usedHistoryMap.diesel; }
+        else if (name === 'pg' || name.includes('powergel') || name.includes('power gel')) { used_history = usedHistoryMap.pg; }
+        else if (name === 'ed' || name.includes('electric detonator')) { used_history = usedHistoryMap.ed; }
+        else if (name === 'edet' || name.includes('electronic detonator')) { used_history = usedHistoryMap.edet; }
+        else if (name.includes('nonel') && name.includes('3m')) { used_history = usedHistoryMap.nonel_3m; }
+        else if (name.includes('nonel') && name.includes('4m')) { used_history = usedHistoryMap.nonel_4m; }
+
+        let totalBoxes = item.usages.reduce((sum, u) => {
+          const q = u.quantity;
+          const isNos = u.unit?.toLowerCase() === 'nos';
+          return sum + (isPGItem(item.item_name) && isNos ? q / PG_BOX_SIZE : q);
+        }, 0);
+
+        let consumedBoxes = used_history.reduce((sum, h) => {
+          const q = h.quantity;
+          const isNos = h.unit?.toLowerCase() === 'nos';
+          return sum + (isPGItem(item.item_name) && isNos ? q / PG_BOX_SIZE : q);
+        }, 0);
 
         return {
           ...item,
-          consumed_quantity: consumed,
-          remaining_quantity: item.total_quantity - consumed,
+          total_quantity: totalBoxes,
+          consumed_quantity: consumedBoxes,
+          remaining_quantity: totalBoxes - consumedBoxes,
           usages: item.usages.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
           used_history
         };
@@ -235,8 +254,9 @@ export function QuarryStorage() {
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-tight">
                        Total<br/>Received
                     </p>
-                    <p className="text-sm font-black text-slate-900 tracking-tight mt-1">
-                      {item.total_quantity.toFixed(1)} <span className="text-[8px] uppercase text-slate-400">{item.unit}</span>
+                    <p className="text-sm font-black text-slate-900 tracking-tight mt-1 flex flex-col">
+                      <span>{item.total_quantity.toFixed(1)} <span className="text-[8px] uppercase text-slate-400">{isPGItem(item.item_name) ? 'Box' : item.unit}</span></span>
+                      {isPGItem(item.item_name) && <span className="text-[9px] font-bold text-slate-400">({(item.total_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
                     </p>
                 </div>
                 
@@ -244,8 +264,9 @@ export function QuarryStorage() {
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest leading-tight">
                        Used<br/>(Ops)
                     </p>
-                    <p className="text-sm font-black text-orange-700 tracking-tight mt-1">
-                      {item.consumed_quantity.toFixed(1)} <span className="text-[8px] uppercase text-orange-400">{item.unit}</span>
+                    <p className="text-sm font-black text-orange-700 tracking-tight mt-1 flex flex-col">
+                      <span>{item.consumed_quantity.toFixed(1)} <span className="text-[8px] uppercase text-orange-400">{isPGItem(item.item_name) ? 'Box' : item.unit}</span></span>
+                      {isPGItem(item.item_name) && <span className="text-[9px] font-bold text-orange-400/60">({(item.consumed_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
                     </p>
                 </div>
 
@@ -253,8 +274,9 @@ export function QuarryStorage() {
                     <p className={`text-[8px] font-black uppercase tracking-widest leading-tight ${item.remaining_quantity < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                        Remaining<br/>Balance
                     </p>
-                    <p className={`text-lg font-black tracking-tight mt-0.5 ${item.remaining_quantity < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
-                      {item.remaining_quantity.toFixed(1)} <span className={`text-[8px] uppercase ${item.remaining_quantity < 0 ? 'text-red-400' : 'text-emerald-500'}`}>{item.unit}</span>
+                    <p className={`text-lg font-black tracking-tight mt-0.5 flex flex-col ${item.remaining_quantity < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                      <span>{item.remaining_quantity.toFixed(1)} <span className={`text-[8px] uppercase ${item.remaining_quantity < 0 ? 'text-red-400' : 'text-emerald-500'}`}>{isPGItem(item.item_name) ? 'Box' : item.unit}</span></span>
+                      {isPGItem(item.item_name) && <span className={`text-[10px] font-bold ${item.remaining_quantity < 0 ? 'text-red-400' : 'text-emerald-500/60'}`}>({(item.remaining_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
                     </p>
                 </div>
               </div>
@@ -287,7 +309,9 @@ export function QuarryStorage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs font-black text-slate-900">{usage.quantity} <span className="text-[8px] uppercase text-slate-400">{item.unit}</span></p>
+                        <p className="text-xs font-black text-slate-900">
+                          {isPGItem(item.item_name) && usage.unit?.toLowerCase() === 'nos' ? (usage.quantity / PG_BOX_SIZE).toFixed(2) : usage.quantity} <span className="text-[8px] uppercase text-slate-400">{isPGItem(item.item_name) ? 'Box' : item.unit}</span>
+                        </p>
                         {usage.price > 0 && <p className="text-[8px] font-bold text-emerald-600">@ ₹{usage.price}</p>}
                       </div>
                     </div>
@@ -357,20 +381,35 @@ export function QuarryStorage() {
                     <p className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest mb-1 md:mb-2 flex items-center gap-2 ${selectedItem.remaining_quantity < 0 ? 'text-red-400' : 'text-slate-500'}`}>
                       <Layers className="w-3 h-3" /> Live Balance
                     </p>
-                    <div className="flex items-baseline gap-2">
-                      <span className={`text-2xl md:text-4xl font-black ${selectedItem.remaining_quantity < 0 ? 'text-red-400' : 'text-white'}`}>{selectedItem.remaining_quantity.toFixed(1)}</span>
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{selectedItem.unit}</span>
+                    <div className="flex flex-col items-baseline">
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-2xl md:text-4xl font-black ${selectedItem.remaining_quantity < 0 ? 'text-red-400' : 'text-white'}`}>
+                          {selectedItem.remaining_quantity.toFixed(1)}
+                        </span>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
+                      </div>
+                      {isPGItem(selectedItem.item_name) && (
+                        <span className={`text-sm font-black ${selectedItem.remaining_quantity < 0 ? 'text-red-400/60' : 'text-emerald-400/60'}`}>
+                          ({(selectedItem.remaining_quantity * PG_BOX_SIZE).toFixed(0)} nos)
+                        </span>
+                      )}
                     </div>
                  </div>
 
                  <div className="grid grid-cols-2 gap-3 md:gap-4">
-                    <div className="p-3 md:p-4 bg-white/5 rounded-xl md:rounded-2xl border border-white/5">
+                    <div className="p-3 md:p-4 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 flex flex-col">
                       <p className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Rcvd</p>
-                      <p className="text-base md:text-lg font-black text-white">{selectedItem.total_quantity.toFixed(1)} <span className="text-[8px] text-slate-500">{selectedItem.unit}</span></p>
+                      <p className="text-base md:text-lg font-black text-white">
+                        {selectedItem.total_quantity.toFixed(1)} <span className="text-[8px] text-slate-500">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
+                      </p>
+                      {isPGItem(selectedItem.item_name) && <span className="text-[10px] font-bold text-slate-500">({(selectedItem.total_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
                     </div>
-                    <div className="p-3 md:p-4 bg-orange-500/10 rounded-xl md:rounded-2xl border border-orange-500/20">
+                    <div className="p-3 md:p-4 bg-orange-500/10 rounded-xl md:rounded-2xl border border-orange-500/20 flex flex-col">
                       <p className="text-[8px] md:text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Used Ops</p>
-                      <p className="text-base md:text-lg font-black text-orange-300">{selectedItem.consumed_quantity.toFixed(1)} <span className="text-[8px] text-orange-500/50">{selectedItem.unit}</span></p>
+                      <p className="text-base md:text-lg font-black text-orange-300">
+                        {selectedItem.consumed_quantity.toFixed(1)} <span className="text-[8px] text-orange-500/50">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
+                      </p>
+                      {isPGItem(selectedItem.item_name) && <span className="text-[10px] font-bold text-orange-500/40">({(selectedItem.consumed_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
                     </div>
                  </div>
               </div>
@@ -434,8 +473,10 @@ export function QuarryStorage() {
                                 </div>
                                 <div className="text-right">
                                    <div className="flex items-center justify-end gap-1 mb-0.5 md:mb-1">
-                                      <span className="text-xs md:text-sm font-black text-emerald-600">+{usage.quantity}</span>
-                                      <span className="text-[8px] md:text-[10px] font-bold text-emerald-400 uppercase">{selectedItem.unit}</span>
+                                      <span className="text-xs md:text-sm font-black text-emerald-600">
+                                         +{isPGItem(selectedItem.item_name) && usage.unit?.toLowerCase() === 'nos' ? (usage.quantity / PG_BOX_SIZE).toFixed(2) : usage.quantity}
+                                      </span>
+                                      <span className="text-[8px] md:text-[10px] font-bold text-emerald-400 uppercase">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
                                    </div>
                                    <p className="text-[8px] md:text-[9px] font-bold text-slate-400">
                                       {new Date(usage.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -476,8 +517,10 @@ export function QuarryStorage() {
                                 </div>
                                 <div className="text-right">
                                    <div className="flex items-center justify-end gap-1 mb-0.5 md:mb-1">
-                                      <span className="text-xs md:text-sm font-black text-orange-600">-{record.quantity.toFixed(1)}</span>
-                                      <span className="text-[8px] md:text-[10px] font-bold text-orange-400 uppercase">{selectedItem.unit}</span>
+                                      <span className="text-xs md:text-sm font-black text-orange-600">
+                                         -{isPGItem(selectedItem.item_name) && record.unit?.toLowerCase() === 'nos' ? (record.quantity / PG_BOX_SIZE).toFixed(2) : record.quantity.toFixed(1)}
+                                      </span>
+                                      <span className="text-[8px] md:text-[10px] font-bold text-orange-400 uppercase">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
                                    </div>
                                    <p className="text-[8px] md:text-[9px] font-bold text-slate-400">
                                       {new Date(record.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}

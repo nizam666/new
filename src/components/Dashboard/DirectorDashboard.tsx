@@ -320,7 +320,7 @@ export function DirectorDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {statGroups.map((group) => (
           <div key={group.title} className="space-y-4">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider pl-1">{group.title}</h3>
@@ -395,7 +395,7 @@ export function DirectorDashboard() {
               <div className="divide-y divide-slate-100">
                 {approvals.map((approval) => (
                   <div key={approval.id} className="p-5 hover:bg-slate-50 transition-colors group">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-start gap-4">
                         <div className={`mt-1 w-10 h-10 rounded-full flex items-center justify-center border ${getStatusColor(approval.status).replace('bg-', 'border-').replace('text-', 'text-')}`}>
                           {approval.status === 'approved' ? (
@@ -422,17 +422,17 @@ export function DirectorDashboard() {
                       </div>
 
                       {approval.status === 'pending' && (
-                        <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-3 md:opacity-0 md:group-hover:opacity-100 transition-opacity mt-2 sm:mt-0">
                           <button
                             onClick={() => handleApproval(approval.id, 'approved')}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm text-sm font-medium"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm text-sm font-medium"
                           >
                             <CheckCircle className="w-4 h-4" />
                             Approve
                           </button>
                           <button
                             onClick={() => handleApproval(approval.id, 'rejected')}
-                            className="flex items-center gap-2 px-4 py-2 bg-white text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-50 transition-colors text-sm font-medium"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-50 transition-colors text-sm font-medium"
                           >
                             <XCircle className="w-4 h-4" />
                             Reject

@@ -46,7 +46,7 @@ export async function fetchQuarryBalances(): Promise<Record<string, QuarryBalanc
     const [drillingRes, loadingRes, blastingRes, transportDieselRes] = await Promise.all([
       supabase.from('drilling_records').select('diesel_consumed'),
       supabase.from('loading_records').select('quantity_loaded'),
-      supabase.from('blasting_records').select('pg_nos, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos'),
+      supabase.from('blasting_records').select('pg_nos, pg_unit, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos'),
       supabase.from('transport_diesel_records').select('diesel_liters')
     ]);
 
@@ -54,7 +54,11 @@ export async function fetchQuarryBalances(): Promise<Record<string, QuarryBalanc
       diesel: (drillingRes.data || []).reduce((sum, r) => sum + (Number(r.diesel_consumed) || 0), 0) +
               (loadingRes.data || []).reduce((sum, r) => sum + (Number(r.quantity_loaded) || 0), 0) +
               (transportDieselRes.data || []).reduce((sum, r) => sum + (Number(r.diesel_liters) || 0), 0),
-      pg: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.pg_nos) || 0), 0),
+      pg: (blastingRes.data || []).reduce((sum, r: any) => {
+        const q = Number(r.pg_nos) || 0;
+        const isNos = r.pg_unit?.toLowerCase() === 'nos';
+        return sum + (isNos ? q / 200 : q);
+      }, 0),
       ed: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.ed_nos) || 0), 0),
       edet: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.edet_nos) || 0), 0),
       nonel_3m: (blastingRes.data || []).reduce((sum, r) => sum + (Number(r.nonel_3m_nos) || 0), 0),
@@ -83,11 +87,13 @@ export async function fetchQuarryBalances(): Promise<Record<string, QuarryBalanc
           total_dispatched: 0,
           total_consumed: 0,
           remaining: 0,
-          unit: unit
+          unit: matchKey === 'pg' ? 'Box' : unit
         };
       }
 
-      balances[matchKey].total_dispatched += (parseFloat(curr.quantity_dispatched) || 0);
+      const qty = parseFloat(curr.quantity_dispatched) || 0;
+      const isNos = unit?.toLowerCase() === 'nos';
+      balances[matchKey].total_dispatched += (matchKey === 'pg' && isNos ? qty / 200 : qty);
     });
 
     // 4. Apply consumption

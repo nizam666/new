@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Printer, AlertCircle, X, Search, ChevronDown } from 'lucide-react';
+import { FileText, Printer, AlertCircle, X, Search, ChevronDown, Tag } from 'lucide-react';
 import { printThermalInvoice } from '../../utils/thermalPrinter';
 
 interface Customer {
@@ -19,6 +19,14 @@ interface PriceMaster {
   id: string;
   product_type: string;
   sales_price: number;
+}
+
+interface LineItem {
+  id: string;
+  material_name: string;
+  material_rate: string;
+  empty_weight: string;
+  gross_weight: string;
 }
 
 interface Payment {
@@ -45,6 +53,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [priceMaster, setPriceMaster] = useState<PriceMaster[]>([]);
+  const [customerPricing, setCustomerPricing] = useState<{ product_name: string; price_per_unit: number; unit: string }[]>([]);
 
   const [formData, setFormData] = useState({
     invoice_number: '',
@@ -52,11 +61,8 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
     customer_name: '',
     delivery_location: '',
     vehicle_no: '',
-    material_name: '',
-    empty_weight: '',
-    gross_weight: '',
-    material_rate: '',
-    bill_type: 'non-gst' as 'gst' | 'non-gst'
+    bill_type: 'non-gst' as 'gst' | 'non-gst',
+    items: [] as LineItem[]
   });
 
   const [payments, setPayments] = useState<Payment[]>([
@@ -75,14 +81,22 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // Derived state calculations
-  const emptyVal = parseFloat(formData.empty_weight) || 0;
-  const grossVal = parseFloat(formData.gross_weight) || 0;
-  const rateVal = parseFloat(formData.material_rate) || 0;
+  const calculateItemNet = (item: LineItem) => {
+    const e = parseFloat(item.empty_weight) || 0;
+    const g = parseFloat(item.gross_weight) || 0;
+    const net = g - e;
+    return net > 0 ? parseFloat(net.toFixed(3)) : 0;
+  };
 
-  const rawNet = grossVal - emptyVal;
-  const netWeight = rawNet > 0 ? parseFloat(rawNet.toFixed(3)) : 0;
+  const calculateItemTotal = (item: LineItem) => {
+    const net = calculateItemNet(item);
+    const rate = parseFloat(item.material_rate) || 0;
+    return parseFloat((net * rate).toFixed(2));
+  };
+
+  const totalAmount = parseFloat(formData.items.reduce((sum, item) => sum + calculateItemTotal(item), 0).toFixed(2));
+  const totalNetWeight = parseFloat(formData.items.reduce((sum, item) => sum + calculateItemNet(item), 0).toFixed(3));
   
-  const totalAmount = parseFloat((netWeight * rateVal).toFixed(2));
   const tax_rate = formData.bill_type === 'gst' ? 5 : 0;
   
   // GST Inclusive Math: Total = Subtotal + (Subtotal * 0.05)
@@ -93,8 +107,6 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
   const tax_amount = parseFloat((totalAmount - subtotal).toFixed(2));
 
   const totalCalculatedPaid = payments.reduce((sum, p) => {
-    // We only count actual monetary collection towards 'amount_paid'
-    // 'Credit' entries are recorded in history but don't count as cash collected
     if (p.payment_mode === 'credit') return sum;
     return sum + (parseFloat(p.amount) || 0);
   }, 0);
@@ -105,17 +117,46 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
     fetchDropdownData();
     fetchRecentLocations(); // Global fetch
     if (initialData) {
+      let parsedItems: LineItem[] = [];
+      if (initialData.items) {
+        try {
+          const itemsData = typeof initialData.items === 'string' 
+            ? JSON.parse(initialData.items) 
+            : initialData.items;
+          
+          if (Array.isArray(itemsData)) {
+            parsedItems = itemsData.map((item: any) => ({
+              id: item.id || crypto.randomUUID(),
+              material_name: item.material || item.material_name || '',
+              material_rate: item.rate?.toString() || item.material_rate?.toString() || '0',
+              empty_weight: item.empty_weight?.toString() || '0',
+              gross_weight: item.gross_weight?.toString() || item.quantity?.toString() || '0'
+            }));
+          }
+        } catch (e) {
+          console.error('Error parsing items:', e);
+        }
+      }
+
+      // Fallback for legacy single-item invoices
+      if (parsedItems.length === 0 && initialData.material_name) {
+        parsedItems = [{
+          id: crypto.randomUUID(),
+          material_name: initialData.material_name,
+          material_rate: initialData.material_rate?.toString() || '0',
+          empty_weight: initialData.empty_weight?.toString() || '0',
+          gross_weight: initialData.gross_weight?.toString() || '0'
+        }];
+      }
+
       setFormData({
         invoice_number: initialData.invoice_number || '',
         invoice_date: initialData.invoice_date || new Date().toISOString().split('T')[0],
         customer_name: initialData.customer_name || '',
         delivery_location: initialData.delivery_location || '',
         vehicle_no: initialData.vehicle_no || '',
-        material_name: initialData.material_name || '',
-        empty_weight: initialData.empty_weight?.toString() || '',
-        gross_weight: initialData.gross_weight?.toString() || '',
-        material_rate: initialData.material_rate?.toString() || '',
-        bill_type: (initialData.tax_rate > 0) ? 'gst' : 'non-gst'
+        bill_type: (initialData.tax_rate > 0) ? 'gst' : 'non-gst',
+        items: parsedItems
       });
 
       if (initialData.payment_history) {
@@ -140,6 +181,16 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
       setGeneratingInvoiceNumber(false);
     } else {
       generateInvoiceNumber();
+      setFormData(prev => ({
+        ...prev,
+        items: [{
+          id: crypto.randomUUID(),
+          material_name: '',
+          material_rate: '',
+          empty_weight: '',
+          gross_weight: ''
+        }]
+      }));
     }
   }, [initialData]);
 
@@ -150,7 +201,10 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
       if (customer) {
         setSelectedCustomerId(customer.id);
         fetchRecentLocations(formData.customer_name);
+        fetchCustomerPricing(customer.id);
       }
+    } else {
+      setCustomerPricing([]);
     }
   }, [formData.customer_name, customers]);
 
@@ -177,6 +231,19 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
       if (priceData) setPriceMaster(priceData);
     } catch (err) {
       console.error('Error fetching dropdown references:', err);
+    }
+  };
+
+  const fetchCustomerPricing = async (customerId: string) => {
+    try {
+      const { data } = await supabase
+        .from('customer_pricing')
+        .select('product_name, price_per_unit, unit')
+        .eq('customer_id', customerId);
+      setCustomerPricing(data || []);
+    } catch (err) {
+      console.error('Error fetching customer pricing:', err);
+      setCustomerPricing([]);
     }
   };
 
@@ -215,6 +282,49 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
     } finally {
       if (!isRetry) setGeneratingInvoiceNumber(false);
     }
+  };
+
+  const addItem = () => {
+    const lastItem = formData.items[formData.items.length - 1];
+    setFormData(prev => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          id: crypto.randomUUID(),
+          material_name: '',
+          material_rate: '',
+          empty_weight: lastItem ? lastItem.gross_weight : '',
+          gross_weight: ''
+        }
+      ]
+    }));
+  };
+
+  const removeItem = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter(item => item.id !== id)
+    }));
+  };
+
+  const updateItem = (id: string, updates: Partial<LineItem>) => {
+    setFormData(prev => {
+      const newItems = prev.items.map(item => item.id === id ? { ...item, ...updates } : item);
+      
+      // Reactive linking: If an item's gross weight changes, update the next item's empty weight
+      if (updates.gross_weight !== undefined) {
+        const index = newItems.findIndex(item => item.id === id);
+        if (index !== -1 && index < newItems.length - 1) {
+          newItems[index + 1] = {
+            ...newItems[index + 1],
+            empty_weight: updates.gross_weight
+          };
+        }
+      }
+      
+      return { ...prev, items: newItems };
+    });
   };
 
   const addPayment = () => {
@@ -268,20 +378,26 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
 
     // Safety validity checks
     if (!formData.customer_name.trim()) { setError("Customer Name is required."); return; }
-    if (!formData.material_name.trim()) { setError("Material is required."); return; }
-    if (netWeight <= 0) { setError("Net Weight must be greater than zero. Check Gross/Empty weights."); return; }
-    if (rateVal <= 0) { setError("Material Rate must be greater than zero."); return; }
+    if (formData.items.length === 0) { setError("At least one item is required."); return; }
+    
+    for (const item of formData.items) {
+      if (!item.material_name.trim()) { setError("Material name is required for all items."); return; }
+      if (calculateItemNet(item) <= 0) { setError(`Net Weight must be greater than zero for ${item.material_name}.`); return; }
+      if (parseFloat(item.material_rate) <= 0) { setError(`Material Rate must be greater than zero for ${item.material_name}.`); return; }
+    }
 
     setLoading(true);
 
     try {
-      // Create a backwards-compatible item JSON for print layouts
-      const backupItemFormat = [{
-        material: formData.material_name,
-        quantity: netWeight,
-        rate: rateVal,
-        amount: totalAmount
-      }];
+      // Create detailed items format for print layouts
+      const detailedItems = formData.items.map(item => ({
+        material: item.material_name,
+        quantity: calculateItemNet(item),
+        rate: parseFloat(item.material_rate) || 0,
+        amount: calculateItemTotal(item),
+        empty_weight: parseFloat(item.empty_weight) || 0,
+        gross_weight: parseFloat(item.gross_weight) || 0
+      }));
 
       // Calculate final status
       let status = 'unpaid';
@@ -305,6 +421,9 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
       const maxAttempts = 3;
 
       while (attempts < maxAttempts) {
+        const firstItem = formData.items[0];
+        const materialNames = formData.items.map(i => i.material_name).filter(Boolean).join(', ');
+
         const payload = {
           invoice_number: currentInvoiceNumber,
           invoice_date: formData.invoice_date,
@@ -312,11 +431,14 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
           customer_name: formData.customer_name,
           delivery_location: formData.delivery_location || null,
           vehicle_no: formData.vehicle_no || null,
-          material_name: formData.material_name,
-          material_rate: rateVal,
-          empty_weight: emptyVal,
-          gross_weight: grossVal,
-          net_weight: netWeight,
+          
+          // Primary item details (for legacy columns)
+          material_name: materialNames,
+          material_rate: parseFloat(firstItem.material_rate) || 0,
+          empty_weight: parseFloat(firstItem.empty_weight) || 0,
+          gross_weight: parseFloat(firstItem.gross_weight) || 0,
+          net_weight: totalNetWeight,
+          
           subtotal: subtotal,
           tax_rate: tax_rate,
           tax_amount: tax_amount,
@@ -329,9 +451,9 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
           payment_mode: paymentHistory.length > 0 ? paymentHistory[0].payment_mode : null,
           payment_date: paymentHistory.length > 0 ? paymentHistory[0].payment_date : null,
 
-          // Backwards compatibility:
+          // Backwards compatibility & detailed data:
           due_date: formData.invoice_date,
-          items: JSON.stringify(backupItemFormat)
+          items: JSON.stringify(detailedItems)
         };
 
         const query = initialData?.id 
@@ -341,9 +463,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
         const { error: insertError } = await query;
 
         if (insertError) {
-          // Check for unique violation (PostgreSQL code 23505)
           if (insertError.code === '23505' && attempts < maxAttempts - 1) {
-            console.log(`Invoice number collision detected for ${currentInvoiceNumber}. Retrying with fresh number...`);
             currentInvoiceNumber = await generateInvoiceNumber(true);
             attempts++;
             continue;
@@ -351,7 +471,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
           throw insertError;
         }
 
-        break; // Success!
+        break;
       }
 
       // Update customer profile if requested
@@ -371,16 +491,16 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
           vehicle_no: formData.vehicle_no,
           invoice_date: formData.invoice_date,
           due_date: formData.invoice_date,
-          items: backupItemFormat,
+          items: detailedItems,
           subtotal: subtotal,
           tax_rate: tax_rate,
           tax_amount: tax_amount,
           total_amount: totalAmount,
           status: status,
           amount_paid: totalCalculatedPaid,
-          empty_weight: emptyVal,
-          gross_weight: grossVal,
-          net_weight: netWeight,
+          empty_weight: parseFloat(formData.items[0].empty_weight) || 0,
+          gross_weight: parseFloat(formData.items[0].gross_weight) || 0,
+          net_weight: totalNetWeight,
           delivery_location: formData.delivery_location,
           notes: undefined
         });
@@ -537,143 +657,203 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
                 />
               </div>
             </div>
-          </div>
-
-          {/* 3. Weight Mathematics */}
+          </div>          {/* 3. Item Details */}
           <div className="mb-8">
-            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">3. Weighbridge Data</h4>
-            <div className="bg-slate-50 p-5 rounded-xl border border-slate-100">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Empty / Tare Weight (Tons)</label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    min="0"
-                    placeholder="0.000"
-                    value={formData.empty_weight}
-                    onChange={(e) => setFormData({ ...formData, empty_weight: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Gross Weight (Tons)</label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    min="0"
-                    placeholder="0.000"
-                    value={formData.gross_weight}
-                    onChange={(e) => setFormData({ ...formData, gross_weight: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-cyan-700 mb-2">Net Load Target (Tons)</label>
-                  <div className="w-full px-4 py-2.5 bg-cyan-50 border-2 border-cyan-200 rounded-lg flex items-center justify-between">
-                    <span className="font-bold text-cyan-900">{netWeight.toFixed(3)}</span>
-                    <span className="text-xs font-black text-cyan-600 tracking-wider">TONS</span>
-                  </div>
-                  <p className="text-[10px] text-cyan-600 mt-1.5 font-bold">Auto-Calculated (Gross - Empty)</p>
-                </div>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">3. Item Details</h4>
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-lg"
+                >
+                  <Tag className="w-3.5 h-3.5" />
+                  + Add Another Material
+                </button>
+              )}
             </div>
-          </div>
 
-          {/* 4. Billing Metrics */}
-          <div className="mb-8">
-            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">4. Valuation</h4>
             <div className="space-y-6">
+              {formData.items.map((item) => {
+                const itemNet = calculateItemNet(item);
+                const itemTotal = calculateItemTotal(item);
+                
+                return (
+                  <div key={item.id} className="relative bg-slate-50 rounded-2xl border border-slate-200 p-6 animate-in slide-in-from-left-2 duration-300">
+                    {!isReadOnly && formData.items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        className="absolute -top-2 -right-2 w-8 h-8 bg-white border border-slate-200 text-red-400 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center shadow-sm transition-all z-10"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                      {/* Material Selection (Left Column) */}
+                      <div className="lg:col-span-5 space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Select Material *</label>
+                          <div className="flex flex-wrap gap-2">
+                            {priceMaster.map((m) => {
+                              const customerRate = customerPricing.find(
+                                cp => cp.product_name.toLowerCase() === m.product_type.toLowerCase()
+                              );
+                              const isSelected = item.material_name === m.product_type;
+                              return (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  disabled={isReadOnly}
+                                  onClick={() => {
+                                    const rate = customerRate ? customerRate.price_per_unit : m.sales_price;
+                                    updateItem(item.id, { 
+                                      material_name: m.product_type,
+                                      material_rate: String(rate)
+                                    });
+                                  }}
+                                  className={`relative px-3 py-2 rounded-xl font-bold text-xs transition-all border-2 ${
+                                    isSelected
+                                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                                      : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/50'
+                                  }`}
+                                >
+                                  {m.product_type}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Price Source Toggle for this item */}
+                          {(() => {
+                            const customerRate = customerPricing.find(
+                              cp => cp.product_name.toLowerCase() === item.material_name.toLowerCase()
+                            );
+                            const catalogueRate = priceMaster.find(m => m.product_type === item.material_name)?.sales_price;
+                            if (!customerRate || !item.material_name) return null;
+                            const usingCustomer = parseFloat(item.material_rate) === customerRate.price_per_unit;
+                            return (
+                              <div className="mt-3 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => updateItem(item.id, { material_rate: String(customerRate.price_per_unit) })}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all ${
+                                    usingCustomer
+                                      ? 'bg-cyan-600 text-white shadow-sm'
+                                      : 'bg-white border border-cyan-200 text-cyan-700'
+                                  }`}
+                                >
+                                  Cust Price: ₹{customerRate.price_per_unit}
+                                </button>
+                                {catalogueRate !== undefined && (
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(item.id, { material_rate: String(catalogueRate) })}
+                                    className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all ${
+                                      !usingCustomer
+                                        ? 'bg-slate-800 text-white shadow-sm'
+                                        : 'bg-white border border-slate-200 text-slate-600'
+                                    }`}
+                                  >
+                                    Mkt Price: ₹{catalogueRate}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* Weight Data (Middle Column) */}
+                      <div className="lg:col-span-4 grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Empty (Tons)</label>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            placeholder="0.000"
+                            value={item.empty_weight}
+                            onChange={(e) => updateItem(item.id, { empty_weight: e.target.value })}
+                            className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Gross (Tons)</label>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            placeholder="0.000"
+                            value={item.gross_weight}
+                            onChange={(e) => updateItem(item.id, { gross_weight: e.target.value })}
+                            className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold text-sm bg-white"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                           <div className="flex items-center justify-between px-3 py-2 bg-cyan-100/50 border border-cyan-200 rounded-lg">
+                             <span className="text-[10px] font-black text-cyan-700 uppercase tracking-widest">Net Weight</span>
+                             <span className="text-sm font-black text-cyan-900">{itemNet.toFixed(3)} TONS</span>
+                           </div>
+                        </div>
+                      </div>
+
+                      {/* Rate & Total (Right Column) */}
+                      <div className="lg:col-span-3 space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Rate (₹/Ton)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.material_rate}
+                            onChange={(e) => updateItem(item.id, { material_rate: e.target.value })}
+                            className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 font-black text-sm text-indigo-600 bg-white"
+                          />
+                        </div>
+                        <div className="p-3 bg-indigo-900 rounded-xl text-white text-right">
+                          <p className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-1">Item Total</p>
+                          <p className="text-lg font-black leading-none">₹{itemTotal.toLocaleString('en-IN')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* GST Toggle */}
+            <div className="mt-8 bg-white p-4 rounded-2xl border-2 border-slate-100 flex items-center justify-between">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-3">Select Material *</label>
-                <div className="flex flex-wrap gap-2">
-                  {priceMaster.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      disabled={isReadOnly}
-                      onClick={() => setFormData({ 
-                        ...formData, 
-                        material_name: m.product_type,
-                        material_rate: String(m.sales_price)
-                      })}
-                      className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all border-2 ${
-                        formData.material_name === m.product_type
-                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200 scale-105'
-                          : 'bg-white border-slate-100 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/50'
-                      }`}
-                    >
-                      {m.product_type}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-sm font-bold text-slate-700">Billing Compliance</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Taxes are calculated on the aggregate total</p>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Selected Material</label>
-                  <div className="w-full px-4 py-2.5 bg-slate-50 border-2 border-slate-200 rounded-lg text-slate-500 font-bold truncate">
-                    {formData.material_name || 'None selected'}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Material Rate (₹ per Ton) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    placeholder="0.00"
-                    value={formData.material_rate}
-                    onChange={(e) => setFormData({ ...formData, material_rate: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-indigo-900 mb-2">Final Amount (₹)</label>
-                  <div className="w-full px-4 py-2.5 bg-indigo-50 border-2 border-indigo-200 rounded-lg flex items-center justify-between">
-                    <span className="font-black text-indigo-700 text-lg">₹ {totalAmount.toFixed(2)}</span>
-                  </div>
-                  <p className="text-[10px] text-indigo-500 mt-1.5 font-bold">Auto-Calculated {formData.bill_type === 'gst' ? '(Net × Rate) [Incl. 5% GST]' : '(Net × Rate)'}</p>
-                </div>
-              </div>
-
-              {/* GST Toggle */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-slate-700">Billing Type</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Select Tax Compliance Mode</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={isReadOnly}
-                    onClick={() => setFormData({ ...formData, bill_type: 'non-gst' })}
-                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                      formData.bill_type === 'non-gst'
-                        ? 'bg-slate-800 text-white shadow-lg'
-                        : 'bg-white text-slate-400 border border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    Non-GST Bill
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isReadOnly}
-                    onClick={() => setFormData({ ...formData, bill_type: 'gst' })}
-                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                      formData.bill_type === 'gst'
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 ring-2 ring-indigo-500/20'
-                        : 'bg-white text-slate-400 border border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    GST Bill (5%)
-                  </button>
-                </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={isReadOnly}
+                  onClick={() => setFormData({ ...formData, bill_type: 'non-gst' })}
+                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                    formData.bill_type === 'non-gst'
+                      ? 'bg-slate-800 text-white shadow-lg'
+                      : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  Non-GST Bill
+                </button>
+                <button
+                  type="button"
+                  disabled={isReadOnly}
+                  onClick={() => setFormData({ ...formData, bill_type: 'gst' })}
+                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                    formData.bill_type === 'gst'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 ring-2 ring-indigo-500/20'
+                      : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  GST Bill (5%)
+                </button>
               </div>
             </div>
           </div>

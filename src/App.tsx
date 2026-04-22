@@ -24,6 +24,7 @@ import { PermitForm } from './components/Permit/PermitForm';
 import { PermitReport } from './components/Permit/PermitReport';
 import { AccountsForm } from './components/Accounts/AccountsForm';
 import { DispatchForm } from './components/Resources/DispatchForm';
+import { InventoryDispatchReport } from './components/Resources/InventoryDispatchReport';
 import { StorageForm } from './components/Resources/StorageForm';
 import { ReportsModule } from './components/Reports/ReportsModule';
 import { UserManagement } from './components/Users/UserManagement';
@@ -377,12 +378,15 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Dispatch List</h2>
-              <p className="text-slate-600 mt-1">Track material dispatch, transportation, and balance materials</p>
+              <h2 className="text-2xl font-bold text-slate-900">Issue Items from Stock</h2>
+              <p className="text-slate-600 mt-1">Track items given to departments and employees</p>
             </div>
-            <DispatchForm onSuccess={() => window.location.reload()} />
+            <DispatchForm onSuccess={() => window.location.hash = '#inventory-dispatch-report'} />
           </div>
         );
+
+      case 'inventory-dispatch-report':
+        return <InventoryDispatchReport />;
 
       case 'user-management':
         return <UserManagement />;

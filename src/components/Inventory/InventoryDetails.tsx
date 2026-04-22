@@ -31,6 +31,9 @@ interface InventoryStats {
   totalValue: number;
 }
 
+const PG_BOX_SIZE = 200;
+const isPGItem = (name: string) => name?.toUpperCase() === 'PG';
+
 export function InventoryDetails() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [stats, setStats] = useState<InventoryStats>({
@@ -230,7 +233,7 @@ export function InventoryDetails() {
                         <span className="text-xs font-medium text-slate-600">Quantity</span>
                       </div>
                       <p className="text-sm font-bold text-slate-900">
-                        {item.quantity} {item.unit}
+                        {isPGItem(item.item_name) ? (item.quantity / PG_BOX_SIZE).toFixed(2) : item.quantity} {isPGItem(item.item_name) ? 'Box' : item.unit}
                       </p>
                     </div>
 
@@ -240,7 +243,7 @@ export function InventoryDetails() {
                         <span className="text-xs font-medium text-slate-600">Min Level</span>
                       </div>
                       <p className="text-sm font-bold text-slate-900">
-                        {item.minimum_quantity} {item.unit}
+                        {isPGItem(item.item_name) ? (item.minimum_quantity / PG_BOX_SIZE).toFixed(2) : item.minimum_quantity} {isPGItem(item.item_name) ? 'Box' : item.unit}
                       </p>
                     </div>
 

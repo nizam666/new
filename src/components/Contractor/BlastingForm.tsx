@@ -19,6 +19,7 @@ const MATERIAL_TYPES_ABBR = {
 };
 const LOCATIONS = ['Site 1', 'Storage Bay'];
 const PG_UNITS = ['boxes', 'nos'];
+const PG_BOX_SIZE = 200;
 
 const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
   if (!dateStr) return 'N/A';
@@ -109,13 +110,13 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
           nonel_4m: 0,
           pg: 0
         };
-        
+
         current.ed += (record.ed_nos || 0);
         current.edet += (record.edet_nos || 0);
         current.nonel_3m += (record.nonel_3m_nos || 0);
         current.nonel_4m += (record.nonel_4m_nos || 0);
         current.pg += (record.pg_nos || 0);
-        
+
         statsMap.set(key, current);
       });
 
@@ -149,7 +150,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     try {
       // 🚨 Stock Validation 🚨
       const b = await fetchQuarryBalances();
-      
+
       const check = (key: string, qty: number, label: string) => {
         const available = b[key]?.remaining || 0;
         if (qty > available) {
@@ -159,7 +160,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
 
       const rawPg = parseFloat(formData.pg_nos) || 0;
       const finalPg = formData.pg_unit === 'nos' ? rawPg / 200 : rawPg;
-      
+
       check('pg', finalPg, 'PG (boxes)');
       check('ed', parseFloat(formData.ed_nos) || 0, 'ED');
       check('edet', parseFloat(formData.edet_nos) || 0, 'EDET');
@@ -267,11 +268,10 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
                 key={loc}
                 type="button"
                 onClick={() => setFormData({ ...formData, location: loc })}
-                className={`p-2 sm:p-3 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] text-xs sm:text-sm ${
-                  formData.location === loc
+                className={`p-2 sm:p-3 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] text-xs sm:text-sm ${formData.location === loc
                     ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20'
                     : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'
-                }`}
+                  }`}
               >
                 <div className="font-semibold">{loc}</div>
               </button>
@@ -290,11 +290,10 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
                 key={type}
                 type="button"
                 onClick={() => setFormData({ ...formData, material_type: type })}
-                className={`p-2 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
-                  formData.material_type === type
+                className={`p-2 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] ${formData.material_type === type
                     ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20'
                     : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'
-                }`}
+                  }`}
               >
                 <div className="text-xs sm:text-sm font-semibold">{type}</div>
                 <div className="text-xs mt-1 opacity-75">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL]}</div>
@@ -320,9 +319,8 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
               value={formData.ed_nos}
               onChange={(e) => setFormData({ ...formData, ed_nos: e.target.value })}
               min="0"
-              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
-                quarryBalances?.['ed'] && parseFloat(formData.ed_nos) > quarryBalances['ed'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
-              }`}
+              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${quarryBalances?.['ed'] && parseFloat(formData.ed_nos) > quarryBalances['ed'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                }`}
               placeholder="0"
             />
           </div>
@@ -341,9 +339,8 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
               value={formData.edet_nos}
               onChange={(e) => setFormData({ ...formData, edet_nos: e.target.value })}
               min="0"
-              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
-                quarryBalances?.['edet'] && parseFloat(formData.edet_nos) > quarryBalances['edet'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
-              }`}
+              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${quarryBalances?.['edet'] && parseFloat(formData.edet_nos) > quarryBalances['edet'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                }`}
               placeholder="0"
             />
           </div>
@@ -362,9 +359,8 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
               value={formData.nonel_3m_nos}
               onChange={(e) => setFormData({ ...formData, nonel_3m_nos: e.target.value })}
               min="0"
-              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
-                quarryBalances?.['nonel_3m'] && parseFloat(formData.nonel_3m_nos) > quarryBalances['nonel_3m'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
-              }`}
+              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${quarryBalances?.['nonel_3m'] && parseFloat(formData.nonel_3m_nos) > quarryBalances['nonel_3m'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                }`}
               placeholder="0"
             />
           </div>
@@ -383,9 +379,8 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
               value={formData.nonel_4m_nos}
               onChange={(e) => setFormData({ ...formData, nonel_4m_nos: e.target.value })}
               min="0"
-              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
-                quarryBalances?.['nonel_4m'] && parseFloat(formData.nonel_4m_nos) > quarryBalances['nonel_4m'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
-              }`}
+              className={`w-full px-3 sm:px-4 py-2 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${quarryBalances?.['nonel_4m'] && parseFloat(formData.nonel_4m_nos) > quarryBalances['nonel_4m'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+                }`}
               placeholder="0"
             />
           </div>
@@ -397,7 +392,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
             <span>PG Quantity</span>
             {quarryBalances?.['pg'] && (
               <span className={`text-[10px] font-black px-2 py-0.5 rounded ${quarryBalances['pg'].remaining <= 0 ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
-                Available: {quarryBalances['pg'].remaining.toFixed(1)} boxes
+                Available: {quarryBalances['pg'].remaining.toFixed(1)} boxes / {(quarryBalances['pg'].remaining * PG_BOX_SIZE).toFixed(0)} nos
               </span>
             )}
           </label>
@@ -407,9 +402,8 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
             value={formData.pg_nos}
             onChange={(e) => setFormData({ ...formData, pg_nos: e.target.value })}
             min="0"
-            className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${
-              quarryBalances?.['pg'] && (formData.pg_unit === 'nos' ? parseFloat(formData.pg_nos)/200 : parseFloat(formData.pg_nos)) > quarryBalances['pg'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
-            }`}
+            className={`w-full px-3 sm:px-4 py-2 sm:py-2.5 border rounded-lg sm:rounded-xl focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm ${quarryBalances?.['pg'] && (formData.pg_unit === 'nos' ? parseFloat(formData.pg_nos) / 200 : parseFloat(formData.pg_nos)) > quarryBalances['pg'].remaining ? 'border-red-500 bg-red-50' : 'border-slate-300'
+              }`}
             placeholder={formData.pg_unit === 'nos' ? "Enter quantity in nos (e.g. 200)" : "Enter quantity in boxes"}
           />
           {formData.pg_nos && formData.pg_unit === 'nos' && (
@@ -431,11 +425,10 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
                 key={unit}
                 type="button"
                 onClick={() => setFormData({ ...formData, pg_unit: unit })}
-                className={`p-2 sm:p-3 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold text-xs sm:text-sm ${
-                  formData.pg_unit === unit
+                className={`p-2 sm:p-3 rounded-lg sm:rounded-xl border-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] font-semibold text-xs sm:text-sm ${formData.pg_unit === unit
                     ? 'bg-orange-600 border-orange-600 text-white shadow-md shadow-orange-600/20'
                     : 'bg-white border-slate-300 text-slate-700 hover:border-orange-300'
-                }`}
+                  }`}
               >
                 {unit.charAt(0).toUpperCase() + unit.slice(1)}
               </button>
