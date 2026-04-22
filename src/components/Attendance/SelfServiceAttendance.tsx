@@ -47,6 +47,29 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
 
   useEffect(() => {
     startCamera();
+    
+    // Attempt to automatically fetch employee_id if a user is logged in
+    const fetchLoggedInUserEmployeeId = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data } = await supabase
+            .from('users')
+            .select('employee_id')
+            .eq('id', session.user.id)
+            .maybeSingle();
+            
+          if (data?.employee_id) {
+            setEmployeeId(data.employee_id);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching user employee_id:', err);
+      }
+    };
+    
+    fetchLoggedInUserEmployeeId();
+
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());

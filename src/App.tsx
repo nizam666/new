@@ -22,7 +22,7 @@ import { SalesModule } from './components/Sales/SalesModule';
 import { ApprovalsModule } from './components/Manager/ApprovalsModule';
 import { PermitForm } from './components/Permit/PermitForm';
 import { PermitReport } from './components/Permit/PermitReport';
-import { AccountsForm } from './components/Accounts/AccountsForm';
+import { AccountsModule } from './components/Accounts/AccountsModule';
 import { DispatchForm } from './components/Resources/DispatchForm';
 import { InventoryDispatchReport } from './components/Resources/InventoryDispatchReport';
 import { StorageForm } from './components/Resources/StorageForm';
@@ -370,7 +370,7 @@ function AppContent() {
               <h2 className="text-2xl font-bold text-slate-900">Accounts</h2>
               <p className="text-slate-600 mt-1">Manage invoices, payments, and financial transactions</p>
             </div>
-            <AccountsForm onSuccess={() => window.location.reload()} />
+            <AccountsModule />
           </div>
         );
 
