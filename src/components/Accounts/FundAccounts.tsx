@@ -22,6 +22,8 @@ export const FUND_SOURCES: FundSource[] = [
   { id: 'sbbm_netbank',  label: 'SBBM Net-Banking',    icon: Globe,      color: 'text-violet-600', bg: 'bg-violet-50'  },
   { id: 'appa_cash',     label: 'APPA Cash',           icon: Banknote,   color: 'text-blue-600',   bg: 'bg-blue-50'    },
   { id: 'appa_account',  label: 'APPA Account',        icon: CreditCard, color: 'text-blue-600',   bg: 'bg-blue-50'    },
+  { id: 'appa_hdfc_cc',  label: 'APPA HDFC CC',        icon: CreditCard, color: 'text-blue-600',   bg: 'bg-blue-50'    },
+  { id: 'appa_axis_cc',  label: 'APPA Axis CC',        icon: CreditCard, color: 'text-blue-600',   bg: 'bg-blue-50'    },
   { id: 'amma_cash',     label: 'AMMA Cash',           icon: Banknote,   color: 'text-emerald-600',bg: 'bg-emerald-50' },
   { id: 'amma_account',  label: 'AMMA Account',        icon: CreditCard, color: 'text-emerald-600',bg: 'bg-emerald-50' },
   { id: 'mani_cash',     label: 'MANI Cash',           icon: Banknote,   color: 'text-amber-600',  bg: 'bg-amber-50'   },
