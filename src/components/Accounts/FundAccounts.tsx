@@ -47,11 +47,33 @@ export function useFundBalances() {
         .select('source_id, type, amount');
       if (error) throw error;
 
+      // Auto-fetch ALL sales from invoices to compute total SBBM revenue
+      const { data: salesData, error: salesError } = await supabase
+        .from('invoices')
+        .select('amount_paid, payment_mode')
+        .gt('amount_paid', 0);
+
       const totals: Record<string, number> = {};
+      
+      // 1. Apply fund transactions (manual deposits/withdrawals)
       (data || []).forEach(row => {
         if (!totals[row.source_id]) totals[row.source_id] = 0;
         totals[row.source_id] += row.type === 'deposit' ? row.amount : -row.amount;
       });
+
+      // 2. Automatically add Sales collections to SBBM balances
+      if (!salesError && salesData) {
+        salesData.forEach(sale => {
+          const mode = (sale.payment_mode || 'cash').toLowerCase();
+          let sourceId = 'sbbm_cash';
+          if (mode.includes('upi')) sourceId = 'sbbm_upi';
+          if (mode.includes('net') || mode.includes('bank')) sourceId = 'sbbm_netbank';
+          
+          if (!totals[sourceId]) totals[sourceId] = 0;
+          totals[sourceId] += (sale.amount_paid || 0);
+        });
+      }
+
       setBalances(totals);
     } catch (err) {
       console.error('Fund balance fetch error:', err);
@@ -72,34 +94,7 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
   const [note, setNote]   = useState('');
   const [date, setDate]   = useState(new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
-  const [sbbmAuto, setSbbmAuto] = useState<number | null>(null);
   const { balances, refresh } = useFundBalances();
-
-  // Auto-fetch today's SBBM sales from invoices
-  useEffect(() => {
-    if (!source.startsWith('sbbm_')) { setSbbmAuto(null); return; }
-    const fetchSBBM = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const { data } = await supabase
-        .from('invoices')
-        .select('total_amount, payment_mode')
-        .eq('invoice_date', today);
-      if (data && data.length > 0) {
-        // Map SBBM sub-types
-        const mode = source === 'sbbm_cash' ? 'Cash'
-          : source === 'sbbm_upi' ? 'UPI' : 'Net-Banking';
-        const filtered = data.filter(r =>
-          (r.payment_mode || '').toLowerCase().includes(mode.toLowerCase())
-        );
-        const total = filtered.reduce((sum, r) => sum + (r.total_amount || 0), 0);
-        setSbbmAuto(total > 0 ? total : null);
-        if (total > 0) setAmount(String(total));
-      } else {
-        setSbbmAuto(null);
-      }
-    };
-    fetchSBBM();
-  }, [source, date]);
 
   const handleSave = async () => {
     if (!amount || parseFloat(amount) <= 0) return toast.warning('Enter a valid amount');
@@ -110,7 +105,7 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
         source_id: source,
         type: 'deposit',
         amount: parseFloat(amount),
-        note: note || (sbbmAuto ? 'Auto-fetched from SBBM Sales' : 'Manual Deposit'),
+        note: note || 'Manual Deposit',
         transaction_date: date,
         created_by: user?.id
       }]);
@@ -183,11 +178,6 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount *</p>
-            {sbbmAuto && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase">
-                <RefreshCw className="w-3 h-3" /> Auto from Sales
-              </span>
-            )}
           </div>
           <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-emerald-500/20 focus-within:border-emerald-400 transition-all shadow-inner">
             <span className="px-5 py-4 text-xl font-black text-emerald-500 bg-emerald-50/50 border-r border-slate-200">₹</span>
