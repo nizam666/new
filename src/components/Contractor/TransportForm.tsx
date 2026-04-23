@@ -67,6 +67,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     empty_vehicle_weight: '',
     gross_weight: '',
     avg_weight: '',
+    use_avg_weight: true,
     party_name: 'KVSS Q TO C'
   });
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -166,7 +167,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   useEffect(() => {
     if (formData.material_transported === 'Good Boulders') {
       const trips = parseInt(formData.number_of_trips) || 1;
-      if (formData.from_location === 'Stockyard' && formData.to_location === 'Crusher') {
+      const isStockToCrush = formData.from_location === 'Stockyard' && formData.to_location === 'Crusher';
+      
+      if (isStockToCrush && (formData as any).use_avg_weight) {
         const avg = parseFloat(formData.avg_weight) || 0;
         const net = avg * trips;
         setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toFixed(2) }));
@@ -177,7 +180,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toFixed(2) }));
       }
     }
-  }, [formData.gross_weight, formData.empty_vehicle_weight, formData.avg_weight, formData.number_of_trips, formData.material_transported, formData.from_location, formData.to_location]);
+  }, [formData.gross_weight, formData.empty_vehicle_weight, formData.avg_weight, (formData as any).use_avg_weight, formData.number_of_trips, formData.material_transported, formData.from_location, formData.to_location]);
 
   const fetchNextTripRef = async () => {
     if (!user) return;
@@ -613,6 +616,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         empty_vehicle_weight: '',
         gross_weight: '',
         avg_weight: '',
+        use_avg_weight: true,
         party_name: 'KVSS Q TO C'
       });
 
@@ -963,22 +967,87 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
             {formData.from_location === 'Stockyard' && formData.to_location === 'Crusher' && (
               <div className="md:col-span-2 bg-purple-50 p-4 rounded-xl border border-purple-100">
-                <label className="block text-sm font-bold text-purple-900 mb-2">
-                  Avg Weight (tons)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.avg_weight}
-                  onChange={(e) => setFormData({ ...formData, avg_weight: e.target.value })}
-                  min="0"
-                  required={formData.from_location === 'Stockyard' && formData.to_location === 'Crusher'}
-                  className="w-full px-4 py-2 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white font-bold"
-                  placeholder="0.00"
-                />
-                <p className="text-[10px] text-purple-600 font-medium mt-1 uppercase tracking-wider">
-                  * Quantity will be automatically calculated: Avg WT × Trips
-                </p>
+                <div className="flex items-center justify-between mb-4">
+                  <label className="text-sm font-bold text-purple-900">Calculation Mode</label>
+                  <div className="flex bg-white p-1 rounded-lg border border-purple-200">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, use_avg_weight: true })}
+                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
+                        (formData as any).use_avg_weight 
+                          ? 'bg-purple-600 text-white shadow-sm' 
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      Average Weight
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, use_avg_weight: false })}
+                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
+                        !(formData as any).use_avg_weight 
+                          ? 'bg-purple-600 text-white shadow-sm' 
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      Weight Bridge
+                    </button>
+                  </div>
+                </div>
+
+                {(formData as any).use_avg_weight ? (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                    <label className="block text-sm font-bold text-purple-900 mb-2">
+                      Avg Weight (tons)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.avg_weight}
+                      onChange={(e) => setFormData({ ...formData, avg_weight: e.target.value })}
+                      min="0"
+                      required={(formData as any).use_avg_weight}
+                      className="w-full px-4 py-2 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white font-bold"
+                      placeholder="0.00"
+                    />
+                    <p className="text-[10px] text-purple-600 font-medium mt-1 uppercase tracking-wider">
+                      * Quantity will be automatically calculated: Avg WT × Trips
+                    </p>
+                  </div>
+                ) : (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-4">
+                    <p className="text-[10px] text-purple-600 font-black uppercase tracking-widest border-b border-purple-100 pb-2">
+                      Weight Bridge Mode (Enter individual trip weights)
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Load WT</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.gross_weight}
+                          onChange={(e) => setFormData({ ...formData, gross_weight: e.target.value })}
+                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-bold"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Empty WT</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.empty_vehicle_weight}
+                          onChange={(e) => setFormData({ ...formData, empty_vehicle_weight: e.target.value })}
+                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-bold"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      * Quantity: (Load - Empty) × Trips
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
