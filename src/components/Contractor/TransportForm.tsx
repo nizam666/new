@@ -61,7 +61,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     fuel_consumed: '',
     material_transported: '',
     quantity: '',
-    avg_weight: '',
     number_of_trips: '1',
     notes: '',
     trip_ref: '',
@@ -78,7 +77,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryRows, setSummaryRows] = useState<any[]>([]); // Detailed
   const [dailySummaryRows, setDailySummaryRows] = useState<any[]>([]); // Aggregated
-  const [summaryTotals, setSummaryTotals] = useState({ fuel: 0, quantity: 0, trips: 0, gross: 0, empty: 0, qc: 0, qs: 0, sc: 0, soil: 0, wr: 0, ar: 0, qc_qty: 0, qs_qty: 0 });
+  const [summaryTotals, setSummaryTotals] = useState({ fuel: 0, quantity: 0, trips: 0, gross: 0, empty: 0, qc: 0, qs: 0, sc: 0, soil: 0, wr: 0, ar: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
   const [recentVehicles, setRecentVehicles] = useState<{number: string, type: string}[]>([]);
   const [dieselStock, setDieselStock] = useState<number | null>(null);
@@ -167,23 +166,10 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     if (formData.material_transported === 'Good Boulders') {
       const gross = parseFloat(formData.gross_weight) || 0;
       const empty = parseFloat(formData.empty_vehicle_weight) || 0;
-      const trips = parseInt(formData.number_of_trips) || 1;
       const net = Math.max(0, gross - empty);
-      const total = net * trips;
-      setFormData((prev: typeof formData) => ({ ...prev, quantity: total.toFixed(2) }));
+      setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toString() }));
     }
-  }, [formData.gross_weight, formData.empty_vehicle_weight, formData.material_transported, formData.number_of_trips]);
-
-  useEffect(() => {
-    if (formData.from_location === 'Stockyard' && formData.to_location === 'Crusher') {
-      const avg = parseFloat(formData.avg_weight) || 0;
-      const trips = parseInt(formData.number_of_trips) || 0;
-      const total = avg * trips;
-      if (total > 0) {
-        setFormData((prev: typeof formData) => ({ ...prev, quantity: total.toFixed(2) }));
-      }
-    }
-  }, [formData.avg_weight, formData.number_of_trips, formData.from_location, formData.to_location]);
+  }, [formData.gross_weight, formData.empty_vehicle_weight, formData.material_transported]);
 
   const fetchNextTripRef = async () => {
     if (!user) return;
@@ -292,7 +278,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         let totalGross = 0, totalEmpty = 0;
         let totalQC = 0, totalQS = 0, totalSC = 0;
         let totalSoil = 0, totalWR = 0, totalAR = 0;
-        let totalQCQty = 0, totalQSQty = 0;
 
         const grouped: Record<string, any> = {};
  
@@ -313,8 +298,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           if (!grouped[row.date]) {
             grouped[row.date] = { 
               date: row.date, fuel: 0, qty: 0, trips: 0,
-              qc: 0, qs: 0, sc: 0, soil: 0, wr: 0, ar: 0,
-              qc_qty: 0, qs_qty: 0
+              qc: 0, qs: 0, sc: 0, soil: 0, wr: 0, ar: 0
             };
           }
           grouped[row.date].fuel += f;
@@ -323,14 +307,10 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
           if (row.from_location === 'Quarry' && row.to_location === 'Crusher') {
             grouped[row.date].qc += t;
-            grouped[row.date].qc_qty += q;
             totalQC += t;
-            totalQCQty += q;
           } else if (row.from_location === 'Quarry' && row.to_location === 'Stockyard') {
             grouped[row.date].qs += t;
-            grouped[row.date].qs_qty += q;
             totalQS += t;
-            totalQSQty += q;
           } else if (row.from_location === 'Stockyard' && row.to_location === 'Crusher') {
             grouped[row.date].sc += t;
             totalSC += t;
@@ -367,8 +347,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           fuel: totalFuel, quantity: totalQty, trips: totalTrips,
           gross: totalGross, empty: totalEmpty,
           qc: totalQC, qs: totalQS, sc: totalSC,
-          soil: totalSoil, wr: totalWR, ar: totalAR,
-          qc_qty: totalQCQty, qs_qty: totalQSQty
+          soil: totalSoil, wr: totalWR, ar: totalAR
         });
       }
     } catch (err) {
@@ -619,7 +598,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         fuel_consumed: '',
         material_transported: '',
         quantity: '',
-        avg_weight: '',
         number_of_trips: '1',
         notes: '',
         trip_ref: '',
@@ -729,7 +707,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           <input
             type="date"
             value={formData.date}
-            max={new Date().toISOString().split('T')[0]}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
             required
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -927,38 +904,19 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
 
 
-        <div className={formData.from_location === 'Stockyard' && formData.to_location === 'Crusher' ? 'grid grid-cols-2 gap-4' : ''}>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Number of Trips
-            </label>
-            <input
-              type="number"
-              step="1"
-              value={formData.number_of_trips}
-              onChange={(e) => setFormData({ ...formData, number_of_trips: e.target.value })}
-              min="1"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="1"
-            />
-          </div>
-
-          {formData.from_location === 'Stockyard' && formData.to_location === 'Crusher' && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Avg Weight (tons)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.avg_weight}
-                onChange={(e) => setFormData({ ...formData, avg_weight: e.target.value })}
-                min="0"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
-          )}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Number of Trips
+          </label>
+          <input
+            type="number"
+            step="1"
+            value={formData.number_of_trips}
+            onChange={(e) => setFormData({ ...formData, number_of_trips: e.target.value })}
+            min="1"
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            placeholder="1"
+          />
         </div>
 
         {formData.material_transported === 'Good Boulders' && (
@@ -995,11 +953,10 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         )}
 
-        {(!['Weather Rocks', 'Soil', "Aggregate's Rehandling"].includes(formData.material_transported) || 
-          (formData.from_location === 'Stockyard' && formData.to_location === 'Crusher')) && (
+        {!['Weather Rocks', 'Soil', "Aggregate's Rehandling"].includes(formData.material_transported) && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Quantity (tons) {(formData.material_transported === 'Good Boulders' || (formData.from_location === 'Stockyard' && formData.to_location === 'Crusher')) && '(Computed)'}
+              Quantity (tons) {formData.material_transported === 'Good Boulders' && '(Computed)'}
             </label>
             <input
               type="number"
@@ -1007,9 +964,9 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
               value={formData.quantity}
               onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
               min="0"
-              disabled={formData.material_transported === 'Good Boulders' || (formData.from_location === 'Stockyard' && formData.to_location === 'Crusher')}
+              disabled={formData.material_transported === 'Good Boulders'}
               className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                (formData.material_transported === 'Good Boulders' || (formData.from_location === 'Stockyard' && formData.to_location === 'Crusher')) ? 'bg-slate-50 text-slate-500 font-bold' : ''
+                formData.material_transported === 'Good Boulders' ? 'bg-slate-50 text-slate-500 font-bold' : ''
               }`}
               placeholder="0.00"
             />
@@ -1268,8 +1225,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                     <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider border-l border-slate-200">Soil</th>
                     <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">W.Rock</th>
                     <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">Agg.Reh</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-700 uppercase tracking-wider border-l border-slate-200">QC Qty</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-700 uppercase tracking-wider">QS Qty</th>
                     <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Qty (T)</th>
                     <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Diesel</th>
                   </tr>
@@ -1286,9 +1241,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                       <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium border-l border-slate-100">{row.soil || '-'}</td>
                       <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.wr || '-'}</td>
                       <td className="px-2 py-3 text-xs text-center text-blue-600 font-medium">{row.ar || '-'}</td>
-                      <td className="px-2 py-3 text-xs text-right text-purple-700 font-bold border-l border-slate-100">{row.qc_qty > 0 ? row.qc_qty.toFixed(2) : '-'}</td>
-                      <td className="px-2 py-3 text-xs text-right text-purple-700 font-bold">{row.qs_qty > 0 ? row.qs_qty.toFixed(2) : '-'}</td>
-                      <td className="px-2 py-3 text-xs text-right text-slate-600 border-l border-slate-100 font-black">{row.qty.toFixed(2)}</td>
+                      <td className="px-2 py-3 text-xs text-right text-slate-600 border-l border-slate-100 font-bold">{row.qty.toFixed(2)}</td>
                       <td className="px-3 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.fuel.toFixed(1)}</td>
                     </tr>
                   ))}
@@ -1302,8 +1255,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                     <td className="px-2 py-3 text-center text-xs font-bold text-blue-800 border-l border-purple-100">{summaryTotals.soil}</td>
                     <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{summaryTotals.wr}</td>
                     <td className="px-2 py-3 text-center text-xs font-bold text-blue-800">{summaryTotals.ar}</td>
-                    <td className="px-2 py-3 text-right text-xs font-black text-purple-900 border-l border-purple-100">{summaryTotals.qc_qty.toFixed(2)}</td>
-                    <td className="px-2 py-3 text-right text-xs font-black text-purple-900">{summaryTotals.qs_qty.toFixed(2)}</td>
                     <td className="px-2 py-3 text-right text-xs font-black text-slate-900 border-l border-purple-100">{summaryTotals.quantity.toFixed(2)}</td>
                     <td className="px-3 py-3 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.fuel.toFixed(1)}</td>
                   </tr>

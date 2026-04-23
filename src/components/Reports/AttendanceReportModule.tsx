@@ -18,7 +18,6 @@ type AttendanceRecord = {
   location_out: string | null;
   work_area: string | null;
   created_at: string;
-  source: string;
 };
 
 function formatTime(isoString: string | null): string {
@@ -45,12 +44,8 @@ export function AttendanceReportModule() {
   const [error, setError] = useState<string | null>(null);
   const [workAreaFilter, setWorkAreaFilter] = useState<WorkAreaFilter>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFrom, setDateFrom] = useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d.toISOString().split('T')[0];
-  });
-  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
 
   const fetchRecords = useCallback(async () => {
@@ -72,7 +67,7 @@ export function AttendanceReportModule() {
         query = query.or(`employee_id.ilike.%${searchTerm}%,employee_name.ilike.%${searchTerm}%`);
       }
 
-      const { data, error } = await query.limit(1000);
+      const { data, error } = await query.limit(200);
       if (error) throw error;
       setRecords(data || []);
     } catch (err) {
@@ -225,7 +220,7 @@ export function AttendanceReportModule() {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Date', 'Employee', 'Work Area', 'Source', 'Check In', 'Check Out', 'Hours Worked', 'Status'].map(h => (
+                  {['Date', 'Employee', 'Work Area', 'Check In', 'Check Out', 'Hours Worked', 'Status'].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       {h}
                     </th>
@@ -256,17 +251,6 @@ export function AttendanceReportModule() {
                       </td>
                       <td className="px-5 py-3 whitespace-nowrap">
                         {getWorkAreaBadge(record.work_area)}
-                      </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
-                        <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${
-                          record.source === 'selfie' 
-                            ? 'bg-purple-100 text-purple-700' 
-                            : record.source === 'manual' 
-                            ? 'bg-amber-100 text-amber-700' 
-                            : 'bg-indigo-100 text-indigo-700'
-                        }`}>
-                          {record.source}
-                        </span>
                       </td>
                       <td className="px-5 py-3 whitespace-nowrap text-sm text-slate-700">
                         {formatTime(record.check_in)}

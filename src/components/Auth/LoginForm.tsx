@@ -6,7 +6,7 @@ export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
   const auth = useAuth();
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
