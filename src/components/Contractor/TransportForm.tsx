@@ -165,16 +165,16 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
   useEffect(() => {
     if (formData.material_transported === 'Good Boulders') {
+      const trips = parseInt(formData.number_of_trips) || 1;
       if (formData.from_location === 'Stockyard' && formData.to_location === 'Crusher') {
         const avg = parseFloat(formData.avg_weight) || 0;
-        const trips = parseInt(formData.number_of_trips) || 0;
         const net = avg * trips;
         setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toFixed(2) }));
       } else {
         const gross = parseFloat(formData.gross_weight) || 0;
         const empty = parseFloat(formData.empty_vehicle_weight) || 0;
-        const net = Math.max(0, gross - empty);
-        setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toString() }));
+        const net = Math.max(0, (gross - empty) * trips);
+        setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toFixed(2) }));
       }
     }
   }, [formData.gross_weight, formData.empty_vehicle_weight, formData.avg_weight, formData.number_of_trips, formData.material_transported, formData.from_location, formData.to_location]);
