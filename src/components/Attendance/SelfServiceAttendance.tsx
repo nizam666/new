@@ -43,6 +43,16 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       setHasCameraAccess(false);
       setStatusMessage("Could not access camera. Please check permissions.");
     }
+  }, [videoRef]);
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -71,11 +81,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     fetchLoggedInUserEmployeeId();
 
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      stopCamera();
     };
-  }, [startCamera]);
+  }, [startCamera, stopCamera]);
 
   const formatErrorMessage = (err: unknown) => {
     if (err instanceof Error) return err.message;
@@ -132,6 +140,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       // Preview
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       setCapturedPhoto(dataUrl);
+
+      // Stop camera immediately after capture
+      stopCamera();
 
       // For upload
       const data = dataUrl.split(',')[1];
