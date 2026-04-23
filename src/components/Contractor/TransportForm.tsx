@@ -66,6 +66,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     trip_ref: '',
     empty_vehicle_weight: '',
     gross_weight: '',
+    avg_weight: '',
     party_name: 'KVSS Q TO C'
   });
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -164,12 +165,19 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
   useEffect(() => {
     if (formData.material_transported === 'Good Boulders') {
-      const gross = parseFloat(formData.gross_weight) || 0;
-      const empty = parseFloat(formData.empty_vehicle_weight) || 0;
-      const net = Math.max(0, gross - empty);
-      setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toString() }));
+      if (formData.from_location === 'Stockyard' && formData.to_location === 'Crusher') {
+        const avg = parseFloat(formData.avg_weight) || 0;
+        const trips = parseInt(formData.number_of_trips) || 0;
+        const net = avg * trips;
+        setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toFixed(2) }));
+      } else {
+        const gross = parseFloat(formData.gross_weight) || 0;
+        const empty = parseFloat(formData.empty_vehicle_weight) || 0;
+        const net = Math.max(0, gross - empty);
+        setFormData((prev: typeof formData) => ({ ...prev, quantity: net.toString() }));
+      }
     }
-  }, [formData.gross_weight, formData.empty_vehicle_weight, formData.material_transported]);
+  }, [formData.gross_weight, formData.empty_vehicle_weight, formData.avg_weight, formData.number_of_trips, formData.material_transported, formData.from_location, formData.to_location]);
 
   const fetchNextTripRef = async () => {
     if (!user) return;
@@ -582,6 +590,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             trip_ref: formData.trip_ref,
             empty_vehicle_weight: parseFloat(formData.empty_vehicle_weight) || 0,
             gross_weight: parseFloat(formData.gross_weight) || 0,
+            avg_weight: parseFloat(formData.avg_weight) || 0,
             party_name: formData.party_name,
             status: 'pending'
           }
@@ -603,6 +612,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         trip_ref: '',
         empty_vehicle_weight: '',
         gross_weight: '',
+        avg_weight: '',
         party_name: 'KVSS Q TO C'
       });
 
@@ -950,6 +960,27 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 placeholder="0.00"
               />
             </div>
+
+            {formData.from_location === 'Stockyard' && formData.to_location === 'Crusher' && (
+              <div className="md:col-span-2 bg-purple-50 p-4 rounded-xl border border-purple-100">
+                <label className="block text-sm font-bold text-purple-900 mb-2">
+                  Avg Weight (tons)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.avg_weight}
+                  onChange={(e) => setFormData({ ...formData, avg_weight: e.target.value })}
+                  min="0"
+                  required={formData.from_location === 'Stockyard' && formData.to_location === 'Crusher'}
+                  className="w-full px-4 py-2 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white font-bold"
+                  placeholder="0.00"
+                />
+                <p className="text-[10px] text-purple-600 font-medium mt-1 uppercase tracking-wider">
+                  * Quantity will be automatically calculated: Avg WT × Trips
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -1276,6 +1307,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                     <th className="px-2 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Vehicle No</th>
                     <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Load WT</th>
                     <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Empty WT</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-amber-600 uppercase tracking-wider border-l border-slate-200">Avg WT</th>
                     <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">Net WT</th>
                   </tr>
                 </thead>
@@ -1290,6 +1322,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                       <td className="px-2 py-3 text-xs text-center text-slate-900 font-bold border-l border-slate-100">{row.vehicle_number}</td>
                       <td className="px-2 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.gross?.toFixed(2)}</td>
                       <td className="px-2 py-3 text-xs text-right text-slate-600 border-l border-slate-100">{row.empty?.toFixed(2)}</td>
+                      <td className="px-2 py-3 text-xs text-right text-amber-700 border-l border-slate-100 font-bold">{row.avg_weight?.toFixed(2) || '-'}</td>
                       <td className="px-2 py-3 text-xs text-right text-purple-700 border-l border-slate-100 font-black">{row.qty?.toFixed(2)}</td>
                     </tr>
                   ))}
@@ -1302,6 +1335,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                     <td className="border-l border-purple-100"></td>
                     <td className="px-2 py-4 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.gross.toFixed(2)}</td>
                     <td className="px-2 py-4 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.empty.toFixed(2)}</td>
+                    <td className="border-l border-purple-100"></td>
                     <td className="px-2 py-4 text-right text-xs font-black text-purple-900 border-l border-purple-100 bg-purple-100/50">{summaryTotals.quantity.toFixed(2)}</td>
                   </tr>
                 </tfoot>
