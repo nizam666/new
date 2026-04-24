@@ -20,11 +20,12 @@ export function ContractorCalculator() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [contractorName, setContractorName] = useState('');
   const [billItems, setBillItems] = useState<BillItem[]>([]);
 
   useEffect(() => {
     calculateBill();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, contractorName]);
 
   const calculateBill = async () => {
     setLoading(true);
@@ -65,7 +66,40 @@ export function ContractorCalculator() {
 
       if (drillingError) throw drillingError;
 
+      // 5. Fetch Deductions (Advances and Dispatch Items)
+      let advanceAmount = 0;
+      let resourceAmount = 0;
+
+      if (contractorName) {
+        // Cash Advances from Accounts
+        const { data: accountsData } = await supabase
+          .from('accounts')
+          .select('amount_given, reason, notes')
+          .eq('customer_name', contractorName)
+          .gte('transaction_date', startDate)
+          .lte('transaction_date', endDate);
+        
+        advanceAmount = accountsData?.reduce((sum, rec) => {
+          const isAdvance = rec.reason?.toLowerCase().includes('advance') || 
+                            rec.notes?.toLowerCase().includes('advance') ||
+                            rec.notes?.toLowerCase().includes('item: advance');
+          return sum + (isAdvance ? (rec.amount_given || 0) : 0);
+        }, 0) || 0;
+
+        // Resource Items from Dispatch
+        const { data: dispatchData } = await supabase
+          .from('inventory_dispatch')
+          .select('quantity_dispatched, given_price')
+          .eq('dispatched_to', contractorName)
+          .gte('dispatch_date', startDate)
+          .lte('dispatch_date', endDate)
+          .not('given_price', 'is', null);
+        
+        resourceAmount = dispatchData?.reduce((sum, rec) => sum + ((rec.quantity_dispatched || 0) * (rec.given_price || 0)), 0) || 0;
+      }
+
       // --- CALCULATIONS ---
+      // ... existing production calculations ...
 
       // Q-C: Quarry to Crusher (Good Boulders)
       const qcQty = transportData
@@ -206,6 +240,22 @@ export function ContractorCalculator() {
           rate: 1650,
           qty: crusherExcavatorHours,
           amount: crusherExcavatorHours * 1650
+        },
+        {
+          slNo: 9,
+          description: 'Cash Advances / Balance',
+          uom: 'Amount',
+          rate: 1,
+          qty: advanceAmount,
+          amount: -advanceAmount
+        },
+        {
+          slNo: 10,
+          description: 'Resource Items (Diesel/Explosives)',
+          uom: 'Value',
+          rate: 1,
+          qty: resourceAmount,
+          amount: -resourceAmount
         }
       ];
 
@@ -236,6 +286,16 @@ export function ContractorCalculator() {
 
           <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">
             <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+              <input
+                type="text"
+                value={contractorName}
+                onChange={(e) => setContractorName(e.target.value)}
+                placeholder="Search Contractor..."
+                className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 w-48"
+              />
+            </div>
+            <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
               <input
                 type="date"
@@ -262,7 +322,7 @@ export function ContractorCalculator() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-blue-500/20 transition-all duration-700" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-2">Estimated Bill Amount</p>
+              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-2">Net Payable Amount</p>
               <h2 className="text-5xl font-black text-white tracking-tighter">
                 ₹{totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
@@ -272,7 +332,7 @@ export function ContractorCalculator() {
                 <span className="text-blue-400 text-xs font-black uppercase tracking-widest">Status: Provisional</span>
               </div>
               <p className="text-slate-500 text-[10px] font-bold text-right leading-relaxed max-w-[200px]">
-                Calculated based on verified daily transport, loading, and drilling logs.
+                {contractorName ? `Calculating for: ${contractorName}` : 'Select a contractor to include deductions.'}
               </p>
             </div>
           </div>
@@ -444,12 +504,52 @@ export function ContractorCalculator() {
                     </td>
                   </tr>
 
+                  {/* Totals and Deductions */}
+                  <tr className="bg-slate-50 border-t-2 border-slate-200">
+                    <td colSpan={5} className="px-6 py-4 text-right">
+                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Grand Total Amount (Production)</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-lg font-black text-slate-900">
+                        ₹{billItems.filter(i => i.slNo <= 8).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                  </tr>
+
+                  {contractorName && (
+                    <>
+                      <tr className="bg-rose-50/50">
+                        <td colSpan={5} className="px-6 py-3 text-right">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">Less: Cash Advances / Balance</span>
+                        </td>
+                        <td className="px-6 py-3 text-right">
+                          <span className="text-sm font-black text-rose-600">
+                            - ₹{Math.abs(billItems.find(i => i.slNo === 9)?.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr className="bg-rose-50/50 border-b border-rose-100">
+                        <td colSpan={5} className="px-6 py-3 text-right">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">Less: Resource Items (Diesel/Explosives)</span>
+                        </td>
+                        <td className="px-6 py-3 text-right">
+                          <span className="text-sm font-black text-rose-600">
+                            - ₹{Math.abs(billItems.find(i => i.slNo === 10)?.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </span>
+                        </td>
+                      </tr>
+                    </>
+                  )}
+
                   <tr className="bg-slate-900 text-white">
                     <td colSpan={5} className="px-6 py-6 text-right">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Grand Total Amount</span>
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Net Payable Amount</span>
+                        {contractorName && <span className="text-[10px] font-bold text-blue-400 mt-1 uppercase">After Deductions for {contractorName}</span>}
+                      </div>
                     </td>
                     <td className="px-6 py-6 text-right">
-                      <span className="text-xl font-black text-blue-400">
+                      <span className="text-2xl font-black text-blue-400">
                         ₹{totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </td>
@@ -460,11 +560,11 @@ export function ContractorCalculator() {
           </table>
         </div>
 
-        {/* Footer Disclaimer */}
-        <div className="mt-8 flex items-start gap-3 p-4 bg-orange-50 border border-orange-100 rounded-2xl">
-          <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
-          <p className="text-xs font-medium text-orange-800 leading-relaxed">
-            <strong>Note:</strong> This calculator provides an automated estimate based on field data entries. Deductions for diesel, advances, and explosives are not included in this view. For final settlement, please refer to the official accounts department records.
+        {/* Footer Info */}
+        <div className="mt-8 flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+          <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs font-medium text-blue-800 leading-relaxed">
+            <strong>Verification Notice:</strong> This statement is a provisional calculation based on daily field entries. Final settlements are subject to verification of physical records and supervisor approvals.
           </p>
         </div>
       </div>
