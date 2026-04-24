@@ -215,7 +215,6 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track crusher operations and output</p>
             </div>
             <CrusherProductionForm onSuccess={() => window.location.reload()} />
-            <CrusherProductionCostReport />
           </div>
         );
 

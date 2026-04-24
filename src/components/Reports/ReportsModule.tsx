@@ -5,7 +5,8 @@ import { SalesReportModule } from './SalesReportModule';
 import { AccountingReportModule } from './AccountingReportModule';
 import { OperationsHistoryModule } from './OperationsHistoryModule';
 import { AttendanceReportModule } from './AttendanceReportModule';
-import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock } from 'lucide-react';
+import { CrusherProductionCostReport } from './CrusherProductionCostReport';
+import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock, Zap } from 'lucide-react';
 
 export function ReportsModule() {
   const [activeReport, setActiveReport] = useState<string>('production');
@@ -17,6 +18,13 @@ export function ReportsModule() {
       description: 'Crusher production summary',
       icon: Factory,
       color: 'blue'
+    },
+    {
+      id: 'efficiency',
+      name: 'Efficiency Report',
+      description: 'Production vs EB Units ratio',
+      icon: Zap,
+      color: 'yellow'
     },
     {
       id: 'quarry',
@@ -105,6 +113,13 @@ export function ReportsModule() {
         iconBg: 'bg-indigo-100',
         iconText: 'text-indigo-600',
         text: isActive ? 'text-indigo-900' : 'text-slate-700'
+      },
+      yellow: {
+        bg: isActive ? 'bg-yellow-50' : 'bg-white',
+        border: isActive ? 'border-yellow-500' : 'border-slate-200',
+        iconBg: 'bg-yellow-100',
+        iconText: 'text-yellow-600',
+        text: isActive ? 'text-yellow-900' : 'text-slate-700'
       }
     };
     return colorMap[color];
@@ -114,6 +129,8 @@ export function ReportsModule() {
     switch (activeReport) {
       case 'production':
         return <ProductionReportModule />;
+      case 'efficiency':
+        return <CrusherProductionCostReport />;
       case 'quarry':
         return <QuarryProductionReportModule />;
       case 'history':
