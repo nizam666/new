@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { TrendingUp, Zap, Truck, DollarSign, Calendar } from 'lucide-react';
+import { TrendingUp, Zap, Truck, Calendar } from 'lucide-react';
 
 interface DailyCostData {
   date: string;
