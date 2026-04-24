@@ -72,21 +72,28 @@ export function ContractorCalculator() {
       const deductions: BillItem[] = [];
 
       if (contractorName) {
-        // Cash Advances and Payments from Accounts for the Quarry Department
+        // Fetch Advances, Payments, and Quarry Department expenses
         const { data: accountsData } = await supabase
           .from('accounts')
-          .select('customer_name, amount_given, reason, notes, project_item')
-          .eq('department', 'Quarry')
+          .select('customer_name, amount_given, reason, notes, project_item, department')
+          .or(`department.eq.Quarry,project_item.eq.Contractor Payment,project_item.eq.Contractor Advance`)
           .gte('transaction_date', startDate)
           .lte('transaction_date', endDate);
         
         if (accountsData) {
           const groupedAdvances: Record<string, number> = {};
           accountsData.forEach(rec => {
-            if (rec.amount_given > 0) {
-              const name = rec.customer_name || rec.project_item || 'Quarry Expense';
-              const key = `${name} (${rec.project_item || 'Misc'})`;
-              groupedAdvances[key] = (groupedAdvances[key] || 0) + (rec.amount_given || 0);
+            const isContractorSpecific = rec.project_item === 'Contractor Payment' || rec.project_item === 'Contractor Advance';
+            const isQuarryDept = rec.department === 'Quarry';
+            
+            // If it's contractor specific, it must match the contractor name
+            // If it's quarry department, we include it as a departmental deduction
+            if ((isContractorSpecific && rec.customer_name === contractorName) || isQuarryDept) {
+              if (rec.amount_given > 0) {
+                const name = rec.customer_name || rec.project_item || 'Quarry Expense';
+                const key = `${name} (${rec.project_item || 'Misc'})`;
+                groupedAdvances[key] = (groupedAdvances[key] || 0) + (rec.amount_given || 0);
+              }
             }
           });
 
