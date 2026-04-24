@@ -83,22 +83,17 @@ export function ContractorCalculator() {
         if (accountsData) {
           const groupedAdvances: Record<string, number> = {};
           accountsData.forEach(rec => {
-            const isAdvance = rec.project_item === 'Advance' || 
-                              rec.project_item === 'Payment' ||
-                              rec.project_item === 'Salary' ||
-                              rec.reason?.toLowerCase().includes('advance') || 
-                              rec.notes?.toLowerCase().includes('advance');
-            
-            if (isAdvance && rec.amount_given > 0) {
-              const name = rec.customer_name || 'Quarry Payment';
-              groupedAdvances[name] = (groupedAdvances[name] || 0) + (rec.amount_given || 0);
+            if (rec.amount_given > 0) {
+              const name = rec.customer_name || rec.project_item || 'Quarry Expense';
+              const key = `${name} (${rec.project_item || 'Misc'})`;
+              groupedAdvances[key] = (groupedAdvances[key] || 0) + (rec.amount_given || 0);
             }
           });
 
           Object.entries(groupedAdvances).forEach(([name, amount], idx) => {
             deductions.push({
               slNo: `ADV-${idx + 1}`,
-              description: `Advance/Payment: ${name}`,
+              description: `Quarry Expense/Payment: ${name}`,
               uom: 'Amount',
               rate: 1,
               qty: amount,
