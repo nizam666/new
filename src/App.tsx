@@ -40,6 +40,7 @@ import { QuarryStorage } from './components/Operations/QuarryStorage';
 import { CustomerDetails } from './components/Customers/CustomerDetails';
 import { SelfServiceAttendance } from './components/Attendance/SelfServiceAttendance';
 import { AttendanceReportModule } from './components/Reports/AttendanceReportModule';
+import { BouldersSaleReport } from './components/Quarry/BouldersSaleReport';
 
 function AppContent() {
   const { session, user, loading } = useAuth();
@@ -179,6 +180,17 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track vehicle and material transport</p>
             </div>
             <TransportForm onSuccess={() => window.location.reload()} />
+          </div>
+        );
+
+      case 'boulders-sale-report':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Boulders Sale Report</h2>
+              <p className="text-slate-600 mt-1">Detailed sales analysis for Q-Boulders material</p>
+            </div>
+            <BouldersSaleReport />
           </div>
         );
 
