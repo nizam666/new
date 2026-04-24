@@ -75,6 +75,17 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     
     fetchLoggedInUserEmployeeId();
 
+    // Trigger background cleanup of stale attendance records (10h warning, 12h auto-punchout)
+    const runAttendanceCleanup = async () => {
+      try {
+        await supabase.rpc('process_stale_attendance');
+      } catch (err) {
+        console.error('Error during attendance cleanup:', err);
+      }
+    };
+    
+    runAttendanceCleanup();
+
     return () => {
       stopCamera();
     };
