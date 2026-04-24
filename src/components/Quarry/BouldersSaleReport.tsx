@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Calendar, Truck, TrendingUp, Package, Search } from 'lucide-react';
+import { FileText, Calendar, Truck, Package, Search } from 'lucide-react';
 
 interface BouldersSale {
   id: string;
@@ -10,8 +10,6 @@ interface BouldersSale {
   vehicle_no: string;
   material_name: string;
   quantity: number;
-  rate: number;
-  total_amount: number;
 }
 
 export function BouldersSaleReport() {
@@ -61,9 +59,7 @@ export function BouldersSaleReport() {
                 customer_name: inv.customer_name,
                 vehicle_no: inv.vehicle_no,
                 material_name: matName,
-                quantity: item.quantity || 0,
-                rate: item.rate || 0,
-                total_amount: item.amount || 0
+                quantity: item.quantity || 0
               });
             }
           });
@@ -86,9 +82,8 @@ export function BouldersSaleReport() {
 
   const stats = filteredData.reduce((acc, curr) => ({
     totalQty: acc.totalQty + curr.quantity,
-    totalAmount: acc.totalAmount + curr.total_amount,
     count: acc.count + 1
-  }), { totalQty: 0, totalAmount: 0, count: 0 });
+  }), { totalQty: 0, count: 0 });
 
   return (
     <div className="space-y-6">
@@ -142,20 +137,13 @@ export function BouldersSaleReport() {
         </div>
 
         {/* Summary Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="bg-orange-50 rounded-2xl p-5 border border-orange-100">
             <div className="flex items-center gap-3 mb-2">
               <Package className="w-5 h-5 text-orange-600" />
               <span className="text-xs font-bold text-orange-700 uppercase tracking-wider">Total Quantity</span>
             </div>
             <p className="text-2xl font-black text-orange-900">{stats.totalQty.toFixed(3)} <span className="text-sm font-normal text-orange-700/60">Tons</span></p>
-          </div>
-          <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
-              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Total Sales</span>
-            </div>
-            <p className="text-2xl font-black text-emerald-900">₹{stats.totalAmount.toLocaleString('en-IN')} <span className="text-sm font-normal text-emerald-700/60">Amount</span></p>
           </div>
           <div className="bg-blue-50 rounded-2xl p-5 border border-blue-100">
             <div className="flex items-center gap-3 mb-2">
@@ -175,18 +163,16 @@ export function BouldersSaleReport() {
                 <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Invoice / Customer</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Vehicle</th>
                 <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Quantity (T)</th>
-                <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Rate (₹)</th>
-                <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Total (₹)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">Loading sales records...</td>
+                  <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-medium">Loading sales records...</td>
                 </tr>
               ) : filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">No Q-Boulders sales found</td>
+                  <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-medium">No Q-Boulders sales found</td>
                 </tr>
               ) : (
                 filteredData.map((sale) => (
@@ -212,12 +198,6 @@ export function BouldersSaleReport() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className="text-sm font-black text-slate-900">{sale.quantity.toFixed(3)}</span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="text-sm font-bold text-slate-600">₹{sale.rate.toFixed(2)}</span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="text-sm font-black text-emerald-700">₹{sale.total_amount.toLocaleString('en-IN')}</span>
                     </td>
                   </tr>
                 ))
