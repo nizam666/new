@@ -3,7 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { 
   Calculator, 
   Calendar, 
-  AlertCircle
+  AlertCircle,
+  User
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
