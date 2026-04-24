@@ -112,6 +112,19 @@ export function ContractorCalculator() {
         ?.filter(r => ['Soil', 'Weather Rocks'].includes(r.material_transported))
         .reduce((sum, r) => sum + (r.number_of_trips || 0), 0) || 0;
 
+      // Crusher Excavator Hours
+      const crusherExcavatorHours = loadingData
+        ?.filter(r => [
+          'SBBM Slurry Work', 
+          'SBBM Stockyard Good Boulders', 
+          'Aggregates rehandling/ Aggregate Loading', 
+          'Crusher machine works'
+        ].includes(r.material_type))
+        .reduce((sum, r) => {
+          const run = (r.ending_hours || 0) - (r.starting_hours || 0);
+          return sum + (run > 0 ? run : 0);
+        }, 0) || 0;
+
       // Weather Rock Drilling Feet
       const drillingFeet = drillingData
         ?.filter(r => ['Weathered Rocks', 'Soil'].includes(r.material_type))
@@ -185,6 +198,14 @@ export function ContractorCalculator() {
           rate: 22,
           qty: drillingFeet,
           amount: drillingFeet * 22
+        },
+        {
+          slNo: 8,
+          description: 'Charges for Excavator engaged for crusher',
+          uom: 'HRS',
+          rate: 1650,
+          qty: crusherExcavatorHours,
+          amount: crusherExcavatorHours * 1650
         }
       ];
 
@@ -339,7 +360,7 @@ export function ContractorCalculator() {
                       <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em]">Group B: Soil/Weather Rocks</span>
                     </td>
                   </tr>
-                  {billItems.filter(i => [4, 5, 6, 7].includes(i.slNo)).map((item) => (
+                  {billItems.filter(i => [5, 6, 7].includes(i.slNo)).map((item) => (
                     <tr key={item.slNo} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
                         <span className="text-sm font-black text-slate-400">{item.slNo.toString().padStart(2, '0')}</span>
@@ -373,7 +394,52 @@ export function ContractorCalculator() {
                     </td>
                     <td className="px-6 py-3 text-right">
                       <span className="text-sm font-black text-orange-600">
-                        ₹{billItems.filter(i => [4, 5, 6, 7].includes(i.slNo)).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{billItems.filter(i => [5, 6, 7].includes(i.slNo)).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                  </tr>
+
+                  {/* Group 3: Crusher Works */}
+                  <tr className="bg-emerald-50/50">
+                    <td colSpan={6} className="px-6 py-3">
+                      <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">Group C: Crusher Works</span>
+                    </td>
+                  </tr>
+                  {billItems.filter(i => [4, 8].includes(i.slNo)).map((item) => (
+                    <tr key={item.slNo} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-black text-slate-400">{item.slNo.toString().padStart(2, '0')}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-900 tracking-tight">{item.description}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">
+                          {item.uom}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">
+                        {item.rate.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-black text-slate-900">
+                          {item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-emerald-50/30 border-b border-emerald-100">
+                    <td colSpan={5} className="px-6 py-3 text-right">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Section Subtotal</span>
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <span className="text-sm font-black text-emerald-600">
+                        ₹{billItems.filter(i => [4, 8].includes(i.slNo)).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </span>
                     </td>
                   </tr>
