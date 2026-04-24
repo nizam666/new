@@ -22,7 +22,7 @@ const DEPARTMENTS = [
 ];
 
 const PROJECT_ITEMS = [
-  'Explosive', 'Fuels', 'VSI', 'Jaw-Crusher', 'Salary', 'Advance', 'Payment', 'Miscellaneous', 'Other'
+  'Explosive', 'Fuels', 'VSI', 'Jaw-Crusher', 'Salary', 'Advance', 'Payment', 'contractor payment/ advance', 'Miscellaneous', 'Other'
 ];
 
 export function AccountsForm({ onSuccess }: AccountsFormProps) {
