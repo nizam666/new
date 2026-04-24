@@ -74,13 +74,13 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- 3. Handle 10+ hour records (Warning Notification)
+    -- 4. Handle 10+ hour records (Warning Notification)
     FOR stale_record IN 
         SELECT sa.id, sa.employee_id, sa.check_in, w.name
         FROM selfie_attendance sa
         LEFT JOIN workers w ON sa.employee_id = w.employee_id
         WHERE sa.check_out IS NULL 
-        AND sa.check_in < (NOW() - INTERVAL '12 hours') -- Wait, 10 hours
+        AND sa.check_in < (NOW() - INTERVAL '12 hours')
         AND sa.check_in < (NOW() - INTERVAL '10 hours')
         AND sa.notified_10h = FALSE
         AND sa.auto_punched_out = FALSE
