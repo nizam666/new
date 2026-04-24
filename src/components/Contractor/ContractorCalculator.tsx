@@ -73,10 +73,11 @@ export function ContractorCalculator() {
 
       if (contractorName) {
         // Cash Advances and Payments from Accounts for the Quarry Department
+        // Note: 'department' is stored within the 'notes' field in the accounts table
         const { data: accountsData } = await supabase
           .from('accounts')
-          .select('customer_name, amount_given, reason, notes, project_item')
-          .eq('department', 'Quarry')
+          .select('customer_name, amount_given, notes')
+          .ilike('notes', '%Dept: Quarry%')
           .gte('transaction_date', startDate)
           .lte('transaction_date', endDate);
         
@@ -84,8 +85,11 @@ export function ContractorCalculator() {
           const groupedAdvances: Record<string, number> = {};
           accountsData.forEach(rec => {
             if (rec.amount_given > 0) {
-              const name = rec.customer_name || rec.project_item || 'Quarry Expense';
-              const key = `${name} (${rec.project_item || 'Misc'})`;
+              // Extract item name from notes if possible: "Item: [Name]"
+              const itemMatch = rec.notes?.match(/Item: ([^|]+)/);
+              const itemName = itemMatch ? itemMatch[1].trim() : 'Quarry Expense';
+              const name = rec.customer_name || itemName;
+              const key = `${name} (${itemName})`;
               groupedAdvances[key] = (groupedAdvances[key] || 0) + (rec.amount_given || 0);
             }
           });
