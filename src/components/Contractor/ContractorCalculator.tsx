@@ -127,26 +127,32 @@ export function ContractorCalculator() {
         
         if (dispatchData) {
           const groupedResources: Record<string, { qty: number, amount: number, unit: string, rate: number }> = {};
+          
           dispatchData.forEach(d => {
-            const key = d.item_name || 'Other Item';
-            const isPG = key.toUpperCase() === 'PG';
-            let qty = d.quantity_dispatched || 0;
+            const rawName = d.item_name || 'Other Item';
+            const isExplosive = /PG|NONEL|DETONATOR|EXPLOSIVE/i.test(rawName);
+            const key = isExplosive ? 'Explosives' : rawName;
             
-            // Convert PG Nos to Boxes (1 Box = 200 Nos)
-            if (isPG) {
-              qty = qty / 200;
-            }
+            const isPG = rawName.toUpperCase() === 'PG';
+            let qty = d.quantity_dispatched || 0;
+            if (isPG) qty = qty / 200;
 
             if (!groupedResources[key]) {
               groupedResources[key] = { 
                 qty: 0, 
                 amount: 0, 
-                unit: isPG ? 'Box' : (d.unit || 'Nos'), 
-                rate: d.given_price || 0 
+                unit: isExplosive ? 'Value' : (isPG ? 'Box' : (d.unit || 'Nos')), 
+                rate: isExplosive ? 1 : (d.given_price || 0) 
               };
             }
-            groupedResources[key].qty += qty;
-            groupedResources[key].amount += qty * (d.given_price || 0);
+            
+            if (isExplosive) {
+              groupedResources[key].qty += qty * (d.given_price || 0);
+              groupedResources[key].amount += qty * (d.given_price || 0);
+            } else {
+              groupedResources[key].qty += qty;
+              groupedResources[key].amount += qty * (d.given_price || 0);
+            }
           });
 
           Object.entries(groupedResources).forEach(([name, data], idx) => {
