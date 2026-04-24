@@ -131,6 +131,13 @@ export function ContractorCalculator() {
           dispatchData.forEach(d => {
             const key = d.item_name || 'Other Item';
             const isPG = key.toUpperCase() === 'PG';
+            let qty = d.quantity_dispatched || 0;
+            
+            // Convert PG Nos to Boxes (1 Box = 200 Nos)
+            if (isPG) {
+              qty = qty / 200;
+            }
+
             if (!groupedResources[key]) {
               groupedResources[key] = { 
                 qty: 0, 
@@ -139,8 +146,8 @@ export function ContractorCalculator() {
                 rate: d.given_price || 0 
               };
             }
-            groupedResources[key].qty += (d.quantity_dispatched || 0);
-            groupedResources[key].amount += (d.quantity_dispatched || 0) * (d.given_price || 0);
+            groupedResources[key].qty += qty;
+            groupedResources[key].amount += qty * (d.given_price || 0);
           });
 
           Object.entries(groupedResources).forEach(([name, data], idx) => {
