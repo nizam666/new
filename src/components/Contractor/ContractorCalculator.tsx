@@ -20,7 +20,7 @@ export function ContractorCalculator() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [contractorName, setContractorName] = useState('Govindaraj');
+  const [contractorName] = useState('Govindaraj');
   const [billItems, setBillItems] = useState<BillItem[]>([]);
 
   useEffect(() => {
