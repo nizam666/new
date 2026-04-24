@@ -29,6 +29,7 @@ import { StorageForm } from './components/Resources/StorageForm';
 import { ReportsModule } from './components/Reports/ReportsModule';
 import { UserManagement } from './components/Users/UserManagement';
 import { CrusherProductionForm } from './components/Crusher/CrusherProductionForm';
+import { CrusherProductionCostReport } from './components/Crusher/CrusherProductionCostReport';
 import { EBReportForm } from './components/Crusher/EBReportForm';
 import { EBCalculator } from './components/Crusher/EBCalculator';
 import { EBRecords } from './components/Crusher/EBRecords';
@@ -214,6 +215,7 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track crusher operations and output</p>
             </div>
             <CrusherProductionForm onSuccess={() => window.location.reload()} />
+            <CrusherProductionCostReport />
           </div>
         );
 
