@@ -217,6 +217,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     }
 
     try {
+      // 0. Aggressively clean any stale sessions (prev days or 12h+) to prevent blocking
+      await supabase.rpc('process_stale_attendance');
+
       // 1. Verify employee exists
       const { data: verifyResult, error: verifyError } = await supabase.rpc('verify_employee_id', {
         emp_id: employeeId.trim()
