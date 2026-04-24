@@ -72,69 +72,75 @@ export function ContractorCalculator() {
       const deductions: BillItem[] = [];
 
       if (contractorName) {
-        // --- 5a. Cash Advances from Accounts (Quarry Department) ---
+        // Fetch all quarry team users (Contractors and Quarry Workers)
+        const { data: teamUsers } = await supabase
+          .from('users')
+          .select('full_name, role')
+          .in('role', ['contractor', 'quarry_worker', 'crusher_worker']); // Including workers
+
+        const teamNames = teamUsers?.map(u => u.full_name) || [];
+        // Ensure the selected contractor is in the list
+        if (!teamNames.includes(contractorName)) teamNames.push(contractorName);
+
+        // Cash Advances from Accounts for the whole team
         const { data: accountsData } = await supabase
           .from('accounts')
-          .select('amount_given, reason, notes, customer_name')
+          .select('customer_name, amount_given, reason, notes')
+          .in('customer_name', teamNames)
           .gte('transaction_date', startDate)
           .lte('transaction_date', endDate);
         
         if (accountsData) {
-          // Group advances by person
           const groupedAdvances: Record<string, number> = {};
-          
           accountsData.forEach(rec => {
-            const isQuarry = rec.notes?.toLowerCase().includes('dept: quarry');
             const isAdvance = rec.reason?.toLowerCase().includes('advance') || 
                               rec.notes?.toLowerCase().includes('advance') ||
                               rec.notes?.toLowerCase().includes('item: advance');
-            
-            if (isQuarry && isAdvance) {
-              const person = rec.customer_name || 'Other Person';
-              groupedAdvances[person] = (groupedAdvances[person] || 0) + (rec.amount_given || 0);
+            if (isAdvance) {
+              const name = rec.customer_name || 'Other';
+              groupedAdvances[name] = (groupedAdvances[name] || 0) + (rec.amount_given || 0);
             }
           });
 
-          Object.entries(groupedAdvances).forEach(([person, amount], idx) => {
-            if (amount > 0) {
-              deductions.push({
-                slNo: `ADV-${idx + 1}`,
-                description: `Advance: ${person}`,
-                uom: 'Amount',
-                rate: 1,
-                qty: amount,
-                amount: -amount,
-                category: 'deduction',
-                group: 'D'
-              });
-            }
+          Object.entries(groupedAdvances).forEach(([name, amount], idx) => {
+            deductions.push({
+              slNo: `ADV-${idx + 1}`,
+              description: `Advance: ${name}`,
+              uom: 'Amount',
+              rate: 1,
+              qty: amount,
+              amount: -amount,
+              category: 'deduction',
+              group: 'D'
+            });
           });
         }
 
-        // --- 5b. Resource Items from Dispatch (Quarry Operations) ---
+        // Resource Items from Dispatch (Quarry Operations)
         const { data: dispatchData } = await supabase
           .from('inventory_dispatch')
-          .select('item_name, quantity_dispatched, given_price, unit, dispatched_to')
+          .select('item_name, quantity_dispatched, given_price, unit')
+          .eq('dispatched_to', contractorName)
           .eq('department', 'Quarry Operations')
           .gte('dispatch_date', startDate)
           .lte('dispatch_date', endDate)
           .not('given_price', 'is', null);
         
         if (dispatchData) {
-          const groupedResources: Record<string, { qty: number, amount: number, unit: string, rate: number, person: string }> = {};
+          const groupedResources: Record<string, { qty: number, amount: number, unit: string, rate: number }> = {};
           dispatchData.forEach(d => {
-            const key = `${d.dispatched_to}-${d.item_name}` || 'Other Item';
+            const key = d.item_name || 'Other Item';
             if (!groupedResources[key]) {
-              groupedResources[key] = { qty: 0, amount: 0, unit: d.unit || 'Nos', rate: d.given_price || 0, person: d.dispatched_to };
+              groupedResources[key] = { qty: 0, amount: 0, unit: d.unit || 'Nos', rate: d.given_price || 0 };
             }
             groupedResources[key].qty += (d.quantity_dispatched || 0);
             groupedResources[key].amount += (d.quantity_dispatched || 0) * (d.given_price || 0);
           });
 
-          Object.entries(groupedResources).forEach(([key, data], idx) => {
+          Object.entries(groupedResources).forEach(([name, data], idx) => {
             deductions.push({
               slNo: `RES-${idx + 1}`,
-              description: `Resource: ${data.person} (${key.split('-')[1]})`,
+              description: `Resource: ${name}`,
               uom: data.unit,
               rate: data.rate,
               qty: data.qty,
