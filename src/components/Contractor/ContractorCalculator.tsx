@@ -130,8 +130,14 @@ export function ContractorCalculator() {
           const groupedResources: Record<string, { qty: number, amount: number, unit: string, rate: number }> = {};
           dispatchData.forEach(d => {
             const key = d.item_name || 'Other Item';
+            const isPG = key.toUpperCase() === 'PG';
             if (!groupedResources[key]) {
-              groupedResources[key] = { qty: 0, amount: 0, unit: d.unit || 'Nos', rate: d.given_price || 0 };
+              groupedResources[key] = { 
+                qty: 0, 
+                amount: 0, 
+                unit: isPG ? 'Box' : (d.unit || 'Nos'), 
+                rate: d.given_price || 0 
+              };
             }
             groupedResources[key].qty += (d.quantity_dispatched || 0);
             groupedResources[key].amount += (d.quantity_dispatched || 0) * (d.given_price || 0);
