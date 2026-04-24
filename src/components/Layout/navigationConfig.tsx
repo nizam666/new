@@ -59,6 +59,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
                 ]
             },
             { name: 'Crusher Production', icon: Factory, href: '#crusher-production' },
+            { name: 'Average Production Cost', icon: TrendingUp, href: '#crusher-efficiency' },
             { name: 'EB Reports', icon: Zap, href: '#eb-reports' },
             { name: 'EB Records', icon: Receipt, href: '#eb-records' },
             { name: 'EB Calculator', icon: Calculator, href: '#eb-calculator' },
@@ -118,6 +119,7 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Dispatch Reports', icon: FileText, href: '#inventory-dispatch-report', roles: ['crusher_manager', 'manager'] },
     { name: 'Safety', icon: Shield, href: '#safety', roles: ['contractor', 'manager'] },
     { name: 'Crusher Production', icon: Factory, href: '#crusher-production', roles: ['crusher_manager', 'manager'] },
+    { name: 'Average Production Cost', icon: TrendingUp, href: '#crusher-efficiency', roles: ['crusher_manager', 'manager'] },
     { name: 'EB Reports', icon: Zap, href: '#eb-reports', roles: ['crusher_manager', 'manager'] },
     { name: 'EB Records', icon: Receipt, href: '#eb-records', roles: ['crusher_manager', 'manager'] },
     { name: 'EB Calculator', icon: Calculator, href: '#eb-calculator', roles: ['crusher_manager', 'manager'] },

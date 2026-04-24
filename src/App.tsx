@@ -215,6 +215,16 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Track crusher operations and output</p>
             </div>
             <CrusherProductionForm onSuccess={() => window.location.reload()} />
+          </div>
+        );
+      
+      case 'crusher-efficiency':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Average Production Cost</h2>
+              <p className="text-slate-600 mt-1">Daily production efficiency and EB consumption analysis</p>
+            </div>
             <CrusherProductionCostReport />
           </div>
         );
