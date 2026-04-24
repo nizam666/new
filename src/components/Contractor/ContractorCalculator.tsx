@@ -8,12 +8,14 @@ import {
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 interface BillItem {
-  slNo: number;
+  slNo: number | string;
   description: string;
   uom: string;
   rate: number;
   qty: number;
   amount: number;
+  category: 'production' | 'deduction';
+  group: 'A' | 'B' | 'C' | 'D';
 }
 
 export function ContractorCalculator() {
@@ -67,8 +69,7 @@ export function ContractorCalculator() {
       if (drillingError) throw drillingError;
 
       // 5. Fetch Deductions (Advances and Dispatch Items)
-      let advanceAmount = 0;
-      let resourceAmount = 0;
+      const deductions: BillItem[] = [];
 
       if (contractorName) {
         // Cash Advances from Accounts
@@ -79,24 +80,60 @@ export function ContractorCalculator() {
           .gte('transaction_date', startDate)
           .lte('transaction_date', endDate);
         
-        advanceAmount = accountsData?.reduce((sum, rec) => {
+        const advanceAmount = accountsData?.reduce((sum, rec) => {
           const isAdvance = rec.reason?.toLowerCase().includes('advance') || 
                             rec.notes?.toLowerCase().includes('advance') ||
                             rec.notes?.toLowerCase().includes('item: advance');
           return sum + (isAdvance ? (rec.amount_given || 0) : 0);
         }, 0) || 0;
 
+        if (advanceAmount > 0) {
+          deductions.push({
+            slNo: 'ADV',
+            description: 'Cash Advances / Payment Balance',
+            uom: 'Amount',
+            rate: 1,
+            qty: advanceAmount,
+            amount: -advanceAmount,
+            category: 'deduction',
+            group: 'D'
+          });
+        }
+
         // Resource Items from Dispatch (Quarry Operations)
         const { data: dispatchData } = await supabase
           .from('inventory_dispatch')
-          .select('quantity_dispatched, given_price')
+          .select('item_name, quantity_dispatched, given_price, unit')
           .eq('dispatched_to', contractorName)
           .eq('department', 'Quarry Operations')
           .gte('dispatch_date', startDate)
           .lte('dispatch_date', endDate)
           .not('given_price', 'is', null);
         
-        resourceAmount = dispatchData?.reduce((sum, rec) => sum + ((rec.quantity_dispatched || 0) * (rec.given_price || 0)), 0) || 0;
+        if (dispatchData) {
+          const groupedResources: Record<string, { qty: number, amount: number, unit: string, rate: number }> = {};
+          dispatchData.forEach(d => {
+            const key = d.item_name || 'Other Item';
+            if (!groupedResources[key]) {
+              groupedResources[key] = { qty: 0, amount: 0, unit: d.unit || 'Nos', rate: d.given_price || 0 };
+            }
+            groupedResources[key].qty += (d.quantity_dispatched || 0);
+            groupedResources[key].amount += (d.quantity_dispatched || 0) * (d.given_price || 0);
+          });
+
+          Object.entries(groupedResources).forEach(([name, data], idx) => {
+            deductions.push({
+              slNo: `RES-${idx + 1}`,
+              description: `Resource: ${name}`,
+              uom: data.unit,
+              rate: data.rate,
+              qty: data.qty,
+              amount: -data.amount,
+              category: 'deduction',
+              group: 'D'
+            });
+          });
+        }
       }
 
       // --- CALCULATIONS ---
@@ -176,15 +213,17 @@ export function ContractorCalculator() {
           return sum + dailySum;
         }, 0) || 0;
 
-      // Build Items List
-      const items: BillItem[] = [
+      // Build Production Items List
+      const productionItems: BillItem[] = [
         {
           slNo: 1,
           description: 'Q-C - Good Boulder Production',
           uom: 'MT',
           rate: 163,
           qty: qcQty,
-          amount: qcQty * 163
+          amount: qcQty * 163,
+          category: 'production',
+          group: 'A'
         },
         {
           slNo: 2,
@@ -192,7 +231,9 @@ export function ContractorCalculator() {
           uom: 'MT',
           rate: 163,
           qty: qsQty,
-          amount: qsQty * 163
+          amount: qsQty * 163,
+          category: 'production',
+          group: 'A'
         },
         {
           slNo: 3,
@@ -200,7 +241,9 @@ export function ContractorCalculator() {
           uom: 'MT',
           rate: 138,
           qty: qSalesQty,
-          amount: qSalesQty * 138
+          amount: qSalesQty * 138,
+          category: 'production',
+          group: 'A'
         },
         {
           slNo: 4,
@@ -208,7 +251,9 @@ export function ContractorCalculator() {
           uom: 'MT',
           rate: 40,
           qty: scQty,
-          amount: scQty * 40
+          amount: scQty * 40,
+          category: 'production',
+          group: 'C'
         },
         {
           slNo: 5,
@@ -216,7 +261,9 @@ export function ContractorCalculator() {
           uom: 'HRS',
           rate: 1650,
           qty: excavatorHours,
-          amount: excavatorHours * 1650
+          amount: excavatorHours * 1650,
+          category: 'production',
+          group: 'B'
         },
         {
           slNo: 6,
@@ -224,7 +271,9 @@ export function ContractorCalculator() {
           uom: 'Trips',
           rate: 200,
           qty: tipperTrips,
-          amount: tipperTrips * 200
+          amount: tipperTrips * 200,
+          category: 'production',
+          group: 'B'
         },
         {
           slNo: 7,
@@ -232,7 +281,9 @@ export function ContractorCalculator() {
           uom: 'Feet',
           rate: 22,
           qty: drillingFeet,
-          amount: drillingFeet * 22
+          amount: drillingFeet * 22,
+          category: 'production',
+          group: 'B'
         },
         {
           slNo: 8,
@@ -240,27 +291,13 @@ export function ContractorCalculator() {
           uom: 'HRS',
           rate: 1650,
           qty: crusherExcavatorHours,
-          amount: crusherExcavatorHours * 1650
-        },
-        {
-          slNo: 9,
-          description: 'Cash Advances / Balance',
-          uom: 'Amount',
-          rate: 1,
-          qty: advanceAmount,
-          amount: -advanceAmount
-        },
-        {
-          slNo: 10,
-          description: 'Resource Items (Diesel/Explosives)',
-          uom: 'Value',
-          rate: 1,
-          qty: resourceAmount,
-          amount: -resourceAmount
+          amount: crusherExcavatorHours * 1650,
+          category: 'production',
+          group: 'C'
         }
       ];
 
-      setBillItems(items);
+      setBillItems([...productionItems, ...deductions]);
     } catch (err) {
       console.error('Error calculating contractor bill:', err);
     } finally {
@@ -313,17 +350,17 @@ export function ContractorCalculator() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-blue-500/20 transition-all duration-700" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-2">Estimated Bill Amount</p>
+              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-2">Estimated Net Payable</p>
               <h2 className="text-5xl font-black text-white tracking-tighter">
                 ₹{totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
             </div>
             <div className="flex flex-col items-end">
               <div className="px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-xl mb-3">
-                <span className="text-blue-400 text-xs font-black uppercase tracking-widest">Status: Provisional</span>
+                <span className="text-blue-400 text-xs font-black uppercase tracking-widest">Contractor: {contractorName}</span>
               </div>
               <p className="text-slate-500 text-[10px] font-bold text-right leading-relaxed max-w-[200px]">
-                Calculated based on verified daily transport, loading, and drilling logs.
+                Net amount after itemized resource deductions and production credits.
               </p>
             </div>
           </div>
@@ -360,206 +397,117 @@ export function ContractorCalculator() {
                 </tr>
               ) : (
                 <>
-                  {/* Group 1: Quarry Good Boulders */}
+                  {/* Group A: Quarry Good Boulders */}
                   <tr className="bg-blue-50/50">
                     <td colSpan={6} className="px-6 py-3">
                       <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">Group A: Quarry Good Boulders</span>
                     </td>
                   </tr>
-                  {billItems.filter(i => [1, 2, 3].includes(i.slNo)).map((item) => (
+                  {billItems.filter(i => i.group === 'A').map((item) => (
                     <tr key={item.slNo} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-black text-slate-400">{item.slNo.toString().padStart(2, '0')}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-900 tracking-tight">{item.description}</span>
-                        </div>
-                      </td>
+                      <td className="px-6 py-4 text-sm font-black text-slate-400">{item.slNo}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-900 tracking-tight">{item.description}</td>
                       <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">
-                          {item.uom}
-                        </span>
+                        <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">{item.uom}</span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">
-                        {item.rate.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-black text-slate-900">
-                          {item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">{item.rate.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-right text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right text-sm font-black text-slate-900">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                   <tr className="bg-blue-50/30 border-b border-blue-100">
-                    <td colSpan={5} className="px-6 py-3 text-right">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Section Subtotal</span>
-                    </td>
-                    <td className="px-6 py-3 text-right">
-                      <span className="text-sm font-black text-blue-600">
-                        ₹{billItems.filter(i => [1, 2, 3].includes(i.slNo)).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </span>
+                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-blue-400">Section Subtotal</td>
+                    <td className="px-6 py-3 text-right text-sm font-black text-blue-600">
+                      ₹{billItems.filter(i => i.group === 'A').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 
-                  {/* Group 2: Soil/Weather Rocks */}
+                  {/* Group B: Soil/Weather Rocks */}
                   <tr className="bg-orange-50/50">
                     <td colSpan={6} className="px-6 py-3">
                       <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em]">Group B: Soil/Weather Rocks</span>
                     </td>
                   </tr>
-                  {billItems.filter(i => [5, 6, 7].includes(i.slNo)).map((item) => (
+                  {billItems.filter(i => i.group === 'B').map((item) => (
                     <tr key={item.slNo} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-black text-slate-400">{item.slNo.toString().padStart(2, '0')}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-900 tracking-tight">{item.description}</span>
-                        </div>
-                      </td>
+                      <td className="px-6 py-4 text-sm font-black text-slate-400">{item.slNo}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-900 tracking-tight">{item.description}</td>
                       <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">
-                          {item.uom}
-                        </span>
+                        <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">{item.uom}</span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">
-                        {item.rate.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-black text-slate-900">
-                          {item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">{item.rate.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-right text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right text-sm font-black text-slate-900">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                   <tr className="bg-orange-50/30 border-b border-orange-100">
-                    <td colSpan={5} className="px-6 py-3 text-right">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Section Subtotal</span>
-                    </td>
-                    <td className="px-6 py-3 text-right">
-                      <span className="text-sm font-black text-orange-600">
-                        ₹{billItems.filter(i => [5, 6, 7].includes(i.slNo)).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </span>
+                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-orange-400">Section Subtotal</td>
+                    <td className="px-6 py-3 text-right text-sm font-black text-orange-600">
+                      ₹{billItems.filter(i => i.group === 'B').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 
-                  {/* Group 3: Crusher Works */}
+                  {/* Group C: Crusher Works */}
                   <tr className="bg-emerald-50/50">
                     <td colSpan={6} className="px-6 py-3">
                       <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">Group C: Crusher Works</span>
                     </td>
                   </tr>
-                  {billItems.filter(i => [4, 8].includes(i.slNo)).map((item) => (
+                  {billItems.filter(i => i.group === 'C').map((item) => (
                     <tr key={item.slNo} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-black text-slate-400">{item.slNo.toString().padStart(2, '0')}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-900 tracking-tight">{item.description}</span>
-                        </div>
-                      </td>
+                      <td className="px-6 py-4 text-sm font-black text-slate-400">{item.slNo}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-900 tracking-tight">{item.description}</td>
                       <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">
-                          {item.uom}
-                        </span>
+                        <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">{item.uom}</span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">
-                        {item.rate.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-black text-slate-900">
-                          {item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">{item.rate.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-right text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right text-sm font-black text-slate-900">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                   <tr className="bg-emerald-50/30 border-b border-emerald-100">
-                    <td colSpan={5} className="px-6 py-3 text-right">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Section Subtotal</span>
-                    </td>
-                    <td className="px-6 py-3 text-right">
-                      <span className="text-sm font-black text-emerald-600">
-                        ₹{billItems.filter(i => [4, 8].includes(i.slNo)).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </span>
+                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-emerald-400">Section Subtotal</td>
+                    <td className="px-6 py-3 text-right text-sm font-black text-emerald-600">
+                      ₹{billItems.filter(i => i.group === 'C').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 
                   <tr className="bg-slate-900 text-white">
-                    <td colSpan={5} className="px-6 py-6 text-right">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Production Total Amount</span>
-                    </td>
-                    <td className="px-6 py-6 text-right">
-                      <span className="text-xl font-black text-blue-400">
-                        ₹{billItems.filter(i => i.slNo <= 8).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
+                    <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-slate-400">Production Total Amount</td>
+                    <td className="px-6 py-6 text-right text-xl font-black text-blue-400">
+                      ₹{billItems.filter(i => i.category === 'production').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 
-                  {/* Group 4: Deductions */}
+                  {/* Group D: Deductions */}
                   <tr className="bg-rose-50/50">
                     <td colSpan={6} className="px-6 py-3">
                       <span className="text-[10px] font-black text-rose-600 uppercase tracking-[0.2em]">Group D: Deductions for {contractorName}</span>
                     </td>
                   </tr>
-                  {billItems.filter(i => [9, 10].includes(i.slNo)).map((item) => (
-                    <tr key={item.slNo} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-black text-slate-400">{item.slNo.toString().padStart(2, '0')}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-900 tracking-tight">{item.description}</span>
-                          <span className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter">Debit Deduction</span>
-                        </div>
-                      </td>
+                  {billItems.filter(i => i.group === 'D').map((item) => (
+                    <tr key={item.slNo} className="hover:bg-slate-50 transition-colors text-rose-600">
+                      <td className="px-6 py-4 text-sm font-black opacity-50">{item.slNo}</td>
+                      <td className="px-6 py-4 text-sm font-bold tracking-tight">{item.description}</td>
                       <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">
-                          {item.uom}
-                        </span>
+                        <span className="inline-flex items-center justify-center px-2 py-1 bg-rose-100 rounded text-[10px] font-black uppercase">{item.uom}</span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">
-                        {item.rate.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-black text-rose-600">
-                          {item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-xs font-bold">{item.rate.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-right text-sm font-black">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-4 text-right text-sm font-black">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                   <tr className="bg-rose-50/30 border-b border-rose-100">
-                    <td colSpan={5} className="px-6 py-3 text-right">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">Total Deductions</span>
-                    </td>
-                    <td className="px-6 py-3 text-right">
-                      <span className="text-sm font-black text-rose-600">
-                        ₹{billItems.filter(i => [9, 10].includes(i.slNo)).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </span>
+                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-rose-400">Total Deductions</td>
+                    <td className="px-6 py-3 text-right text-sm font-black text-rose-600">
+                      ₹{billItems.filter(i => i.group === 'D').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 
                   <tr className="bg-emerald-600 text-white shadow-xl">
-                    <td colSpan={5} className="px-6 py-6 text-right">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-emerald-100">Net Payable Amount</span>
-                    </td>
-                    <td className="px-6 py-6 text-right">
-                      <span className="text-2xl font-black text-white">
-                        ₹{totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
+                    <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-emerald-100">Net Payable Amount</td>
+                    <td className="px-6 py-6 text-right text-2xl font-black text-white">
+                      ₹{totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 </>
@@ -572,7 +520,7 @@ export function ContractorCalculator() {
         <div className="mt-8 flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
           <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <p className="text-xs font-medium text-blue-800 leading-relaxed">
-            <strong>Note:</strong> This calculator provides an automated estimate. Production value is calculated from operational logs. <strong>Deductions</strong> for cash advances and resource issues (Diesel/Explosives) are itemized based on verified records. For final settlement, please refer to the official accounts department records.
+            <strong>Note:</strong> Itemized deductions are based on verified field records for {contractorName}. Production values reflect automated logs from transport, loading, and drilling modules.
           </p>
         </div>
       </div>
