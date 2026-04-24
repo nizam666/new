@@ -25,11 +25,16 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
   const [requestReason, setRequestReason] = useState('');
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
   const startCamera = useCallback(async () => {
     try {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      stopCamera();
       const newStream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user' } 
       });
@@ -43,7 +48,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       setHasCameraAccess(false);
       setStatusMessage("Could not access camera. Please check permissions.");
     }
-  }, []);
+  }, [stopCamera]);
 
   useEffect(() => {
     startCamera();
@@ -71,11 +76,22 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     fetchLoggedInUserEmployeeId();
 
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      stopCamera();
     };
-  }, [startCamera]);
+  }, [startCamera, stopCamera]);
+  
+  // Automatically reset the terminal after a success message
+  useEffect(() => {
+    if (status === 'success') {
+      const timer = setTimeout(() => {
+        setEmployeeId('');
+        setStatus('idle');
+        setCapturedPhoto(null);
+        startCamera();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [status, startCamera]);
 
   const formatErrorMessage = (err: unknown) => {
     if (err instanceof Error) return err.message;
@@ -178,6 +194,11 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     setStatus('loading');
     setStatusMessage('');
 
+    // Ensure camera is active if it was previously stopped (e.g. after an error)
+    if (!streamRef.current) {
+      await startCamera();
+    }
+
     if (!employeeId.trim()) {
       setStatus('error');
       setStatusMessage('Please enter your Employee ID.');
@@ -202,6 +223,9 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       if (!photoBlob) {
         throw new Error("Failed to capture photo. Make sure camera is working.");
       }
+      
+      // Stop camera immediately after capture to release hardware
+      stopCamera();
 
       // 3. Upload photo
       const photoUrl = await uploadPhoto(photoBlob, employeeId.trim().toUpperCase(), action);
@@ -375,18 +399,15 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         setStatusMessage(`Successfully Punched OUT at ${new Date().toLocaleTimeString(undefined, {hour: '2-digit', minute:'2-digit'})}. Goodbye, ${workerName}!`);
       }
 
-      // Reset form after short delay
-      setTimeout(() => {
-        setEmployeeId('');
-        setStatus('idle');
-        setCapturedPhoto(null);
-        startCamera(); // Restart live feed
-      }, 5000);
 
     } catch (err: unknown) {
       console.error('Attendance Process Error:', err);
       setStatus('error');
       setStatusMessage(formatErrorMessage(err) || 'An unexpected error occurred.');
+      
+      // On error, let them try again by resetting after a bit or keeping camera off?
+      // Better to let them click again which might restart camera.
+      // For now, let's ensure the camera can be restarted if they want to try again.
     }
   };
 
