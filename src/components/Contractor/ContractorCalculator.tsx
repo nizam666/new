@@ -120,7 +120,6 @@ export function ContractorCalculator() {
         const { data: dispatchData } = await supabase
           .from('inventory_dispatch')
           .select('item_name, quantity_dispatched, given_price, unit')
-          .eq('dispatched_to', contractorName)
           .eq('department', 'Quarry Operations')
           .gte('dispatch_date', startDate)
           .lte('dispatch_date', endDate)
