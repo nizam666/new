@@ -41,6 +41,7 @@ import { CustomerDetails } from './components/Customers/CustomerDetails';
 import { SelfServiceAttendance } from './components/Attendance/SelfServiceAttendance';
 import { AttendanceReportModule } from './components/Reports/AttendanceReportModule';
 import { BouldersSaleReport } from './components/Quarry/BouldersSaleReport';
+import { ContractorCalculator } from './components/Contractor/ContractorCalculator';
 
 function AppContent() {
   const { session, user, loading } = useAuth();
@@ -191,6 +192,17 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Detailed sales analysis for Q-Boulders material</p>
             </div>
             <BouldersSaleReport />
+          </div>
+        );
+
+      case 'quarry-contractor-calculator':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Contractor Calculator</h2>
+              <p className="text-slate-600 mt-1">Quarry production and cost calculation hub</p>
+            </div>
+            <ContractorCalculator />
           </div>
         );
 

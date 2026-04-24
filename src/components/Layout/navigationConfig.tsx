@@ -45,6 +45,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
             { name: 'Attendance', icon: Clock, href: '#quarry-attendance' },
             { name: 'Storage Management', icon: Database, href: '#quarry-storage-management' },
             { name: 'Boulders Sale Report', icon: TrendingUp, href: '#boulders-sale-report' },
+            { name: 'Contractor Calculator', icon: Calculator, href: '#quarry-contractor-calculator' },
         ]
     },
     {
@@ -113,6 +114,7 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Breaking/Loading', icon: ClipboardCheck, href: '#loading', roles: ['contractor', 'manager'] },
     { name: 'Transport', icon: Truck, href: '#transport', roles: ['contractor', 'manager'] },
     { name: 'Boulders Sale Report', icon: TrendingUp, href: '#boulders-sale-report', roles: ['contractor', 'manager'] },
+    { name: 'Contractor Calculator', icon: Calculator, href: '#quarry-contractor-calculator', roles: ['contractor', 'manager'] },
     { name: 'Selfie Attendance', icon: Camera, href: '#attendance' },
     { name: 'Attendance', icon: Clock, href: '#attendance', roles: ['contractor', 'crusher_manager', 'manager', 'sales', 'worker', 'security', 'driver'] },
     { name: 'Photos/Videos', icon: Camera, href: '#media', roles: ['contractor', 'manager'] },
