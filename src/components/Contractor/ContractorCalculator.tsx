@@ -66,6 +66,8 @@ export function ContractorCalculator() {
         .gte('date', startDate)
         .lte('date', endDate);
 
+      if (drillingError) throw drillingError;
+
       // 5. Fetch Deductions (Advances and Dispatch Items)
       const deductions: BillItem[] = [];
 
