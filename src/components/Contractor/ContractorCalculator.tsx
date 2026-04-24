@@ -288,38 +288,99 @@ export function ContractorCalculator() {
                 </tr>
               ) : (
                 <>
-                  {billItems.map((item) => (
+                  {/* Group 1: Quarry Good Boulders */}
+                  <tr className="bg-blue-50/50">
+                    <td colSpan={6} className="px-6 py-3">
+                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">Group A: Quarry Good Boulders</span>
+                    </td>
+                  </tr>
+                  {billItems.filter(i => [1, 2, 3].includes(i.slNo)).map((item) => (
                     <tr key={item.slNo} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-5">
+                      <td className="px-6 py-4">
                         <span className="text-sm font-black text-slate-400">{item.slNo.toString().padStart(2, '0')}</span>
                       </td>
-                      <td className="px-6 py-5">
+                      <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-slate-900 tracking-tight">{item.description}</span>
-                          <span className="text-[10px] font-bold text-blue-500 uppercase tracking-tighter">Verified Log Entry</span>
                         </div>
                       </td>
-                      <td className="px-6 py-5 text-center">
+                      <td className="px-6 py-4 text-center">
                         <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">
                           {item.uom}
                         </span>
                       </td>
-                      <td className="px-6 py-5 text-right font-mono text-sm font-bold text-slate-600">
+                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">
                         {item.rate.toFixed(2)}
                       </td>
-                      <td className="px-6 py-5 text-right">
+                      <td className="px-6 py-4 text-right">
                         <span className="text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                       </td>
-                      <td className="px-6 py-5 text-right">
-                        <span className="text-sm font-black text-emerald-600">
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-black text-slate-900">
                           {item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </td>
                     </tr>
                   ))}
+                  <tr className="bg-blue-50/30 border-b border-blue-100">
+                    <td colSpan={5} className="px-6 py-3 text-right">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Section Subtotal</span>
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <span className="text-sm font-black text-blue-600">
+                        ₹{billItems.filter(i => [1, 2, 3].includes(i.slNo)).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                  </tr>
+
+                  {/* Group 2: Soil/Weather Rocks */}
+                  <tr className="bg-orange-50/50">
+                    <td colSpan={6} className="px-6 py-3">
+                      <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em]">Group B: Soil/Weather Rocks</span>
+                    </td>
+                  </tr>
+                  {billItems.filter(i => [4, 5, 6, 7].includes(i.slNo)).map((item) => (
+                    <tr key={item.slNo} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-black text-slate-400">{item.slNo.toString().padStart(2, '0')}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-900 tracking-tight">{item.description}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">
+                          {item.uom}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">
+                        {item.rate.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-black text-slate-900">
+                          {item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-orange-50/30 border-b border-orange-100">
+                    <td colSpan={5} className="px-6 py-3 text-right">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Section Subtotal</span>
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <span className="text-sm font-black text-orange-600">
+                        ₹{billItems.filter(i => [4, 5, 6, 7].includes(i.slNo)).reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                  </tr>
+
                   <tr className="bg-slate-900 text-white">
                     <td colSpan={5} className="px-6 py-6 text-right">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Grand Total</span>
+                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Grand Total Amount</span>
                     </td>
                     <td className="px-6 py-6 text-right">
                       <span className="text-xl font-black text-blue-400">
