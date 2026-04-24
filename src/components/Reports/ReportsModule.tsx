@@ -5,7 +5,6 @@ import { SalesReportModule } from './SalesReportModule';
 import { AccountingReportModule } from './AccountingReportModule';
 import { OperationsHistoryModule } from './OperationsHistoryModule';
 import { AttendanceReportModule } from './AttendanceReportModule';
-import { AttendanceReportModule } from './AttendanceReportModule';
 import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock } from 'lucide-react';
 
 export function ReportsModule() {
