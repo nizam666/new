@@ -52,28 +52,44 @@ export function AccountsDetails() {
   };
 
   const parseNotes = (notes: string) => {
-    if (!notes) return { company: '—', remarks: '—', payedBy: '' };
+    if (!notes) return { company: '—', remarks: '—', payedBy: '', projectItem: '' };
     
     const parts = notes.split(' | ');
     let company = '—';
     let remarks = '—';
     let payedBy = '';
+    let projectItem = '';
     
     parts.forEach(part => {
       if (part.startsWith('Company: ')) company = part.replace('Company: ', '');
       else if (part.startsWith('Payed By: ')) payedBy = part.replace('Payed By: ', '');
-      else if (!part.startsWith('Dept: ')) remarks = part; // Use the last non-metadata part as remarks
+      else if (part.startsWith('Item: ')) projectItem = part.replace('Item: ', '');
+      else if (!part.startsWith('Dept: ')) remarks = part; 
     });
     
-    return { company, remarks, payedBy };
+    return { company, remarks, payedBy, projectItem };
   };
 
   const exportToExcel = () => {
     const dataToExport = filteredAccounts.map(account => {
       const { company, remarks, payedBy } = parseNotes(account.notes);
+      const isAdvance = (() => {
+        if (account.notes) {
+          const parts = account.notes.split(' | ');
+          const itemPart = parts.find((p: string) => p.startsWith('Item: '));
+          if (itemPart) {
+            const itemValue = itemPart.replace('Item: ', '').toLowerCase();
+            if (itemValue.includes('payment')) return false;
+            if (itemValue.includes('advance')) return true;
+          }
+        }
+        return account.reason?.toLowerCase().includes('advance') || 
+               account.notes?.toLowerCase().includes('advance');
+      })();
       return {
         'Date': new Date(account.transaction_date).toLocaleDateString(),
         'Transaction': account.transaction_type.toUpperCase(),
+        'Type': isAdvance ? 'ADVANCE' : 'PAYMENT',
         'Details': account.reason,
         'Company': company,
         'Pay Towards': account.customer_name || '—',
@@ -188,6 +204,7 @@ export function AccountsDetails() {
               <tr className="bg-slate-50/50">
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Date</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Transaction</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Type</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Details</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Company</th>
                 <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Pay Towards</th>
@@ -212,6 +229,30 @@ export function AccountsDetails() {
                       }`}>
                         {account.transaction_type === 'income' ? 'Inflow' : 'Outflow'}
                       </div>
+                    </td>
+                    <td className="px-6 py-6">
+                      {(() => {
+                        const isAdvance = (() => {
+                          if (account.notes) {
+                            const parts = account.notes.split(' | ');
+                            const itemPart = parts.find((p: string) => p.startsWith('Item: '));
+                            if (itemPart) {
+                              const itemValue = itemPart.replace('Item: ', '').toLowerCase();
+                              if (itemValue.includes('payment')) return false;
+                              if (itemValue.includes('advance')) return true;
+                            }
+                          }
+                          return account.reason?.toLowerCase().includes('advance') || 
+                                 account.notes?.toLowerCase().includes('advance');
+                        })();
+                        return (
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border ${
+                            isAdvance ? 'bg-amber-50 border-amber-100 text-amber-600' : 'bg-blue-50 border-blue-100 text-blue-600'
+                          }`}>
+                            {isAdvance ? 'Advance' : 'Payment'}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-6 min-w-[200px]">
                       <p className="text-xs font-bold text-slate-600 leading-relaxed">{account.reason}</p>

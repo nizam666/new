@@ -46,6 +46,8 @@ export const DIRECTOR_NAV: MenuItem[] = [
             { name: 'Storage Management', icon: Database, href: '#quarry-storage-management' },
             { name: 'Boulders Sale Report', icon: TrendingUp, href: '#boulders-sale-report' },
             { name: 'Contractor Calculator', icon: Calculator, href: '#quarry-contractor-calculator' },
+            { name: 'Quarry Production Report', icon: FileText, href: '#quarry-production-report' },
+            { name: 'Quarry Deduction Report', icon: FileText, href: '#quarry-deduction-report' },
         ]
     },
     {
@@ -96,6 +98,8 @@ export const DIRECTOR_NAV: MenuItem[] = [
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
 
     { name: 'User Management', icon: Users, href: '#user-management' },
+    { name: 'Contractor Management', icon: Users, href: '#contractor-management' },
+    { name: 'Overhead Management', icon: Wallet, href: '#overhead-management' },
     {
         name: 'Reports',
         icon: BarChart3,
@@ -115,6 +119,8 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Transport', icon: Truck, href: '#transport', roles: ['contractor', 'manager'] },
     { name: 'Boulders Sale Report', icon: TrendingUp, href: '#boulders-sale-report', roles: ['contractor', 'manager'] },
     { name: 'Contractor Calculator', icon: Calculator, href: '#quarry-contractor-calculator', roles: ['contractor', 'manager'] },
+    { name: 'Quarry Production Report', icon: FileText, href: '#quarry-production-report', roles: ['contractor', 'manager'] },
+    { name: 'Quarry Deduction Report', icon: FileText, href: '#quarry-deduction-report', roles: ['contractor', 'manager'] },
     { name: 'Selfie Attendance', icon: Camera, href: '#attendance' },
     { name: 'Attendance', icon: Clock, href: '#attendance', roles: ['contractor', 'crusher_manager', 'manager', 'sales', 'worker', 'security', 'driver'] },
     { name: 'Photos/Videos', icon: Camera, href: '#media', roles: ['contractor', 'manager'] },

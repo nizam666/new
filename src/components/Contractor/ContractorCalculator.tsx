@@ -3,9 +3,14 @@ import { supabase } from '../../lib/supabase';
 import { 
   Calculator, 
   Calendar, 
-  AlertCircle
+  AlertCircle,
+  Download,
+  FileText
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
+import ExcelJS from 'exceljs';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface BillItem {
   slNo: number | string;
@@ -15,19 +20,19 @@ interface BillItem {
   qty: number;
   amount: number;
   category: 'production' | 'deduction';
-  group: 'A' | 'B' | 'C' | 'D';
+  group: 'A' | 'B' | 'C' | 'D' | 'E';
 }
 
 export function ContractorCalculator() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [contractorName] = useState('Govindaraj');
+  const contractorName = 'Govindaraj';
   const [billItems, setBillItems] = useState<BillItem[]>([]);
 
   useEffect(() => {
     calculateBill();
-  }, [startDate, endDate, contractorName]);
+  }, [startDate, endDate]);
 
   const calculateBill = async () => {
     setLoading(true);
@@ -72,43 +77,59 @@ export function ContractorCalculator() {
       const deductions: BillItem[] = [];
 
       if (contractorName) {
-        // Fetch Advances, Payments, and Quarry Department expenses
+        // Fetch all expenses related to Govindaraj or reference ID
         const { data: accountsData } = await supabase
           .from('accounts')
-          .select('customer_name, amount_given, reason, notes, project_item, department')
-          .or(`department.eq.Quarry,project_item.eq.Contractor Payment,project_item.eq.Contractor Advance`)
+          .select('customer_name, amount_given, reason, notes, transaction_type, transaction_date')
           .gte('transaction_date', startDate)
           .lte('transaction_date', endDate);
-        
+
         if (accountsData) {
-          const groupedAdvances: Record<string, number> = {};
-          accountsData.forEach(rec => {
-            const isContractorSpecific = rec.project_item === 'Contractor Payment' || rec.project_item === 'Contractor Advance';
-            const isQuarryDept = rec.department === 'Quarry';
+          let totalAdvanceAmount = 0;
+          
+          accountsData.forEach((rec: any) => {
+            if (rec.transaction_type !== 'expense' || !(rec.amount_given > 0)) return;
             
-            // If it's contractor specific, it must match the contractor name
-            // If it's quarry department, we include it as a departmental deduction
-            if ((isContractorSpecific && rec.customer_name === contractorName) || isQuarryDept) {
-              if (rec.amount_given > 0) {
-                const name = rec.customer_name || rec.project_item || 'Quarry Expense';
-                const key = `${name} (${rec.project_item || 'Misc'})`;
-                groupedAdvances[key] = (groupedAdvances[key] || 0) + (rec.amount_given || 0);
+            // Check if matches Govindaraj or CON-QRY-001
+            const matchesName = rec.customer_name?.toLowerCase().includes(contractorName.toLowerCase());
+                               
+            const matchesRef = rec.reason?.toLowerCase().includes('con-qry-001') || 
+                               rec.notes?.toLowerCase().includes('con-qry-001') || 
+                               rec.customer_name?.toLowerCase().includes('con-qry-001');
+
+            if (!matchesName && !matchesRef) return;
+
+            const checkIsAdvance = () => {
+              if (rec.notes) {
+                const parts = rec.notes.split(' | ');
+                const itemPart = parts.find((p: string) => p.startsWith('Item: '));
+                if (itemPart) {
+                  const itemValue = itemPart.replace('Item: ', '').toLowerCase();
+                  if (itemValue.includes('payment')) return false;
+                  if (itemValue.includes('advance')) return true;
+                }
               }
+              return rec.reason?.toLowerCase().includes('advance') || 
+                     rec.notes?.toLowerCase().includes('advance');
+            };
+
+            if (checkIsAdvance()) {
+              totalAdvanceAmount += (rec.amount_given || 0);
             }
           });
 
-          Object.entries(groupedAdvances).forEach(([name, amount], idx) => {
+          if (totalAdvanceAmount > 0) {
             deductions.push({
-              slNo: `ADV-${idx + 1}`,
-              description: `Quarry Expense/Payment: ${name}`,
+              slNo: 'ADV-1',
+              description: 'Advance Taken',
               uom: 'Amount',
               rate: 1,
-              qty: amount,
-              amount: -amount,
+              qty: totalAdvanceAmount,
+              amount: -totalAdvanceAmount,
               category: 'deduction',
               group: 'D'
             });
-          });
+          }
         }
 
         // Resource Items from Dispatch (Quarry Operations)
@@ -119,37 +140,99 @@ export function ContractorCalculator() {
           .gte('dispatch_date', startDate)
           .lte('dispatch_date', endDate)
           .not('given_price', 'is', null);
+
+        // Fetch Blasting Records for Weathered Rocks
+        const { data: blastingData } = await supabase
+          .from('blasting_records')
+          .select('pg_nos, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos, material_type')
+          .gte('date', startDate)
+          .lte('date', endDate)
+          .eq('material_type', 'Weathered Rocks');
         
         if (dispatchData) {
           const groupedResources: Record<string, { qty: number, amount: number, unit: string, rate: number }> = {};
           
+          let totalExplosivesAmount = 0;
+          let pgPriceSum = 0, pgCount = 0;
+          let edPriceSum = 0, edCount = 0;
+          let edetPriceSum = 0, edetCount = 0;
+          let nonel3PriceSum = 0, nonel3Count = 0;
+          let nonel4PriceSum = 0, nonel4Count = 0;
+
           dispatchData.forEach(d => {
             const rawName = d.item_name || 'Other Item';
             const isExplosive = /PG|NONEL|DETONATOR|EXPLOSIVE/i.test(rawName);
             const key = isExplosive ? 'Explosives' : rawName;
             
-            const isPG = rawName.toUpperCase() === 'PG';
-            let qty = d.quantity_dispatched || 0;
-            if (isPG) qty = qty / 200;
+            const isPG = rawName.toUpperCase() === 'PG' || rawName.toUpperCase().includes('POWERGEL');
+            const isED = rawName.toUpperCase() === 'ED' || rawName.toUpperCase().includes('ELECTRIC DETONATOR');
+            const isEDET = rawName.toUpperCase() === 'EDET' || rawName.toUpperCase().includes('ELECTRONIC DETONATOR');
+            const isN3 = rawName.toUpperCase().includes('NONEL') && rawName.toUpperCase().includes('3M');
+            const isN4 = rawName.toUpperCase().includes('NONEL') && rawName.toUpperCase().includes('4M');
 
-            if (!groupedResources[key]) {
-              groupedResources[key] = { 
-                qty: 0, 
-                amount: 0, 
-                unit: isExplosive ? 'Value' : (isPG ? 'Box' : (d.unit || 'Nos')), 
-                rate: isExplosive ? 1 : (d.given_price || 0) 
-              };
-            }
-            
+            const price = d.given_price || 0;
+            let qty = d.quantity_dispatched || 0;
+            if (isPG && d.unit?.toLowerCase() === 'nos') qty = qty / 200;
+
+            if (isPG) { pgPriceSum += price; pgCount++; }
+            else if (isED) { edPriceSum += price; edCount++; }
+            else if (isEDET) { edetPriceSum += price; edetCount++; }
+            else if (isN3) { nonel3PriceSum += price; nonel3Count++; }
+            else if (isN4) { nonel4PriceSum += price; nonel4Count++; }
+
             if (isExplosive) {
-              groupedResources[key].qty += qty * (d.given_price || 0);
-              groupedResources[key].amount += qty * (d.given_price || 0);
+              totalExplosivesAmount += qty * price;
             } else {
+              if (!groupedResources[key]) {
+                groupedResources[key] = { 
+                  qty: 0, 
+                  amount: 0, 
+                  unit: d.unit || 'Nos', 
+                  rate: price 
+                };
+              }
               groupedResources[key].qty += qty;
-              groupedResources[key].amount += qty * (d.given_price || 0);
+              groupedResources[key].amount += qty * price;
             }
           });
 
+          // Calculate average prices
+          const avgPrices = {
+            pg: pgCount > 0 ? pgPriceSum / pgCount : 0,
+            ed: edCount > 0 ? edPriceSum / edCount : 0,
+            edet: edetCount > 0 ? edetPriceSum / edetCount : 0,
+            nonel3: nonel3Count > 0 ? nonel3PriceSum / nonel3Count : 0,
+            nonel4: nonel4Count > 0 ? nonel4PriceSum / nonel4Count : 0
+          };
+
+          // Weather Rock explosives cost
+          let wrExplosivesCost = 0;
+          blastingData?.forEach(b => {
+            const pgCost = (b.pg_nos || 0) * (avgPrices.pg || 0);
+            const edCost = (b.ed_nos || 0) * (avgPrices.ed || 0);
+            const edetCost = (b.edet_nos || 0) * (avgPrices.edet || 0);
+            const n3Cost = (b.nonel_3m_nos || 0) * (avgPrices.nonel3 || 0);
+            const n4Cost = (b.nonel_4m_nos || 0) * (avgPrices.nonel4 || 0);
+            wrExplosivesCost += (pgCost + edCost + edetCost + n3Cost + n4Cost);
+          });
+
+          const gbExplosivesCost = Math.max(0, totalExplosivesAmount - wrExplosivesCost);
+
+          // Add Explosives Deductions (ONLY for Good Boulders as requested)
+          if (gbExplosivesCost > 0) {
+            deductions.push({
+              slNo: 'EXP-GB',
+              description: 'Resource: Explosives (Good Boulders)',
+              uom: 'Value',
+              rate: 1,
+              qty: gbExplosivesCost,
+              amount: -gbExplosivesCost,
+              category: 'deduction',
+              group: 'D'
+            });
+          }
+
+          // Add remaining non-explosive individual resources
           Object.entries(groupedResources).forEach(([name, data], idx) => {
             deductions.push({
               slNo: `RES-${idx + 1}`,
@@ -336,10 +419,232 @@ export function ContractorCalculator() {
 
   const totalBillAmount = billItems.reduce((sum, item) => sum + item.amount, 0);
 
+  const exportToExcel = async () => {
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-');
+      return `${d}-${m}-${y}`;
+    };
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Contractor Bill');
+
+    const titleRow = worksheet.addRow([`Contractor Bill: ${contractorName}`]);
+    titleRow.font = { name: 'Arial', size: 14, bold: true };
+
+    const periodRow = worksheet.addRow([`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`]);
+    periodRow.font = { name: 'Arial', size: 11, italic: true };
+    worksheet.addRow([]); 
+
+    const headerRow = worksheet.addRow(['Sl.No.', 'Item Description', 'UOM', 'Rate (₹)', 'QTY', 'Amount (₹)']);
+    headerRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.eachCell(cell => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF334155' }
+      };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    });
+
+    const groups = [
+      { id: 'A', label: 'Group A: Quarry Good Boulders', color: 'FFDBEAFE', fontColor: 'FF1D4ED8' },
+      { id: 'B', label: 'Group B: Soil/Weather Rocks', color: 'FFFFEDD5', fontColor: 'FFC2410C' },
+      { id: 'C', label: 'Group C: Crusher works', color: 'FFFEE2E2', fontColor: 'FFB91C1C' },
+      { id: 'D', label: 'Group D: Advance / Deductions', color: 'FFF3E8FF', fontColor: 'FF6B21A8' }
+    ];
+
+    groups.forEach(g => {
+      const items = billItems.filter(i => i.group === g.id);
+      if (items.length > 0) {
+        const gRow = worksheet.addRow([g.label]);
+        worksheet.mergeCells(`A${gRow.number}:F${gRow.number}`);
+        gRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: g.fontColor } };
+        gRow.eachCell(cell => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: g.color }
+          };
+        });
+
+        items.forEach(item => {
+          const iRow = worksheet.addRow([
+            item.slNo,
+            item.description,
+            item.uom,
+            item.rate,
+            item.qty,
+            item.amount
+          ]);
+          iRow.font = { name: 'Arial', size: 10 };
+          iRow.eachCell(cell => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+          });
+          iRow.getCell(4).alignment = { horizontal: 'right' };
+          iRow.getCell(5).alignment = { horizontal: 'right' };
+          iRow.getCell(6).alignment = { horizontal: 'right' };
+        });
+
+        const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+        const sRow = worksheet.addRow(['', 'Section Subtotal:', '', '', '', subtotal]);
+        worksheet.mergeCells(`B${sRow.number}:E${sRow.number}`);
+        sRow.font = { name: 'Arial', size: 10, bold: true };
+        sRow.getCell(2).alignment = { horizontal: 'right' };
+        sRow.getCell(6).alignment = { horizontal: 'right' };
+        sRow.eachCell(cell => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8FAFC' }
+          };
+        });
+        worksheet.addRow([]);
+      }
+    });
+
+    const totalRow = worksheet.addRow(['', 'Estimated Net Payable:', '', '', '', totalBillAmount]);
+    worksheet.mergeCells(`B${totalRow.number}:E${totalRow.number}`);
+    totalRow.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    totalRow.getCell(2).alignment = { horizontal: 'right' };
+    totalRow.getCell(6).alignment = { horizontal: 'right' };
+    totalRow.eachCell(cell => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF0F172A' }
+      };
+    });
+
+    if (worksheet.columns) {
+      worksheet.columns.forEach(col => {
+        if (!col) return;
+        let maxLen = 0;
+        col.eachCell?.({ includeEmpty: false }, cell => {
+          const cellLen = cell.value ? cell.value.toString().length : 0;
+          if (cellLen > maxLen) maxLen = cellLen;
+        });
+        col.width = Math.max(maxLen + 3, 10);
+      });
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Contractor_Bill_${contractorName}_${startDate}_to_${endDate}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-');
+      return `${d}-${m}-${y}`;
+    };
+
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42); 
+    doc.text(`Contractor Bill: ${contractorName}`, 14, 15);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139); 
+    doc.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 14, 22);
+
+    const tableRows: any[] = [];
+    const groups = [
+      { id: 'A', label: 'Group A: Quarry Good Boulders', color: [219, 234, 254], fontColor: [29, 78, 216] },
+      { id: 'B', label: 'Group B: Soil/Weather Rocks', color: [255, 237, 213], fontColor: [194, 65, 12] },
+      { id: 'C', label: 'Group C: Crusher works', color: [254, 226, 226], fontColor: [185, 28, 28] },
+      { id: 'D', label: 'Group D: Advance / Deductions', color: [243, 232, 255], fontColor: [107, 33, 168] }
+    ];
+
+    groups.forEach(g => {
+      const items = billItems.filter(i => i.group === g.id);
+      if (items.length > 0) {
+        tableRows.push([
+          { content: g.label, colSpan: 6, styles: { fillColor: g.color, textColor: g.fontColor, fontStyle: 'bold' } }
+        ]);
+
+        items.forEach(item => {
+          tableRows.push([
+            item.slNo,
+            item.description,
+            item.uom,
+            `Rs ${item.rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+            item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+            `Rs ${item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          ]);
+        });
+
+        const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+        tableRows.push([
+          { content: 'Section Subtotal:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [248, 250, 252] } },
+          { content: `Rs ${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], halign: 'right' } }
+        ]);
+      }
+    });
+
+    tableRows.push([
+      { content: 'Estimated Net Payable:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+      { content: `Rs ${totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255], halign: 'right' } }
+    ]);
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Sl.No.', 'Item Description', 'UOM', 'Rate', 'QTY', 'Amount']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: { fillColor: [51, 65, 85] }, 
+      columnStyles: {
+        0: { cellWidth: 15 },
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'right' }
+      },
+      styles: { fontSize: 9 }
+    });
+
+    doc.save(`Contractor_Bill_${contractorName}_${startDate}_to_${endDate}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
+      <style>{`
+        @media print {
+          body {
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+            background-color: white !important;
+          }
+          .print\\:hidden {
+            display: none !important;
+          }
+          .shadow-sm, .shadow-md, .shadow-lg, .shadow-2xl {
+            box-shadow: none !important;
+          }
+          .border {
+            border-color: #cbd5e1 !important;
+          }
+        }
+      `}</style>
       {/* Header & Controls */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 print:border-none print:shadow-none print:p-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
@@ -351,26 +656,42 @@ export function ContractorCalculator() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <div className="flex flex-wrap items-center gap-4 p-1 print:hidden">
+            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <span className="text-slate-400 font-black text-xs">TO</span>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
-            <span className="text-slate-400 font-black">TO</span>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+
+            <button
+              onClick={exportToExcel}
+              className="px-4 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 flex items-center gap-2 shadow-lg shadow-slate-200 active:scale-95 transition-all"
+            >
+              <Download className="w-4 h-4" /> Excel
+            </button>
+            
+            <button
+              onClick={exportToPDF}
+              className="px-4 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 flex items-center gap-2 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
+            >
+              <FileText className="w-4 h-4" /> PDF
+            </button>
           </div>
         </div>
 
@@ -532,6 +853,8 @@ export function ContractorCalculator() {
                       ₹{billItems.filter(i => i.group === 'D').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
+
+
 
                   <tr className="bg-emerald-600 text-white shadow-xl">
                     <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-emerald-100">Net Payable Amount</td>

@@ -35,6 +35,11 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
   const [vendorBalance, setVendorBalance] = useState<number | null>(null);
   const [fundBalances, setFundBalances] = useState<Record<string, number>>({});
   const [paymentSplits, setPaymentSplits] = useState<Record<string, string>>({});
+  
+  const [outflowType, setOutflowType] = useState<'overheads' | 'contractors' | 'suppliers'>('suppliers');
+  const [contractorsList, setContractorsList] = useState<any[]>([]);
+  const [overheadList, setOverheadList] = useState<any[]>([]);
+
   const [formData, setFormData] = useState({
     transaction_type: 'expense',
     towards_company: 'KVSS',
@@ -72,21 +77,79 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
         const { data } = await supabase
           .from('fund_transactions')
           .select('source_id, type, amount');
+          
+        const { data: salesData } = await supabase
+          .from('invoices')
+          .select('amount_paid, payment_mode')
+          .gt('amount_paid', 0);
+
+        const totals: Record<string, number> = {};
+        
         if (data) {
-          const totals: Record<string, number> = {};
           data.forEach(row => {
             if (!totals[row.source_id]) totals[row.source_id] = 0;
             totals[row.source_id] += row.type === 'deposit' ? row.amount : -row.amount;
           });
-          setFundBalances(totals);
         }
+
+        if (salesData) {
+          salesData.forEach(sale => {
+            const mode = (sale.payment_mode || 'cash').toLowerCase();
+            let sourceId = 'sbbm_cash';
+            if (mode.includes('upi')) sourceId = 'sbbm_upi';
+            if (mode.includes('net') || mode.includes('bank')) sourceId = 'sbbm_netbank';
+            
+            if (!totals[sourceId]) totals[sourceId] = 0;
+            totals[sourceId] += (sale.amount_paid || 0);
+          });
+        }
+
+        setFundBalances(totals);
       } catch (err) {
         console.error('Error fetching fund balances:', err);
       }
     };
 
+    const fetchContractors = () => {
+      try {
+        const stored = localStorage.getItem('sribaba_contractors');
+        if (stored) setContractorsList(JSON.parse(stored));
+      } catch (err) {
+        console.error('Error loading contractors:', err);
+      }
+    };
+
+    const fetchOverhead = async () => {
+      try {
+        const storedIds = localStorage.getItem('sribaba_overhead_user_ids');
+        const overheadUserIds: string[] = storedIds ? JSON.parse(storedIds) : [];
+        const storedSalaries = localStorage.getItem('sribaba_overhead_salaries');
+        const salariesMap: Record<string, any> = storedSalaries ? JSON.parse(storedSalaries) : {};
+
+        if (overheadUserIds.length > 0) {
+          const { data } = await supabase
+            .from('users')
+            .select('id, full_name, employee_id, role')
+            .in('id', overheadUserIds);
+          
+          if (data) {
+            const mapped = data.map(u => ({
+              ...u,
+              amount: salariesMap[u.id]?.amount || 0,
+              department: salariesMap[u.id]?.department || 'Quarry'
+            }));
+            setOverheadList(mapped);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading overhead:', err);
+      }
+    };
+
     fetchVendors();
     fetchFundBalances();
+    fetchContractors();
+    fetchOverhead();
   }, []);
 
   // Fetch balance for selected vendor
@@ -180,9 +243,9 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
       const isPaymentOnly = 
         formData.project_item === 'Payment' || 
         formData.project_item === 'Advance' || 
-        formData.is_payment_only ||
-        formData.reason.toLowerCase().includes('payment') ||
-        formData.reason.toLowerCase().includes('advance');
+        formData.project_item === 'Contractor Payment' || 
+        formData.project_item === 'Contractor Advance' || 
+        formData.is_payment_only;
       const recordAmount = isPaymentOnly ? 0 : amountPaid;
 
       const { error } = await supabase.from('accounts').insert([{
@@ -303,14 +366,175 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
       {/* ── Main Form Body ── */}
       <form onSubmit={handleSubmit} className="space-y-5">
 
-        {/* Row 1: Company + Date + Department */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Step 1: Date */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-slate-400" />
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label>
+          </div>
+          <input
+            type="date"
+            required
+            max={new Date().toISOString().split('T')[0]}
+            value={formData.transaction_date}
+            onChange={e => update('transaction_date', e.target.value)}
+            className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm"
+          />
+        </div>
 
-          {/* Company */}
+        {/* Step 2 & 3: Outflow Redesign (Only for Outflow) */}
+        {formData.transaction_type === 'expense' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Outflow Type */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-400" />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outflow Category *</label>
+              </div>
+              <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100 w-full">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setOutflowType('overheads');
+                    update('vendor_payee', '');
+                    update('project_item', 'Salary');
+                  }}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                    outflowType === 'overheads' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  Overheads
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setOutflowType('contractors');
+                    update('vendor_payee', '');
+                    update('project_item', 'Contractor Payment');
+                  }}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                    outflowType === 'contractors' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  Contractors
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setOutflowType('suppliers');
+                    update('vendor_payee', '');
+                    update('project_item', 'Payment');
+                  }}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                    outflowType === 'suppliers' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  Suppliers
+                </button>
+              </div>
+            </div>
+
+            {/* Selection based on Outflow Type */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3" ref={vendorRef}>
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-slate-400" />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {outflowType === 'overheads' ? 'Select Employee' : outflowType === 'contractors' ? 'Select Contractor' : 'Material Supplier *'}
+                </label>
+              </div>
+
+              {outflowType === 'overheads' && (
+                <select
+                  required
+                  value={formData.vendor_payee}
+                  onChange={e => {
+                    update('vendor_payee', e.target.value);
+                    const selected = overheadList.find(o => o.full_name === e.target.value);
+                    if (selected) {
+                      update('amount_paid', selected.amount.toString());
+                      update('department', selected.department || 'Quarry');
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm appearance-none cursor-pointer"
+                >
+                  <option value="">-- Choose Employee --</option>
+                  {overheadList.map(o => (
+                    <option key={o.id} value={o.full_name}>
+                      {o.full_name} (₹{o.amount.toLocaleString('en-IN')})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {outflowType === 'contractors' && (
+                <select
+                  required
+                  value={formData.vendor_payee}
+                  onChange={e => {
+                    update('vendor_payee', e.target.value);
+                    const selected = contractorsList.find(c => c.full_name === e.target.value);
+                    if (selected) {
+                      // Auto-fetch department from contractor function prefix
+                      const ref = selected.employee_id || '';
+                      let dept = 'Quarry';
+                      if (ref.startsWith('CON-CRU-')) dept = 'Crusher';
+                      else if (ref.startsWith('CON-ELE-') || ref.startsWith('CON-MAN-')) dept = 'Other';
+                      update('department', dept);
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm appearance-none cursor-pointer"
+                >
+                  <option value="">-- Choose Contractor --</option>
+                  {contractorsList.map(c => (
+                    <option key={c.id} value={c.full_name}>
+                      {c.full_name} ({c.employee_id})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {outflowType === 'suppliers' && (
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={vendorSearch}
+                    onChange={e => {
+                      setVendorSearch(e.target.value);
+                      update('vendor_payee', e.target.value);
+                      setShowVendorDropdown(true);
+                    }}
+                    onFocus={() => setShowVendorDropdown(true)}
+                    placeholder="Search supplier…"
+                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 focus:bg-white transition-all outline-none text-sm"
+                  />
+                  {showVendorDropdown && filteredVendors.length > 0 && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden max-h-52 overflow-y-auto">
+                      {filteredVendors.map((v, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onMouseDown={() => selectVendor(v)}
+                          className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors flex items-center gap-2 border-b border-slate-50 last:border-0"
+                        >
+                          <User className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Generic Payee for Inflow (Only for Inflow) */}
+        {formData.transaction_type === 'income' && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3" ref={vendorRef}>
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-slate-400" />
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Company / Payee *</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer / Payee *</label>
             </div>
             <div className="relative">
               <input
@@ -323,7 +547,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                   setShowVendorDropdown(true);
                 }}
                 onFocus={() => setShowVendorDropdown(true)}
-                placeholder="Search vendor…"
+                placeholder="Search or type name…"
                 className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 focus:bg-white transition-all outline-none text-sm"
               />
               {showVendorDropdown && filteredVendors.length > 0 && (
@@ -343,26 +567,10 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
               )}
             </div>
           </div>
+        )}
 
-          {/* Date */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label>
-            </div>
-            <input
-              type="date"
-              required
-              max={new Date().toISOString().split('T')[0]}
-              value={formData.transaction_date}
-              onChange={e => update('transaction_date', e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm"
-            />
-          </div>
-        </div>
-
-        {/* Row 2: Department + Project/Item */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Row 2: Department + Purpose + Project/Item */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* Department */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
             <div className="flex items-center gap-2">
@@ -379,6 +587,22 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                 <option key={dept} value={dept}>{dept}</option>
               ))}
             </select>
+          </div>
+
+          {/* Purpose of Payment */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-slate-400" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purpose of Payment *</label>
+            </div>
+            <input
+              type="text"
+              required
+              value={formData.reason}
+              onChange={e => update('reason', e.target.value)}
+              placeholder="e.g. Fuel, advance, etc."
+              className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm"
+            />
           </div>
 
           {/* Project/Item */}
@@ -441,21 +665,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
           </div>
         </div>
 
-        {/* Row 2: Details */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-slate-400" />
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Details / Purpose *</label>
-          </div>
-          <textarea
-            required
-            rows={3}
-            value={formData.reason}
-            onChange={e => update('reason', e.target.value)}
-            placeholder="Describe what this transaction is for..."
-            className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-medium text-slate-700 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none resize-none text-sm"
-          />
-        </div>
+
 
         {/* Row 3: Financials + Payed From */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5">

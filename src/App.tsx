@@ -42,6 +42,10 @@ import { SelfServiceAttendance } from './components/Attendance/SelfServiceAttend
 import { AttendanceReportModule } from './components/Reports/AttendanceReportModule';
 import { BouldersSaleReport } from './components/Quarry/BouldersSaleReport';
 import { ContractorCalculator } from './components/Contractor/ContractorCalculator';
+import { ContractorManagement } from './components/Contractor/ContractorManagement';
+import { OverheadManagement } from './components/Overhead/OverheadManagement';
+import { QuarryProductionReport } from './components/Contractor/QuarryProductionReport';
+import { QuarryDeductionReport } from './components/Contractor/QuarryDeductionReport';
 
 function AppContent() {
   const { session, user, loading } = useAuth();
@@ -203,6 +207,20 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Quarry production and cost calculation hub</p>
             </div>
             <ContractorCalculator />
+          </div>
+        );
+
+      case 'quarry-production-report':
+        return (
+          <div className="space-y-6">
+            <QuarryProductionReport />
+          </div>
+        );
+
+      case 'quarry-deduction-report':
+        return (
+          <div className="space-y-6">
+            <QuarryDeductionReport />
           </div>
         );
 
@@ -426,6 +444,12 @@ function AppContent() {
 
       case 'user-management':
         return <UserManagement />;
+
+      case 'contractor-management':
+        return <ContractorManagement />;
+
+      case 'overhead-management':
+        return <OverheadManagement />;
 
       case 'quarry-jcb-operations':
         return (
