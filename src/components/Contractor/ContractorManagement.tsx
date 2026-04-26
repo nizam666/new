@@ -267,6 +267,47 @@ export function ContractorManagement() {
     );
   }
 
+  const availableMonths = Array.from(new Set(
+    transactions
+      .filter(t => t.transaction_type === 'expense')
+      .map(t => new Date(t.transaction_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }))
+  ));
+
+  const selectedMonthTotals = (() => {
+    let advance = 0;
+    let payment = 0;
+    
+    transactions.forEach(t => {
+      if (t.transaction_type !== 'expense') return;
+      
+      const m = new Date(t.transaction_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      if (selectedMonth !== 'all' && m !== selectedMonth) return;
+      
+      const isAdvance = (() => {
+        if (t.notes) {
+          const parts = t.notes.split(' | ');
+          const itemPart = parts.find((p: string) => p.startsWith('Item: '));
+          if (itemPart) {
+            const itemValue = itemPart.replace('Item: ', '').toLowerCase();
+            if (itemValue.includes('payment')) return false;
+            if (itemValue.includes('advance')) return true;
+          }
+        }
+        return t.reason?.toLowerCase().includes('advance') || 
+               t.notes?.toLowerCase().includes('advance');
+      })();
+      
+      const amount = t.amount_given || t.amount || 0;
+      if (isAdvance) {
+        advance += amount;
+      } else {
+        payment += amount;
+      }
+    });
+    
+    return { advance, payment };
+  })();
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
@@ -518,60 +559,35 @@ export function ContractorManagement() {
               </div>
               <div className="flex items-center gap-4">
                 {transactions.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-3 animate-in fade-in duration-500">
-                    {(() => {
-                      const monthData: Record<string, { advance: number, payment: number }> = {};
-                      
-                      transactions.forEach(t => {
-                        if (t.transaction_type !== 'expense') return;
-                        
-                        const dateObj = new Date(t.transaction_date);
-                        const monthName = dateObj.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-                        
-                        if (!monthData[monthName]) {
-                          monthData[monthName] = { advance: 0, payment: 0 };
-                        }
-                        
-                        const isAdvance = (() => {
-                          if (t.notes) {
-                            const parts = t.notes.split(' | ');
-                            const itemPart = parts.find((p: string) => p.startsWith('Item: '));
-                            if (itemPart) {
-                              const itemValue = itemPart.replace('Item: ', '').toLowerCase();
-                              if (itemValue.includes('payment')) return false;
-                              if (itemValue.includes('advance')) return true;
-                            }
-                          }
-                          return t.reason?.toLowerCase().includes('advance') || 
-                                 t.notes?.toLowerCase().includes('advance');
-                        })();
-                        
-                        const amount = t.amount_given || t.amount || 0;
-                        if (isAdvance) {
-                          monthData[monthName].advance += amount;
-                        } else {
-                          monthData[monthName].payment += amount;
-                        }
-                      });
+                  <div className="flex items-center gap-3 animate-in fade-in duration-500">
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl font-bold text-[10px] uppercase tracking-widest text-slate-300 outline-none focus:bg-slate-700 focus:border-orange-500 transition-all cursor-pointer"
+                    >
+                      <option value="all">All Months</option>
+                      {availableMonths.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
 
-                      return Object.entries(monthData).map(([month, sums]) => (
-                        <div key={month} className="bg-slate-800 border border-slate-700/50 px-4 py-2 rounded-2xl flex items-center gap-4 text-xs">
-                          <div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{month}</p>
-                          </div>
-                          <div className="border-l border-slate-700 h-6" />
-                          <div className="text-right">
-                            <p className="text-[8px] font-black text-amber-400 uppercase tracking-wider">Adv</p>
-                            <p className="font-black text-amber-200">₹{sums.advance.toLocaleString('en-IN')}</p>
-                          </div>
-                          <div className="border-l border-slate-700 h-6" />
-                          <div className="text-right">
-                            <p className="text-[8px] font-black text-blue-400 uppercase tracking-wider">Pay</p>
-                            <p className="font-black text-blue-200">₹{sums.payment.toLocaleString('en-IN')}</p>
-                          </div>
-                        </div>
-                      ));
-                    })()}
+                    <div className="bg-slate-800 border border-slate-700/50 px-4 py-2 rounded-2xl flex items-center gap-4 text-xs">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          {selectedMonth === 'all' ? 'Overall Total' : selectedMonth}
+                        </p>
+                      </div>
+                      <div className="border-l border-slate-700 h-6" />
+                      <div className="text-right">
+                        <p className="text-[8px] font-black text-amber-400 uppercase tracking-wider">Adv</p>
+                        <p className="font-black text-amber-200">₹{selectedMonthTotals.advance.toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="border-l border-slate-700 h-6" />
+                      <div className="text-right">
+                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-wider">Pay</p>
+                        <p className="font-black text-blue-200">₹{selectedMonthTotals.payment.toLocaleString('en-IN')}</p>
+                      </div>
+                    </div>
                   </div>
                 )}
                 <button 
@@ -599,28 +615,7 @@ export function ContractorManagement() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {(() => {
-                    const availableMonths = Array.from(new Set(
-                      transactions
-                        .filter(t => t.transaction_type === 'expense')
-                        .map(t => new Date(t.transaction_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }))
-                    ));
-
-                    return (
-                      <div className="flex justify-end">
-                        <select
-                          value={selectedMonth}
-                          onChange={(e) => setSelectedMonth(e.target.value)}
-                          className="px-4 py-2 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-[10px] uppercase tracking-widest text-slate-600 outline-none focus:bg-white focus:ring-4 focus:ring-orange-600/10 focus:border-orange-500 transition-all cursor-pointer"
-                        >
-                          <option value="all">All Months</option>
-                          {availableMonths.map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  })()}
+                  {/* Month Selector moved to header */}
 
                   <div className="overflow-x-auto rounded-2xl border-2 border-slate-100">
                     <table className="w-full text-left border-collapse">
