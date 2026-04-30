@@ -3,6 +3,7 @@ import {
     Factory,
     Drill,
     ClipboardCheck,
+    ClipboardList,
     Truck,
     Users,
     Clock,
@@ -104,9 +105,14 @@ export const DIRECTOR_NAV: MenuItem[] = [
         name: 'Reports',
         icon: BarChart3,
         children: [
-            { name: 'Dashboard', icon: BarChart3, href: '#reports' },
-            { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
+            { name: 'Production Report', icon: Factory, href: '#production-report' },
+            { name: 'Quarry Production', icon: Drill, href: '#quarry-report' },
+            { name: 'Quarry Production Cost', icon: FileText, href: '#quarry-cost' },
+            { name: 'Operations History', icon: ClipboardList, href: '#operations-history' },
+            { name: 'Sales Report', icon: ShoppingCart, href: '#sales-report' },
+            { name: 'Accounting Report', icon: Wallet, href: '#accounting-report' },
             { name: 'Attendance Report', icon: Clock, href: '#attendance-report' },
+            { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
         ]
     },
 ];
@@ -137,7 +143,21 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Sales', icon: ShoppingCart, href: '#sales', roles: ['sales', 'manager'] },
     { name: 'Customers', icon: Users, href: '#customers', roles: ['sales', 'manager'] },
     { name: 'Approvals', icon: ClipboardCheck, href: '#approvals', roles: ['manager'] },
-    { name: 'Reports', icon: BarChart3, href: '#reports', roles: ['manager'] },
+    {
+        name: 'Reports',
+        icon: BarChart3,
+        roles: ['manager'],
+        children: [
+            { name: 'Production Report', icon: Factory, href: '#production-report' },
+            { name: 'Quarry Production', icon: Drill, href: '#quarry-report' },
+            { name: 'Quarry Production Cost', icon: FileText, href: '#quarry-cost' },
+            { name: 'Operations History', icon: ClipboardList, href: '#operations-history' },
+            { name: 'Sales Report', icon: ShoppingCart, href: '#sales-report' },
+            { name: 'Accounting Report', icon: Wallet, href: '#accounting-report' },
+            { name: 'Attendance Report', icon: Clock, href: '#attendance-report' },
+            { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
+        ]
+    },
 ];
 
 export const CHAIRMEN_NAV: MenuItem[] = [
@@ -148,9 +168,14 @@ export const CHAIRMEN_NAV: MenuItem[] = [
         name: 'Reports',
         icon: BarChart3,
         children: [
-            { name: 'Dashboard', icon: BarChart3, href: '#reports' },
-            { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
+            { name: 'Production Report', icon: Factory, href: '#production-report' },
+            { name: 'Quarry Production', icon: Drill, href: '#quarry-report' },
+            { name: 'Quarry Production Cost', icon: FileText, href: '#quarry-cost' },
+            { name: 'Operations History', icon: ClipboardList, href: '#operations-history' },
+            { name: 'Sales Report', icon: ShoppingCart, href: '#sales-report' },
+            { name: 'Accounting Report', icon: Wallet, href: '#accounting-report' },
             { name: 'Attendance Report', icon: Clock, href: '#attendance-report' },
+            { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
         ]
     },
 ];

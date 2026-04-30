@@ -17,8 +17,7 @@ import {
 } from 'lucide-react';
 
 
-const PG_BOX_SIZE = 200;
-const isPGItem = (name: string) => name?.toUpperCase() === 'PG';
+
 
 interface ConsumeRecord {
   id: string;
@@ -120,12 +119,8 @@ export function QuarryStorage() {
         
         const qty = parseFloat(curr.quantity_dispatched) || 0;
         const price = parseFloat(curr.given_price) || 0;
-        const isNos = curr.unit?.toLowerCase() === 'nos';
-        const isPG = isPGItem(curr.item_name);
-
         acc[key].total_quantity += qty;
-        // If PG and stored in Nos, we assume price is per Box so we divide qty by 200
-        acc[key].total_value += (isPG && isNos ? (qty / PG_BOX_SIZE) * price : qty * price);
+        acc[key].total_value += (qty * price);
         
         if (new Date(curr.dispatch_date) > new Date(acc[key].last_dispatch_date)) {
           acc[key].last_dispatch_date = curr.dispatch_date;
@@ -155,17 +150,9 @@ export function QuarryStorage() {
         else if (name.includes('nonel') && name.includes('3m')) { used_history = usedHistoryMap.nonel_3m; }
         else if (name.includes('nonel') && name.includes('4m')) { used_history = usedHistoryMap.nonel_4m; }
 
-        let totalBoxes = item.usages.reduce((sum, u) => {
-          const q = u.quantity;
-          const isNos = u.unit?.toLowerCase() === 'nos';
-          return sum + (isPGItem(item.item_name) && isNos ? q / PG_BOX_SIZE : q);
-        }, 0);
+        let totalBoxes = item.usages.reduce((sum, u) => sum + u.quantity, 0);
 
-        let consumedBoxes = used_history.reduce((sum, h) => {
-          const q = h.quantity;
-          const isNos = h.unit?.toLowerCase() === 'nos';
-          return sum + (isPGItem(item.item_name) && isNos ? q / PG_BOX_SIZE : q);
-        }, 0);
+        let consumedBoxes = used_history.reduce((sum, h) => sum + h.quantity, 0);
 
         return {
           ...item,
@@ -255,8 +242,7 @@ export function QuarryStorage() {
                        Total<br/>Received
                     </p>
                     <p className="text-sm font-black text-slate-900 tracking-tight mt-1 flex flex-col">
-                      <span>{item.total_quantity.toFixed(1)} <span className="text-[8px] uppercase text-slate-400">{isPGItem(item.item_name) ? 'Box' : item.unit}</span></span>
-                      {isPGItem(item.item_name) && <span className="text-[9px] font-bold text-slate-400">({(item.total_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
+                      <span>{item.total_quantity.toFixed(1)} <span className="text-[8px] uppercase text-slate-400">{item.unit}</span></span>
                     </p>
                 </div>
                 
@@ -265,8 +251,7 @@ export function QuarryStorage() {
                        Used<br/>(Ops)
                     </p>
                     <p className="text-sm font-black text-orange-700 tracking-tight mt-1 flex flex-col">
-                      <span>{item.consumed_quantity.toFixed(1)} <span className="text-[8px] uppercase text-orange-400">{isPGItem(item.item_name) ? 'Box' : item.unit}</span></span>
-                      {isPGItem(item.item_name) && <span className="text-[9px] font-bold text-orange-400/60">({(item.consumed_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
+                      <span>{item.consumed_quantity.toFixed(1)} <span className="text-[8px] uppercase text-orange-400">{item.unit}</span></span>
                     </p>
                 </div>
 
@@ -275,8 +260,7 @@ export function QuarryStorage() {
                        Remaining<br/>Balance
                     </p>
                     <p className={`text-lg font-black tracking-tight mt-0.5 flex flex-col ${item.remaining_quantity < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
-                      <span>{item.remaining_quantity.toFixed(1)} <span className={`text-[8px] uppercase ${item.remaining_quantity < 0 ? 'text-red-400' : 'text-emerald-500'}`}>{isPGItem(item.item_name) ? 'Box' : item.unit}</span></span>
-                      {isPGItem(item.item_name) && <span className={`text-[10px] font-bold ${item.remaining_quantity < 0 ? 'text-red-400' : 'text-emerald-500/60'}`}>({(item.remaining_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
+                      <span>{item.remaining_quantity.toFixed(1)} <span className={`text-[8px] uppercase ${item.remaining_quantity < 0 ? 'text-red-400' : 'text-emerald-500'}`}>{item.unit}</span></span>
                     </p>
                 </div>
               </div>
@@ -310,7 +294,7 @@ export function QuarryStorage() {
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-black text-slate-900">
-                          {isPGItem(item.item_name) && usage.unit?.toLowerCase() === 'nos' ? (usage.quantity / PG_BOX_SIZE).toFixed(2) : usage.quantity} <span className="text-[8px] uppercase text-slate-400">{isPGItem(item.item_name) ? 'Box' : item.unit}</span>
+                          {usage.quantity} <span className="text-[8px] uppercase text-slate-400">{item.unit}</span>
                         </p>
                         {usage.price > 0 && <p className="text-[8px] font-bold text-emerald-600">@ ₹{usage.price}</p>}
                       </div>
@@ -386,13 +370,8 @@ export function QuarryStorage() {
                         <span className={`text-2xl md:text-4xl font-black ${selectedItem.remaining_quantity < 0 ? 'text-red-400' : 'text-white'}`}>
                           {selectedItem.remaining_quantity.toFixed(1)}
                         </span>
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{selectedItem.unit}</span>
                       </div>
-                      {isPGItem(selectedItem.item_name) && (
-                        <span className={`text-sm font-black ${selectedItem.remaining_quantity < 0 ? 'text-red-400/60' : 'text-emerald-400/60'}`}>
-                          ({(selectedItem.remaining_quantity * PG_BOX_SIZE).toFixed(0)} nos)
-                        </span>
-                      )}
                     </div>
                  </div>
 
@@ -400,16 +379,14 @@ export function QuarryStorage() {
                     <div className="p-3 md:p-4 bg-white/5 rounded-xl md:rounded-2xl border border-white/5 flex flex-col">
                       <p className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Rcvd</p>
                       <p className="text-base md:text-lg font-black text-white">
-                        {selectedItem.total_quantity.toFixed(1)} <span className="text-[8px] text-slate-500">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
+                        {selectedItem.total_quantity.toFixed(1)} <span className="text-[8px] text-slate-500">{selectedItem.unit}</span>
                       </p>
-                      {isPGItem(selectedItem.item_name) && <span className="text-[10px] font-bold text-slate-500">({(selectedItem.total_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
                     </div>
                     <div className="p-3 md:p-4 bg-orange-500/10 rounded-xl md:rounded-2xl border border-orange-500/20 flex flex-col">
                       <p className="text-[8px] md:text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Used Ops</p>
                       <p className="text-base md:text-lg font-black text-orange-300">
-                        {selectedItem.consumed_quantity.toFixed(1)} <span className="text-[8px] text-orange-500/50">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
+                        {selectedItem.consumed_quantity.toFixed(1)} <span className="text-[8px] text-orange-500/50">{selectedItem.unit}</span>
                       </p>
-                      {isPGItem(selectedItem.item_name) && <span className="text-[10px] font-bold text-orange-500/40">({(selectedItem.consumed_quantity * PG_BOX_SIZE).toFixed(0)} nos)</span>}
                     </div>
                  </div>
               </div>
@@ -474,9 +451,9 @@ export function QuarryStorage() {
                                 <div className="text-right">
                                    <div className="flex items-center justify-end gap-1 mb-0.5 md:mb-1">
                                       <span className="text-xs md:text-sm font-black text-emerald-600">
-                                         +{isPGItem(selectedItem.item_name) && usage.unit?.toLowerCase() === 'nos' ? (usage.quantity / PG_BOX_SIZE).toFixed(2) : usage.quantity}
+                                         +{usage.quantity}
                                       </span>
-                                      <span className="text-[8px] md:text-[10px] font-bold text-emerald-400 uppercase">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
+                                      <span className="text-[8px] md:text-[10px] font-bold text-emerald-400 uppercase">{selectedItem.unit}</span>
                                    </div>
                                    <p className="text-[8px] md:text-[9px] font-bold text-slate-400">
                                       {new Date(usage.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -518,9 +495,9 @@ export function QuarryStorage() {
                                 <div className="text-right">
                                    <div className="flex items-center justify-end gap-1 mb-0.5 md:mb-1">
                                       <span className="text-xs md:text-sm font-black text-orange-600">
-                                         -{isPGItem(selectedItem.item_name) && record.unit?.toLowerCase() === 'nos' ? (record.quantity / PG_BOX_SIZE).toFixed(2) : record.quantity.toFixed(1)}
+                                         -{record.quantity.toFixed(1)}
                                       </span>
-                                      <span className="text-[8px] md:text-[10px] font-bold text-orange-400 uppercase">{isPGItem(selectedItem.item_name) ? 'Box' : selectedItem.unit}</span>
+                                      <span className="text-[8px] md:text-[10px] font-bold text-orange-400 uppercase">{selectedItem.unit}</span>
                                    </div>
                                    <p className="text-[8px] md:text-[9px] font-bold text-slate-400">
                                       {new Date(record.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}

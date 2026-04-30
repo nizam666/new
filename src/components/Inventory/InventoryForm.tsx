@@ -104,35 +104,38 @@ const ItemNameField = ({ line, showSuggestions, suggestions, containerRef, onSea
           : 'bg-slate-50 focus:ring-emerald-500/10'
       }`}
     />
-    {/* NEW item indicator + quick register button */}
-    {!isExistingItem && line.item_name.length >= 2 && (
-      <div className="absolute top-full left-0 right-0 z-50 mt-2">
-        <button
-          type="button"
-          onMouseDown={(e) => { e.preventDefault(); onRegisterItem(line.item_name); }}
-          className="w-full flex items-center gap-3 px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl shadow-xl transition-all active:scale-95 font-black text-sm"
-        >
-          <PackagePlus className="h-5 w-5" />
-          <span>Register &ldquo;{line.item_name}&rdquo; in Master Catalog</span>
-          <ChevronRight className="h-4 w-4 ml-auto" />
-        </button>
-      </div>
-    )}
-    {showSuggestions && suggestions.length > 0 && (
-      <div className="absolute top-full left-0 right-0 z-40 mt-2 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
-        {suggestions.map((item: MasterItem) => (
-          <div
-            key={item.id}
-            onMouseDown={(e) => { e.preventDefault(); onSelect(item); onHide(); }}
-            className="px-5 py-3 hover:bg-emerald-500 hover:text-white cursor-pointer transition-all flex items-center justify-between group"
+    {((!isExistingItem && line.item_name.length >= 2) || (showSuggestions && suggestions.length > 0)) && (
+      <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+        {/* NEW item indicator + quick register button */}
+        {!isExistingItem && line.item_name.length >= 2 && (
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); onRegisterItem(line.item_name); }}
+            className="w-full flex items-center gap-3 px-5 py-4 bg-amber-500 hover:bg-amber-600 text-white transition-all font-black text-sm border-b border-amber-600"
           >
-            <div className="flex flex-col">
-              <span className="font-black text-sm">{item.name}</span>
-              <span className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-emerald-100">{item.category}</span>
-            </div>
-            <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100" />
+            <PackagePlus className="h-5 w-5 animate-pulse" />
+            <span>Register &ldquo;{line.item_name}&rdquo; in Master Catalog</span>
+            <ChevronRight className="h-4 w-4 ml-auto" />
+          </button>
+        )}
+        
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="divide-y divide-slate-50 max-h-60 overflow-y-auto">
+            {suggestions.map((item: MasterItem) => (
+              <div
+                key={item.id}
+                onMouseDown={(e) => { e.preventDefault(); onSelect(item); onHide(); }}
+                className="px-5 py-4 hover:bg-emerald-500 hover:text-white cursor-pointer transition-all flex items-center justify-between group"
+              >
+                <div className="flex flex-col">
+                  <span className="font-black text-sm">{item.name}</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-emerald-100">{item.category}</span>
+                </div>
+                <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100" />
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     )}
   </div>
@@ -146,10 +149,11 @@ const MobileItemCard = memo(({ index, line, masterItems, onUpdate, onRemove, onR
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<MasterItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isExistingItem = useMemo(() => masterItems.some(m => m.name.toLowerCase() === line.item_name.toLowerCase()), [masterItems, line.item_name]);
+  const isExistingItem = useMemo(() => masterItems.some(m => m.name.trim().toLowerCase() === (line.item_name || '').trim().toLowerCase()), [masterItems, line.item_name]);
   const quantity = parseFloat(line.quantity) || 0;
   const rate = parseFloat(line.rate_per_unit) || 0;
-  const unitsPerBox = line.unit === 'Box' ? (parseFloat(line.units_per_box) || 1) : 1;
+  const isPG = (line.item_name || '').toUpperCase().includes('PG') || (line.item_name || '').toUpperCase().includes('POWERGEL');
+  const unitsPerBox = line.unit === 'Box' && !isPG ? (parseFloat(line.units_per_box) || 1) : 1;
   const lineTotal = quantity * unitsPerBox * rate;
 
   useEffect(() => {
@@ -283,10 +287,11 @@ const InventoryRow = memo(({ index, line, masterItems, onUpdate, onRemove, onReg
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<MasterItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isExistingItem = useMemo(() => masterItems.some(m => m.name.toLowerCase() === line.item_name.toLowerCase()), [masterItems, line.item_name]);
+  const isExistingItem = useMemo(() => masterItems.some(m => m.name.trim().toLowerCase() === (line.item_name || '').trim().toLowerCase()), [masterItems, line.item_name]);
   const quantity = parseFloat(line.quantity) || 0;
   const rate = parseFloat(line.rate_per_unit) || 0;
-  const unitsPerBox = line.unit === 'Box' ? (parseFloat(line.units_per_box) || 1) : 1;
+  const isPG = (line.item_name || '').toUpperCase().includes('PG') || (line.item_name || '').toUpperCase().includes('POWERGEL');
+  const unitsPerBox = line.unit === 'Box' && !isPG ? (parseFloat(line.units_per_box) || 1) : 1;
   const lineTotal = quantity * unitsPerBox * rate;
 
   useEffect(() => {
@@ -502,14 +507,25 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         .eq('transaction_type', 'expense')
         .order('transaction_date', { ascending: false });
 
-      const pendingCount = (allBills || []).filter((b: any) => b.status === 'pending').length;
+      // Filter out contractor payments, overheads/salaries, and advances
+      const filteredBills = (allBills || []).filter((bill: any) => {
+        const notesLower = (bill.notes || '').toLowerCase();
+        const reasonLower = (bill.reason || '').toLowerCase();
+        const excludeKeywords = ['contractor payment', 'contractor advance', 'salary', 'advance'];
+        
+        return !excludeKeywords.some(keyword => 
+          notesLower.includes(keyword) || reasonLower.includes(keyword)
+        );
+      });
+
+      const pendingCount = filteredBills.filter((b: any) => b.status === 'pending').length;
 
       setMonthlyStats({
         totalValue: totalVal,
         totalItems: totalI,
         billCount: pendingCount
       });
-      setPurchaseBills(allBills || []);
+      setPurchaseBills(filteredBills);
 
       // Fetch master items lookup
       const { data: masterData } = await supabase
@@ -640,13 +656,14 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
     try {
       // 1. Register new items in the master catalog if they don't exist
       const newItemsToRegister = itemsToSave
-        .filter(item => !masterItems.some(m => m.name.toLowerCase() === item.item_name.toLowerCase()))
+        .filter(item => !masterItems.some(m => m.name.trim().toLowerCase() === item.item_name.trim().toLowerCase()))
         .reduce((acc: any[], item) => {
-          if (!acc.some(a => a.name.toLowerCase() === item.item_name.toLowerCase())) {
+          if (!acc.some(a => a.name.trim().toLowerCase() === item.item_name.trim().toLowerCase())) {
+            const isPG = (item.item_name || '').toUpperCase().includes('PG') || (item.item_name || '').toUpperCase().includes('POWERGEL');
             acc.push({ 
               name: item.item_name.trim(), 
               category: item.category || 'General', 
-              unit: item.unit === 'Box' ? 'Nos' : (item.unit || 'Nos') // Always store base unit as Nos
+              unit: item.unit === 'Box' && !isPG ? 'Nos' : (item.unit || 'Nos') // Keep Box for PG
             });
           }
           return acc;
@@ -662,9 +679,10 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       const aggregated = itemsToSave.reduce((acc: any, curr) => {
         const name = curr.item_name.trim().toLowerCase();
         if (!acc[name]) acc[name] = { ...curr, q: 0, c: 0 };
+        const isPG = name.toUpperCase().includes('PG') || name.toUpperCase().includes('POWERGEL');
         const boxes = parseFloat(curr.quantity) || 0;
         const unitsPerBox = curr.unit === 'Box' && curr.units_per_box ? parseFloat(curr.units_per_box) : 1;
-        const q = boxes * unitsPerBox; // Always accumulate in Nos
+        const q = isPG ? boxes : (boxes * unitsPerBox); // Store Boxes for PG, Nos for others
         const r = parseFloat(curr.rate_per_unit) || 0;
         acc[name].q += q;
         acc[name].c += q * r;
@@ -701,13 +719,14 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         const totalQty = (dbItem?.quantity || 0) + item.q;
         
         // Build the update payload
+        const isPG = (item.item_name || '').toUpperCase().includes('PG') || (item.item_name || '').toUpperCase().includes('POWERGEL');
         const upsertRow: any = {
           id: dbItem?.id || generateUUID(),
           item_name: item.item_name.trim(),
           item_code: item.item_ref_no,
           category: item.category,
           quantity: totalQty,
-          unit: item.unit === 'Box' ? 'Nos' : item.unit,
+          unit: item.unit === 'Box' && !isPG ? 'Nos' : item.unit,
           location: item.storage_location,
           supplier: billCustomer,
           last_restock_date: transactionDate || new Date().toISOString().split('T')[0],
@@ -728,8 +747,9 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         const si = saved?.find(s => s.item_name.toLowerCase() === item.item_name.toLowerCase());
         const boxes = parseFloat(item.quantity) || 0;
         const unitsPerBox = item.unit === 'Box' && item.units_per_box ? parseFloat(item.units_per_box) : 1;
-        const actualQty = boxes * unitsPerBox; // Always store in Nos
-        const boxNote = item.unit === 'Box' && item.units_per_box
+        const isPG = (item.item_name || '').toUpperCase().includes('PG') || (item.item_name || '').toUpperCase().includes('POWERGEL');
+        const actualQty = isPG ? boxes : (boxes * unitsPerBox); // Store Boxes for PG
+        const boxNote = item.unit === 'Box' && item.units_per_box && !isPG
           ? ` | Box: ${boxes} × ${unitsPerBox} Nos`
           : '';
         return {
@@ -750,7 +770,8 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       const batchTotal = itemsToSave.reduce((acc, item) => {
         const qty = parseFloat(item.quantity) || 0;
         const rate = parseFloat(item.rate_per_unit) || 0;
-        const upb = item.unit === 'Box' ? (parseFloat(item.units_per_box) || 1) : 1;
+        const isPG = (item.item_name || '').toUpperCase().includes('PG') || (item.item_name || '').toUpperCase().includes('POWERGEL');
+        const upb = item.unit === 'Box' && !isPG ? (parseFloat(item.units_per_box) || 1) : 1;
         return acc + (qty * upb * rate);
       }, 0);
       
@@ -760,11 +781,13 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
           const notes = item.notes || '';
           const rateMatch = notes.match(/Rate:\s*([\d.]+)/);
           const rate = rateMatch ? parseFloat(rateMatch[1]) : 0;
+          const itemName = (item.inventory_items as any)?.item_name || '';
+          const isPG = itemName.toUpperCase().includes('PG') || itemName.toUpperCase().includes('POWERGEL');
           
           const boxMatch = notes.match(/Box:\s*([\d.]+)\s*×\s*([\d.]+)\s*Nos/);
           if (boxMatch) {
             const boxCount = parseFloat(boxMatch[1]) || 0;
-            const upb = parseFloat(boxMatch[2]) || 1;
+            const upb = isPG ? 1 : (parseFloat(boxMatch[2]) || 1);
             return acc + (boxCount * upb * rate);
           }
           return acc + ((parseFloat(item.quantity) || 0) * rate);
@@ -874,6 +897,8 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         // Robust Extraction: Look for 'Rate: ' followed by a numeric value
         const rateMatch = notes.match(/Rate:\s*([\d.]+)/);
         const rate = rateMatch ? parseFloat(rateMatch[1]) : 0;
+        const itemName = (item.inventory_items as any)?.item_name || '';
+        const isPG = itemName.toUpperCase().includes('PG') || itemName.toUpperCase().includes('POWERGEL');
         
         // BOX-AWARE LOGIC:
         // If notes contain "| Box: [Qty] × [Units] Nos", we calculate based on the Box count
@@ -882,7 +907,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         
         if (boxMatch) {
           const boxCount = parseFloat(boxMatch[1]) || 0;
-          const upb = parseFloat(boxMatch[2]) || 1;
+          const upb = isPG ? 1 : (parseFloat(boxMatch[2]) || 1);
           return acc + (boxCount * upb * rate);
         } else {
           // Regular 'Nos' entry
@@ -895,7 +920,8 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
   const batchTotal = lineItems.reduce((acc, item) => {
     const qty = parseFloat(item.quantity) || 0;
     const rate = parseFloat(item.rate_per_unit) || 0;
-    const upb = item.unit === 'Box' ? (parseFloat(item.units_per_box) || 1) : 1;
+    const isPG = (item.item_name || '').toUpperCase().includes('PG') || (item.item_name || '').toUpperCase().includes('POWERGEL');
+    const upb = item.unit === 'Box' && !isPG ? (parseFloat(item.units_per_box) || 1) : 1;
     return acc + (qty * upb * rate);
   }, 0);
   const remainingAllocation = (selectedBill?.amount || 0) - totalAllocatedValue - batchTotal;

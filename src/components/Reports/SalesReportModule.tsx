@@ -1,283 +1,271 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../contexts/AuthContext';
-import { ShoppingCart, TrendingUp, Users, DollarSign } from 'lucide-react';
+import { Calculator, Calendar } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
 
-interface DispatchRecord {
-  id: string;
-  dispatch_date: string;
-  material_type: string;
-  quantity_dispatched: number;
-  customer_name: string;
-  delivery_status: string;
+interface DailySalesItem {
+  date: string;
+  mSand: number;
+  pSand: number;
+  agg40: number;
+  agg20: number;
+  agg12: number;
+  agg6: number;
+  gbs: number;
+  dust: number;
+  wetMix: number;
+  allMix: number;
+  'S-bolder': number;
+  totalSales: number;
 }
 
 export function SalesReportModule() {
-  const { user } = useAuth();
-  const userRole = user?.role;
-
-  const [dispatches, setDispatches] = useState<DispatchRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [dailyData, setDailyData] = useState<DailySalesItem[]>([]);
 
-  const fetchSalesData = useCallback(async () => {
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
     try {
-      let query = supabase
-        .from('dispatch_list')
-        .select('*')
-        .order('dispatch_date', { ascending: false });
+      return format(parseISO(dateStr), 'dd-MM-yyyy');
+    } catch (e) {
+      return dateStr;
+    }
+  };
 
-      if (startDate) {
-        query = query.gte('dispatch_date', startDate);
-      }
-      if (endDate) {
-        query = query.lte('dispatch_date', endDate);
-      }
-      if (userRole !== 'director') {
-        query = query.eq('billing_type', 'with_gst');
-      }
+  const fetchDailyReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: invoiceData, error } = await supabase
+        .from('invoices')
+        .select('items, invoice_date')
+        .gte('invoice_date', startDate)
+        .lte('invoice_date', endDate);
 
-      const { data, error } = await query;
       if (error) throw error;
-      setDispatches(data || []);
-    } catch (error) {
-      console.error('Error fetching sales data:', error);
+
+      const days = eachDayOfInterval({
+        start: parseISO(startDate),
+        end: parseISO(endDate)
+      });
+
+      const reportRows: DailySalesItem[] = days.map(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        
+        let mSand = 0, pSand = 0;
+        let agg40 = 0, agg20 = 0, agg12 = 0, agg6 = 0;
+        let gbs = 0, dust = 0, wetMix = 0, allMix = 0;
+        let sBolder = 0;
+
+        invoiceData?.filter(inv => inv.invoice_date === dateStr).forEach(inv => {
+          let items = [];
+          try {
+            items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items;
+          } catch (e) {}
+          
+          if (Array.isArray(items)) {
+            items.forEach((item: any) => {
+              const matName = (item.material || item.material_name || '').toLowerCase();
+              const qty = parseFloat(item.quantity) || (parseFloat(item.gross_weight) - parseFloat(item.empty_weight)) || 0;
+              
+              if (matName.includes('m-sand') || matName.includes('m sand')) {
+                mSand += qty;
+              } else if (matName.includes('p-sand') || matName.includes('p sand')) {
+                pSand += qty;
+              } else if (matName.includes('40mm')) {
+                agg40 += qty;
+              } else if (matName.includes('20mm')) {
+                agg20 += qty;
+              } else if (matName.includes('12mm')) {
+                agg12 += qty;
+              } else if (matName.includes('6mm')) {
+                agg6 += qty;
+              } else if (matName.includes('gbs')) {
+                gbs += qty;
+              } else if (matName.includes('dust')) {
+                dust += qty;
+              } else if (matName.includes('wet mix')) {
+                wetMix += qty;
+              } else if (matName.includes('all mix')) {
+                allMix += qty;
+              } else if (matName.includes('s-bolder') || matName.includes('s bolder') || matName.includes('stockyard boulder')) {
+                sBolder += qty;
+              }
+            });
+          }
+        });
+
+        const totalSales = mSand + pSand + agg40 + agg20 + agg12 + agg6 + gbs + dust + wetMix + allMix + sBolder;
+
+        return {
+          date: dateStr,
+          mSand,
+          pSand,
+          agg40,
+          agg20,
+          agg12,
+          agg6,
+          gbs,
+          dust,
+          wetMix,
+          allMix,
+          'S-bolder': sBolder,
+          totalSales
+        };
+      });
+
+      setDailyData(reportRows);
+    } catch (err) {
+      console.error('Error fetching daily sales report:', err);
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, userRole]);
+  }, [startDate, endDate]);
 
   useEffect(() => {
-    fetchSalesData();
-  }, [fetchSalesData]);
-
-  const calculateSummary = () => {
-    const materialSales: { [key: string]: number } = {};
-    const customerSales: { [key: string]: number } = {};
-    let totalDispatched = 0;
-    let totalDelivered = 0;
-    let totalPending = 0;
-
-    dispatches.forEach(dispatch => {
-      if (!materialSales[dispatch.material_type]) {
-        materialSales[dispatch.material_type] = 0;
-      }
-      materialSales[dispatch.material_type] += dispatch.quantity_dispatched;
-
-      if (!customerSales[dispatch.customer_name]) {
-        customerSales[dispatch.customer_name] = 0;
-      }
-      customerSales[dispatch.customer_name] += dispatch.quantity_dispatched;
-
-      totalDispatched += dispatch.quantity_dispatched;
-      if (dispatch.delivery_status === 'delivered') {
-        totalDelivered += dispatch.quantity_dispatched;
-      } else {
-        totalPending += dispatch.quantity_dispatched;
-      }
-    });
-
-    const topCustomers = Object.entries(customerSales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-
-    const topMaterials = Object.entries(materialSales)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-
-    return {
-      materialSales,
-      customerSales,
-      totalDispatched,
-      totalDelivered,
-      totalPending,
-      topCustomers,
-      topMaterials,
-      uniqueCustomers: Object.keys(customerSales).length
-    };
-  };
-
-  const formatMaterialType = (type: string) => {
-    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-  };
-
-  const summary = calculateSummary();
-
-  if (loading) {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-        <p className="text-slate-600">Loading sales report...</p>
-      </div>
-    );
-  }
+    fetchDailyReport();
+  }, [fetchDailyReport]);
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-            <ShoppingCart className="w-5 h-5 text-green-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900">Sales Report</h3>
-            <p className="text-sm text-slate-600">Material dispatch and customer sales summary</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              max={new Date().toISOString().split('T')[0]}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              max={new Date().toISOString().split('T')[0]}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-            <div className="flex items-center gap-3">
-              <TrendingUp className="w-8 h-8 text-green-600" />
-              <div>
-                <p className="text-xs text-green-600 font-medium">Total Dispatched</p>
-                <p className="text-2xl font-bold text-green-900">{summary.totalDispatched.toFixed(2)}</p>
-                <p className="text-xs text-green-600">Tons</p>
-              </div>
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+              <Calculator className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Sales Report</h3>
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Day-wise Material Sales Breakdowns</p>
             </div>
           </div>
 
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <div className="flex items-center gap-3">
-              <ShoppingCart className="w-8 h-8 text-blue-600" />
-              <div>
-                <p className="text-xs text-blue-600 font-medium">Delivered</p>
-                <p className="text-2xl font-bold text-blue-900">{summary.totalDelivered.toFixed(2)}</p>
-                <p className="text-xs text-blue-600">Tons</p>
+          <div className="flex flex-wrap items-center gap-4 p-1">
+            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                />
               </div>
-            </div>
-          </div>
-
-          <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-            <div className="flex items-center gap-3">
-              <DollarSign className="w-8 h-8 text-amber-600" />
-              <div>
-                <p className="text-xs text-amber-600 font-medium">In Transit</p>
-                <p className="text-2xl font-bold text-amber-900">{summary.totalPending.toFixed(2)}</p>
-                <p className="text-xs text-amber-600">Tons</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-            <div className="flex items-center gap-3">
-              <Users className="w-8 h-8 text-purple-600" />
-              <div>
-                <p className="text-xs text-purple-600 font-medium">Customers</p>
-                <p className="text-2xl font-bold text-purple-900">{summary.uniqueCustomers}</p>
-                <p className="text-xs text-purple-600">Total</p>
+              <span className="text-slate-400 font-black text-xs">TO</span>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div>
-            <h4 className="text-sm font-semibold text-slate-700 mb-4">Top 5 Customers by Volume</h4>
-            <div className="space-y-3">
-              {summary.topCustomers.map(([customer, quantity], index) => (
-                <div key={customer} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-xs font-bold">
-                        {index + 1}
-                      </span>
-                      <span className="text-sm font-medium text-slate-900">{customer}</span>
+        <div className="overflow-x-auto border border-slate-100 rounded-2xl shadow-sm">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">M-Sand (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">P-Sand (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Agg 40mm (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Agg 20mm (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Agg 12mm (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Agg 6mm (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">GBS (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Dust (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Wet Mix (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">All Mix (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">S-Bolder (MT)</th>
+                <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-right bg-indigo-50/50 text-indigo-700">Total Sales (MT)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-semibold text-slate-800">
+              {loading ? (
+                <tr>
+                  <td colSpan={13} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                      <p className="text-sm font-bold text-slate-400">Loading daily metrics...</p>
                     </div>
-                    <span className="text-sm font-bold text-slate-900">{quantity.toFixed(2)} tons</span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div
-                      className="bg-green-600 h-2 rounded-full"
-                      style={{ width: `${(quantity / summary.totalDispatched) * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-600 mt-1">
-                    {((quantity / summary.totalDispatched) * 100).toFixed(1)}% of total sales
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+                  </td>
+                </tr>
+              ) : dailyData.length === 0 ? (
+                <tr>
+                  <td colSpan={13} className="px-6 py-20 text-center text-sm font-bold text-slate-400 italic">
+                    No data recorded for this window.
+                  </td>
+                </tr>
+              ) : (
+                dailyData.map((day, index) => (
+                  <tr key={index} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 font-bold text-slate-500 text-xs">{formatDate(day.date)}</td>
+                    <td className="px-4 py-3 text-right">{day.mSand.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day.pSand.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day.agg40.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day.agg20.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day.agg12.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day.agg6.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day.gbs.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day.dust.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day.wetMix.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day.allMix.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right">{day['S-bolder'].toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                    <td className="px-4 py-3 text-right bg-indigo-50/20 font-bold text-indigo-700">{day.totalSales.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
 
-          <div>
-            <h4 className="text-sm font-semibold text-slate-700 mb-4">Top 5 Materials by Volume</h4>
-            <div className="space-y-3">
-              {summary.topMaterials.map(([material, quantity], index) => (
-                <div key={material} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-xs font-bold">
-                        {index + 1}
-                      </span>
-                      <span className="text-sm font-medium text-slate-900">{formatMaterialType(material)}</span>
-                    </div>
-                    <span className="text-sm font-bold text-slate-900">{quantity.toFixed(2)} tons</span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full"
-                      style={{ width: `${(quantity / summary.totalDispatched) * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-600 mt-1">
-                    {((quantity / summary.totalDispatched) * 100).toFixed(1)}% of total volume
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h4 className="text-sm font-semibold text-slate-700 mb-4">Delivery Performance</h4>
-          <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <p className="text-xs text-slate-600 mb-1">Delivery Rate</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {summary.totalDispatched > 0
-                    ? ((summary.totalDelivered / summary.totalDispatched) * 100).toFixed(1)
-                    : 0}%
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-slate-600 mb-1">Total Orders</p>
-                <p className="text-2xl font-bold text-slate-900">{dispatches.length}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-slate-600 mb-1">Avg Order Size</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {dispatches.length > 0
-                    ? (summary.totalDispatched / dispatches.length).toFixed(2)
-                    : 0} tons
-                </p>
-              </div>
-            </div>
-          </div>
+            {!loading && dailyData.length > 0 && (
+              <tfoot className="bg-slate-100/80 font-bold text-slate-900 border-t-2 border-slate-300">
+                <tr>
+                  <td className="px-4 py-3 text-xs uppercase tracking-wider">Total</td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.mSand, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.pSand, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.agg40, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.agg20, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.agg12, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.agg6, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.gbs, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.dust, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.wetMix, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d.allMix, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {dailyData.reduce((sum, d) => sum + d['S-bolder'], 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                  <td className="px-4 py-3 text-right bg-indigo-50/50 font-black text-indigo-800">
+                    {dailyData.reduce((sum, d) => sum + d.totalSales, 0).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
         </div>
       </div>
     </div>

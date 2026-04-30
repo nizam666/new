@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Calculator, Calendar, Zap, TrendingUp, IndianRupee, ChevronDown } from 'lucide-react';
+import { Calculator, Calendar, Zap, TrendingUp, IndianRupee, ChevronDown, Download } from 'lucide-react';
+import ExcelJS from 'exceljs';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const RATE_PER_UNIT = 8.80;
 const MONTHLY_FIXED = 18480;
@@ -120,6 +123,170 @@ export function EBCalculator() {
   const fmtUnits = (n: number) =>
     n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('EB Calculator');
+
+    worksheet.columns = [
+      { header: 'Date', key: 'date', width: 25 },
+      { header: 'Start Reading', key: 'start', width: 20 },
+      { header: 'End Reading', key: 'end', width: 20 },
+      { header: 'Units (kWh)', key: 'units', width: 20 },
+      { header: 'Unit Amount (₹)', key: 'unitAmount', width: 20 },
+      { header: 'Fixed Cost (₹)', key: 'fixed', width: 20 },
+      { header: 'Tax (₹)', key: 'tax', width: 15 },
+      { header: 'Sum Amount (₹)', key: 'sumAmount', width: 20 }
+    ];
+
+    const colColors = [
+      { bg: 'F8FAFC', fg: '64748B' },
+      { bg: 'F8FAFC', fg: '64748B' },
+      { bg: 'F8FAFC', fg: '64748B' },
+      { bg: 'FFFBEB', fg: 'D97706' },
+      { bg: 'EFF6FF', fg: '3B82F6' },
+      { bg: 'F8FAFC', fg: '64748B' },
+      { bg: 'FFF1F2', fg: 'F43F5E' },
+      { bg: 'F0FDF4', fg: '10B981' }
+    ];
+
+    colColors.forEach((color, index) => {
+      const col = worksheet.getColumn(index + 1);
+      col.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: color.bg }
+      };
+    });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFF' } };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    colColors.forEach((color, index) => {
+      const cell = headerRow.getCell(index + 1);
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: color.fg }
+      };
+    });
+
+    rows.forEach(row => {
+      worksheet.addRow({
+        date: new Date(row.report_date).toLocaleDateString('en-IN', {
+          weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
+        }),
+        start: parseFloat(row.starting_reading) || 0,
+        end: parseFloat(row.ending_reading) || 0,
+        units: row.units_consumed,
+        unitAmount: row.unitAmount,
+        fixed: row.fixedCost,
+        tax: row.tax,
+        sumAmount: row.sumAmount
+      });
+    });
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.font = { name: 'Arial', size: 10 };
+        row.alignment = { vertical: 'middle' };
+
+        for (let i = 2; i <= 8; i++) {
+          const cell = row.getCell(i);
+          cell.numFmt = '#,##0.00';
+          cell.alignment = { horizontal: 'right' };
+        }
+      }
+    });
+
+    const totalRow = worksheet.addRow({
+      date: `Total (${rows.length} days)`,
+      units: totals.units,
+      unitAmount: totals.unitAmount,
+      fixed: totals.fixedCost,
+      tax: totals.tax,
+      sumAmount: totals.sumAmount
+    });
+
+    totalRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFF' } };
+    colColors.forEach((color, index) => {
+      const cell = totalRow.getCell(index + 1);
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: color.fg }
+      };
+    });
+
+    for (let i = 4; i <= 8; i++) {
+      const cell = totalRow.getCell(i);
+      cell.numFmt = '#,##0.00';
+      cell.alignment = { horizontal: 'right' };
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `EB_Calculator_${MONTHS[selectedMonth]}_${selectedYear}.xlsx`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+
+    doc.setFontSize(18);
+    doc.text(`EB Calculator Report - ${MONTHS[selectedMonth]} ${selectedYear}`, 14, 20);
+
+    const tableColumn = [
+      'Date', 
+      'Start Reading', 
+      'End Reading', 
+      'Units (kWh)', 
+      'Unit Amount (Rs)', 
+      'Fixed Cost (Rs)', 
+      'Tax (Rs)', 
+      'Sum Amount (Rs)'
+    ];
+
+    const tableRows = rows.map(row => [
+      new Date(row.report_date).toLocaleDateString('en-IN', {
+        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
+      }),
+      row.starting_reading,
+      row.ending_reading,
+      row.units_consumed.toFixed(2),
+      row.unitAmount.toFixed(2),
+      row.fixedCost.toFixed(2),
+      row.tax.toFixed(2),
+      row.sumAmount.toFixed(2)
+    ]);
+
+    tableRows.push([
+      'Total',
+      '',
+      '',
+      totals.units.toFixed(2),
+      totals.unitAmount.toFixed(2),
+      totals.fixedCost.toFixed(2),
+      totals.tax.toFixed(2),
+      totals.sumAmount.toFixed(2)
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 30,
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [79, 70, 229] },
+    });
+
+    doc.save(`EB_Calculator_${MONTHS[selectedMonth]}_${selectedYear}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Card */}
@@ -181,9 +348,26 @@ export function EBCalculator() {
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           </div>
-          <span className="text-sm text-slate-500 ml-auto">
+          <span className="text-sm text-slate-500">
             {rows.length} day{rows.length !== 1 ? 's' : ''} found
           </span>
+
+          <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 ml-auto">
+            <button
+              onClick={exportToExcel}
+              className="px-3 py-1.5 bg-white hover:bg-emerald-50 border border-slate-200 text-emerald-600 font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all active:scale-95 shadow-sm"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-500" />
+              EXCEL
+            </button>
+            <button
+              onClick={exportToPDF}
+              className="px-3 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 text-rose-600 font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all active:scale-95 shadow-sm"
+            >
+              <Download className="w-3.5 h-3.5 text-rose-500" />
+              PDF
+            </button>
+          </div>
         </div>
       </div>
 

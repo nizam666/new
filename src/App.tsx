@@ -27,6 +27,12 @@ import { DispatchForm } from './components/Resources/DispatchForm';
 import { InventoryDispatchReport } from './components/Resources/InventoryDispatchReport';
 import { StorageForm } from './components/Resources/StorageForm';
 import { ReportsModule } from './components/Reports/ReportsModule';
+import { MaterialBalanceReportModule } from './components/Reports/MaterialBalanceReportModule';
+import { QuarryProductionCostReportModule } from './components/Reports/QuarryProductionCostReportModule';
+import { QuarryProductionReportModule } from './components/Reports/QuarryProductionReportModule';
+import { SalesReportModule } from './components/Reports/SalesReportModule';
+import { AccountingReportModule } from './components/Reports/AccountingReportModule';
+import { OperationsHistoryModule } from './components/Reports/OperationsHistoryModule';
 import { UserManagement } from './components/Users/UserManagement';
 import { CrusherProductionForm } from './components/Crusher/CrusherProductionForm';
 import { CrusherProductionCostReport } from './components/Crusher/CrusherProductionCostReport';
@@ -381,6 +387,72 @@ function AppContent() {
               <p className="text-slate-600 mt-1">Comprehensive reports for all operations</p>
             </div>
             <ReportsModule />
+          </div>
+        );
+
+      case 'production-report':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Material Balance Report</h2>
+              <p className="text-slate-600 mt-1">Production and sales balance</p>
+            </div>
+            <MaterialBalanceReportModule />
+          </div>
+        );
+
+      case 'quarry-report':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Quarry Production Report</h2>
+              <p className="text-slate-600 mt-1">Contractor operations summary</p>
+            </div>
+            <QuarryProductionReportModule />
+          </div>
+        );
+
+      case 'quarry-cost':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Quarry Production Cost Report</h2>
+              <p className="text-slate-600 mt-1">Yield and expense analysis</p>
+            </div>
+            <QuarryProductionCostReportModule />
+          </div>
+        );
+
+      case 'operations-history':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Operations History</h2>
+              <p className="text-slate-600 mt-1">Detailed records and logs</p>
+            </div>
+            <OperationsHistoryModule />
+          </div>
+        );
+
+      case 'sales-report':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Sales Report</h2>
+              <p className="text-slate-600 mt-1">Material dispatch and customer sales</p>
+            </div>
+            <SalesReportModule />
+          </div>
+        );
+
+      case 'accounting-report':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Accounting Report</h2>
+              <p className="text-slate-600 mt-1">Financial transactions and balance</p>
+            </div>
+            <AccountingReportModule />
           </div>
         );
 

@@ -41,8 +41,7 @@ function generateDispatchRef() {
   return `DSP-${year}-${rand}`;
 }
 
-const PG_BOX_SIZE = 200;
-const isPGItem = (name: string) => name?.toUpperCase() === 'PG';
+
 
 export function DispatchForm({ onSuccess }: DispatchFormProps) {
   const { user } = useAuth();
@@ -69,7 +68,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
     given_price: '',
   });
   
-  const isPG = !!selectedItem && isPGItem(selectedItem.item_name);
+
 
   const [outstandingQty, setOutstandingQty] = useState(0);
   const [employeeList, setEmployeeList] = useState<{full_name: string, id: string, employee_id?: string}[]>([]);
@@ -156,13 +155,13 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
     const qty = parseFloat(formData.quantity_dispatched);
     if (!qty || qty <= 0) return toast.warning('Please enter a valid quantity');
     
-    const actualQty = isPG ? qty * PG_BOX_SIZE : qty;
+    const actualQty = qty;
     const availableQty = selectedItem.quantity;
 
-    const displayUnit = isPG ? 'Box' : (selectedItem?.unit || 'Nos');
+    const displayUnit = selectedItem?.unit || 'Nos';
 
     if (actualQty > availableQty) {
-      const displayAvailable = isPG ? (availableQty / PG_BOX_SIZE).toFixed(2) : availableQty;
+      const displayAvailable = availableQty;
       return toast.error(`Only ${displayAvailable} ${displayUnit} available in stock`);
     }
 
@@ -176,8 +175,8 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
         dispatch_ref: formData.dispatch_ref,
         item_id: selectedItem?.id || null,
         item_name: formData.item_name || selectedItem?.item_name || '',
-        quantity_dispatched: isPGItem(selectedItem?.item_name || '') ? parseFloat(formData.quantity_dispatched) : actualQty,
-        unit: isPGItem(selectedItem?.item_name || '') ? 'Box' : (selectedItem?.unit || ''),
+        quantity_dispatched: actualQty,
+        unit: selectedItem?.unit || 'Nos',
         dispatched_to: formData.dispatched_to,
         department: formData.department || null,
         dispatch_date: formData.dispatch_date,
@@ -208,7 +207,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
         quantity: actualQty,
         date: formData.dispatch_date,
         purpose: `Dispatch to: ${formData.dispatched_to}`,
-        notes: `Ref: ${formData.dispatch_ref} | ${formData.returnable ? 'Returnable' : 'Non-Returnable'}${isPG ? ' | Qty in Boxes: ' + qty : ''}`
+        notes: `Ref: ${formData.dispatch_ref} | ${formData.returnable ? 'Returnable' : 'Non-Returnable'}`
       }]);
 
       toast.success(`Dispatched ${qty} ${displayUnit} of ${selectedItem.item_name} successfully!`);
@@ -312,7 +311,11 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
                             }
                             setSelectedItem(item);
                             setItemSearch('');
-                            update('item_name', item.item_name);
+                            setFormData(prev => ({
+                              ...prev,
+                              item_name: item.item_name,
+                              given_price: item.average_price ? item.average_price.toString() : ''
+                            }));
                           }}
                           className={`group p-5 rounded-[32px] bg-white border transition-all relative overflow-hidden ${
                             outOfStock 
@@ -349,19 +352,22 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
                                     ) : (
                                       <>
                                         <span className="text-xl font-black text-slate-900">
-                                          {isPGItem(item.item_name) ? (item.quantity / PG_BOX_SIZE).toFixed(2) : item.quantity}
+                                          {item.quantity}
                                         </span>
                                         <span className="text-[10px] font-bold text-slate-400 uppercase">
-                                          {isPGItem(item.item_name) ? 'Box' : item.unit}
+                                          {item.unit}
                                         </span>
                                       </>
                                     )}
                                  </div>
                               </div>
-                              <div className="text-right">
+                              <div className="text-right flex flex-col items-end gap-1">
                                  <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-tighter">
                                     {item.location}
                                  </span>
+                                 {item.average_price !== undefined && item.average_price > 0 && (
+                                   <span className="text-[10px] font-black text-emerald-600 mt-1">₹{item.average_price}</span>
+                                 )}
                               </div>
                            </div>
                         </div>
@@ -396,14 +402,20 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
                  <div className="flex items-baseline justify-between">
                     <div className="flex items-baseline gap-1">
                        <span className="text-3xl font-black text-slate-900 tracking-tighter">
-                         {isPG ? (selectedItem.quantity / PG_BOX_SIZE).toFixed(2) : selectedItem.quantity}
+                         {selectedItem.quantity}
                        </span>
                        <span className="text-xs font-bold text-slate-400 uppercase">
-                         {isPG ? 'Box' : selectedItem.unit}
+                         {selectedItem.unit}
                        </span>
                     </div>
                     <span className="text-sm font-black text-emerald-600 uppercase tracking-tighter">{selectedItem.location || 'N/A'}</span>
                  </div>
+                 {selectedItem.average_price !== undefined && selectedItem.average_price > 0 && (
+                    <div className="border-t border-slate-100 mt-4 pt-3 flex items-center justify-between">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Price</p>
+                       <p className="text-base font-black text-emerald-600">₹{selectedItem.average_price}</p>
+                    </div>
+                 )}
               </div>
 
               <button 
@@ -492,10 +504,10 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
             {/* Quantity */}
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                <Package className="h-3 w-3" /> Quantity to Issue ({isPG ? 'Box' : selectedItem?.unit || 'Nos'}) *
+                <Package className="h-3 w-3" /> Quantity to Issue ({selectedItem?.unit || 'Nos'}) *
                 {selectedItem && (
                   <span className="text-emerald-500 normal-case font-bold">
-                    max: {isPG ? (selectedItem.quantity / PG_BOX_SIZE).toFixed(2) : selectedItem.quantity} {isPG ? 'Box' : selectedItem.unit}
+                    max: {selectedItem.quantity} {selectedItem.unit}
                   </span>
                 )}
               </label>
@@ -505,7 +517,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
                 placeholder="0"
                 min="0.01"
                 step="0.01"
-                max={isPG ? selectedItem?.quantity / PG_BOX_SIZE : selectedItem?.quantity}
+                max={selectedItem?.quantity}
                 value={formData.quantity_dispatched}
                 onChange={(e) => update('quantity_dispatched', e.target.value)}
                 className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none font-black text-2xl focus:ring-4 focus:ring-slate-500/10"
@@ -578,20 +590,17 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
                          <div>
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Previous Unreturned</p>
                             <div className="flex items-baseline gap-1">
-                               <span className="text-3xl font-black">{isPG ? (outstandingQty / PG_BOX_SIZE).toFixed(2) : outstandingQty}</span>
-                               <span className="text-[10px] font-bold text-slate-400 uppercase">{isPG ? 'Box' : selectedItem?.unit}</span>
+                               <span className="text-3xl font-black">{outstandingQty}</span>
+                               <span className="text-[10px] font-bold text-slate-400 uppercase">{selectedItem?.unit}</span>
                             </div>
                          </div>
                          <div className="border-l border-white/10 pl-8">
                             <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1 font-black">Total After Dispatch</p>
                             <div className="flex items-baseline gap-1">
                                <span className="text-3xl font-black text-emerald-400">
-                                  {isPG 
-                                    ? (outstandingQty / PG_BOX_SIZE + (parseFloat(formData.quantity_dispatched) || 0)).toFixed(2) 
-                                    : outstandingQty + (parseFloat(formData.quantity_dispatched) || 0)
-                                  }
+                                  {outstandingQty + (parseFloat(formData.quantity_dispatched) || 0)}
                                </span>
-                               <span className="text-[10px] font-bold text-emerald-400 uppercase">{isPG ? 'Box' : selectedItem?.unit}</span>
+                               <span className="text-[10px] font-bold text-emerald-400 uppercase">{selectedItem?.unit}</span>
                             </div>
                          </div>
                       </div>
@@ -695,7 +704,7 @@ export function DispatchForm({ onSuccess }: DispatchFormProps) {
             <div className="text-center sm:text-left">
               <p className="text-[10px] font-black uppercase text-slate-400">Issuing</p>
               <p className="text-2xl font-black text-slate-900">
-                {formData.quantity_dispatched} <span className="text-slate-400 text-base">{isPG ? 'Box' : selectedItem?.unit || 'Nos'}</span>
+                {formData.quantity_dispatched} <span className="text-slate-400 text-base">{selectedItem?.unit || 'Nos'}</span>
               </p>
               <p className="text-xs text-slate-400 font-bold truncate max-w-[200px]">{selectedItem.item_name}</p>
             </div>

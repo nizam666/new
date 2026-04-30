@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ProductionReportModule } from './ProductionReportModule';
+import { MaterialBalanceReportModule } from './MaterialBalanceReportModule';
 import { QuarryProductionReportModule } from './QuarryProductionReportModule';
 import { SalesReportModule } from './SalesReportModule';
 import { AccountingReportModule } from './AccountingReportModule';
 import { OperationsHistoryModule } from './OperationsHistoryModule';
 import { AttendanceReportModule } from './AttendanceReportModule';
-import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock } from 'lucide-react';
+import { QuarryProductionCostReportModule } from './QuarryProductionCostReportModule';
+import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock, Calculator } from 'lucide-react';
 
 export function ReportsModule() {
   const [activeReport, setActiveReport] = useState<string>('production');
@@ -13,8 +14,8 @@ export function ReportsModule() {
   const reportTypes = [
     {
       id: 'production',
-      name: 'Production Report',
-      description: 'Crusher production summary',
+      name: 'Material Balance Report',
+      description: 'Production and sales balance',
       icon: Factory,
       color: 'blue'
     },
@@ -24,6 +25,13 @@ export function ReportsModule() {
       description: 'Contractor operations summary',
       icon: Drill,
       color: 'orange'
+    },
+    {
+      id: 'quarry_cost',
+      name: 'Quarry Production Cost',
+      description: 'Yield and expense analysis',
+      icon: Calculator,
+      color: 'indigo'
     },
     {
       id: 'history',
@@ -113,9 +121,11 @@ export function ReportsModule() {
   const renderReport = () => {
     switch (activeReport) {
       case 'production':
-        return <ProductionReportModule />;
+        return <MaterialBalanceReportModule />;
       case 'quarry':
         return <QuarryProductionReportModule />;
+      case 'quarry_cost':
+        return <QuarryProductionCostReportModule />;
       case 'history':
         return <OperationsHistoryModule />;
       case 'sales':
@@ -125,7 +135,7 @@ export function ReportsModule() {
       case 'attendance':
         return <AttendanceReportModule />;
       default:
-        return <ProductionReportModule />;
+        return <MaterialBalanceReportModule />;
     }
   };
 
