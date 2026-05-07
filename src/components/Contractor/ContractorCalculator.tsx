@@ -402,7 +402,7 @@ export function ContractorCalculator() {
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF334155' }
+        fgColor: { argb: 'FF2563EB' }
       };
       cell.border = {
         top: { style: 'thin' },
@@ -570,7 +570,7 @@ export function ContractorCalculator() {
       head: [['Sl.No.', 'Item Description', 'UOM', 'Rate', 'QTY', 'Amount']],
       body: tableRows,
       theme: 'grid',
-      headStyles: { fillColor: [51, 65, 85] }, 
+      headStyles: { fillColor: [37, 99, 235] }, 
       columnStyles: {
         0: { cellWidth: 15 },
         3: { halign: 'right' },

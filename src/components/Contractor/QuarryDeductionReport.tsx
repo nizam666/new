@@ -235,7 +235,7 @@ export function QuarryDeductionReport() {
 
     const dHeader = ws.addRow(['Date', 'Item Name', 'Quantity', 'Unit', 'Price (₹)', 'Total Cost (₹)']);
     dHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    dHeader.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } });
+    dHeader.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDC2626' } });
     
     dieselLogs.forEach(d => {
       ws.addRow([formatDate(d.dispatch_date), d.item_name, d.quantity_dispatched, d.unit || 'Ltrs', d.given_price, d.quantity_dispatched * d.given_price]);
@@ -248,10 +248,10 @@ export function QuarryDeductionReport() {
     ws.addRow([]);
 
     // --- Section 2: Cash Advances ---
-    ws.addRow(['2. Cash Advances']).font = { bold: true, size: 12, color: { argb: 'FF991B1B' } }; 
+    ws.addRow(['2. Cash Advances']).font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }; 
     const aHeader = ws.addRow(['Date', 'Amount (₹)', 'Reason', 'Notes']);
     aHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    aHeader.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }); 
+    aHeader.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDC2626' } }); 
     
     advanceLogs.forEach(a => {
       ws.addRow([formatDate(a.transaction_date), a.amount_given, a.reason, a.notes]);
@@ -269,7 +269,7 @@ export function QuarryDeductionReport() {
 
     const eHeader = ws.addRow(['Date', 'Item Name', 'Quantity', 'Unit', 'Price (₹)', 'Total Cost (₹)']);
     eHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    eHeader.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }); 
+    eHeader.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDC2626' } }); 
     
     explosiveDispatches.forEach(e => {
       const name = (e.item_name || '').toUpperCase();
@@ -293,7 +293,7 @@ export function QuarryDeductionReport() {
 
     const eWRHeader = ws.addRow(['Date', 'Location', 'PG (Boxes)', 'ED (Nos)', 'EDET (Nos)', 'NLO 3m (Nos)', 'NLO 4m (Nos)']);
     eWRHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    eWRHeader.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }); 
+    eWRHeader.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDC2626' } }); 
     
     explosiveWRLogs.forEach(e => {
       ws.addRow([formatDate(e.date), e.location, e.pg_nos, e.ed_nos, e.edet_nos, e.nonel_3m_nos, e.nonel_4m_nos]);
@@ -345,12 +345,12 @@ export function QuarryDeductionReport() {
       doc.text(`Diesel Deductions Report`, 14, 15);
       const rows = dieselLogs.map(d => [formatDate(d.dispatch_date), d.item_name, d.quantity_dispatched.toString(), d.unit, d.given_price.toLocaleString(), (d.quantity_dispatched * d.given_price).toLocaleString()]);
       rows.push(['Total', '', '', '', '', totalDiesel.toLocaleString()]);
-      autoTable(doc, { startY: 25, head: [['Date', 'Item', 'Qty', 'Unit', 'Price', 'Total Cost']], body: rows });
+      autoTable(doc, { startY: 25, head: [['Date', 'Item', 'Qty', 'Unit', 'Price', 'Total Cost']], body: rows, headStyles: { fillColor: [220, 38, 38] } });
     } else if (activeTab === 'advances') {
       doc.text(`Cash Advances Report`, 14, 15);
       const rows = advanceLogs.map(a => [formatDate(a.transaction_date), a.amount_given.toLocaleString(), a.reason || '', a.notes || '']);
       rows.push(['Total', totalAdvances.toLocaleString(), '', '']);
-      autoTable(doc, { startY: 25, head: [['Date', 'Amount', 'Reason', 'Notes']], body: rows });
+      autoTable(doc, { startY: 25, head: [['Date', 'Amount', 'Reason', 'Notes']], body: rows, headStyles: { fillColor: [220, 38, 38] } });
     } else {
       if (activeTab === 'explosives') {
         doc.text(`Explosives Dispatched Report`, 14, 15);
@@ -370,11 +370,11 @@ export function QuarryDeductionReport() {
           ];
         });
         rows.push(['Total', '', '', '', '', Math.round(totalExplosivesDispatchCost).toLocaleString()]);
-        autoTable(doc, { startY: 25, head: [['Date', 'Item Name', 'Qty', 'Unit', 'Price', 'Total Cost']], body: rows });
+        autoTable(doc, { startY: 25, head: [['Date', 'Item Name', 'Qty', 'Unit', 'Price', 'Total Cost']], body: rows, headStyles: { fillColor: [220, 38, 38] } });
       } else {
         doc.text(`Explosives (Weather Rock) Blasting Logs`, 14, 15);
         const rows = explosiveWRLogs.map(e => [formatDate(e.date), e.location, e.pg_nos.toString(), e.ed_nos.toString(), e.edet_nos.toString(), e.nonel_3m_nos.toString(), e.nonel_4m_nos.toString()]);
-        autoTable(doc, { startY: 25, head: [['Date', 'Loc', 'PG', 'ED', 'EDET', 'NLO 3m', 'NLO 4m']], body: rows });
+        autoTable(doc, { startY: 25, head: [['Date', 'Loc', 'PG', 'ED', 'EDET', 'NLO 3m', 'NLO 4m']], body: rows, headStyles: { fillColor: [220, 38, 38] } });
       }
     }
 

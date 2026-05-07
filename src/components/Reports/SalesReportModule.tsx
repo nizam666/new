@@ -150,6 +150,11 @@ export function SalesReportModule() {
       { header: 'Total Sales', key: 'totalSales', width: 15 }
     ];
 
+    worksheet.getRow(1).eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    });
+
     dailyData.forEach(day => {
       worksheet.addRow({
         date: formatDate(day.date),
@@ -206,7 +211,7 @@ export function SalesReportModule() {
       startY: 30,
       theme: 'grid',
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [51, 65, 85] }
+      headStyles: { fillColor: [79, 70, 229] }
     });
 
     doc.save(`Sales_Report_${startDate}_to_${endDate}.pdf`);

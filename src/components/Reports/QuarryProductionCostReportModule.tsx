@@ -428,7 +428,7 @@ export function QuarryProductionCostReportModule() {
     const headerRow = worksheet.addRow(['Sl.No.', 'Item Description', 'UOM', 'Rate (₹)', 'QTY', 'Amount (₹)']);
     headerRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
     headerRow.eachCell(cell => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
       cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
       cell.alignment = { vertical: 'middle', horizontal: 'left' };
     });
@@ -562,7 +562,7 @@ export function QuarryProductionCostReportModule() {
       startY: 30,
       theme: 'grid',
       styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [51, 65, 85], halign: 'center' },
+      headStyles: { fillColor: [30, 41, 59], halign: 'center' },
       columnStyles: {
         0: { halign: 'center', cellWidth: 20 },
         1: { cellWidth: 'auto' },
