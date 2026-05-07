@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Settings, ArrowLeft, ChevronDown, Package, IndianRupee, Info } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Package, IndianRupee, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const PRODUCT_TYPES = [
@@ -240,7 +240,6 @@ export function MaterialInvestorsForm({ onSuccess, onCancel, initialData }: Mate
                       {formData.is_tax_inclusive ? 'Tax Inclusive' : 'Tax Exclusive'}
                     </div>
                   </div>
-                </div>
 
                 <div>
                   <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2">GST Rate (Fixed)</label>

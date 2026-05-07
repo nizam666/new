@@ -162,10 +162,25 @@ export function CustomerDriverForm({ onSuccess, onCancel, initialData }: DriverF
               <label className="block text-sm font-bold text-slate-800 mb-2">
                 Status<span className="text-red-500">*</span>
               </label>
+              <select
+                required
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                className="block w-full px-4 py-2.5 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors text-slate-700 bg-white text-base"
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            
+          </div>
+        </div>
+
+        <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3 pt-6">
           <button
             type="button"
             onClick={onCancel}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-amber-400 text-slate-900 font-bold rounded shadow hover:bg-amber-500 transition-colors"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-amber-400 text-slate-900 font-bold rounded shadow hover:bg-amber-500 transition-colors"
           >
             <X className="w-4 h-4 stroke-[3]" />
             Cancel
@@ -173,7 +188,7 @@ export function CustomerDriverForm({ onSuccess, onCancel, initialData }: DriverF
           <button
             type="submit"
             disabled={loading}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-[#4B6B9E] text-white font-bold rounded shadow hover:bg-[#3d5782] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-[#4B6B9E] text-white font-bold rounded shadow hover:bg-[#3d5782] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? (
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
