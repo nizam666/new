@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Calculator, Calendar } from 'lucide-react';
+import { Calculator, Calendar, Download } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
+import ExcelJS from 'exceljs';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface DailySalesItem {
   date: string;
@@ -127,6 +130,98 @@ export function SalesReportModule() {
     fetchDailyReport();
   }, [fetchDailyReport]);
 
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Sales Report');
+
+    worksheet.columns = [
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'M-Sand', key: 'mSand', width: 12 },
+      { header: 'P-Sand', key: 'pSand', width: 12 },
+      { header: 'Agg 40mm', key: 'agg40', width: 12 },
+      { header: 'Agg 20mm', key: 'agg20', width: 12 },
+      { header: 'Agg 12mm', key: 'agg12', width: 12 },
+      { header: 'Agg 6mm', key: 'agg6', width: 12 },
+      { header: 'GBS', key: 'gbs', width: 12 },
+      { header: 'Dust', key: 'dust', width: 12 },
+      { header: 'Wet Mix', key: 'wetMix', width: 12 },
+      { header: 'All Mix', key: 'allMix', width: 12 },
+      { header: 'S-Bolder', key: 'sBolder', width: 12 },
+      { header: 'Total Sales', key: 'totalSales', width: 15 }
+    ];
+
+    dailyData.forEach(day => {
+      worksheet.addRow({
+        date: formatDate(day.date),
+        mSand: day.mSand,
+        pSand: day.pSand,
+        agg40: day.agg40,
+        agg20: day.agg20,
+        agg12: day.agg12,
+        agg6: day.agg6,
+        gbs: day.gbs,
+        dust: day.dust,
+        wetMix: day.wetMix,
+        allMix: day.allMix,
+        sBolder: day['S-bolder'],
+        totalSales: day.totalSales
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Sales_Report_${startDate}_to_${endDate}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    doc.text('Daily Sales Report', 14, 15);
+    doc.setFontSize(10);
+    doc.text(`${formatDate(startDate)} to ${formatDate(endDate)}`, 14, 22);
+
+    const tableRows = dailyData.map(day => [
+      formatDate(day.date),
+      day.mSand.toFixed(1),
+      day.pSand.toFixed(1),
+      day.agg40.toFixed(1),
+      day.agg20.toFixed(1),
+      day.agg12.toFixed(1),
+      day.agg6.toFixed(1),
+      day.gbs.toFixed(1),
+      day.dust.toFixed(1),
+      day.wetMix.toFixed(1),
+      day.allMix.toFixed(1),
+      day['S-bolder'].toFixed(1),
+      day.totalSales.toFixed(1)
+    ]);
+
+    autoTable(doc, {
+      head: [['Date', 'M-Sand', 'P-Sand', '40mm', '20mm', '12mm', '6mm', 'GBS', 'Dust', 'Wet Mix', 'All Mix', 'S-Bolder', 'Total']],
+      body: tableRows,
+      startY: 30,
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [51, 65, 85] }
+    });
+
+    doc.save(`Sales_Report_${startDate}_to_${endDate}.pdf`);
+  };
+
+  const exportToJSON = () => {
+    const blob = new Blob([JSON.stringify(dailyData, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Sales_Report_${startDate}_to_${endDate}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
@@ -162,6 +257,27 @@ export function SalesReportModule() {
                   className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+              <button
+                onClick={exportToExcel}
+                className="px-4 py-2 bg-white text-emerald-600 font-bold text-xs rounded-xl flex items-center gap-2 border border-slate-200 shadow-sm hover:bg-emerald-50 transition-all"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-500" /> EXCEL
+              </button>
+              <button
+                onClick={exportToPDF}
+                className="px-4 py-2 bg-white text-rose-600 font-bold text-xs rounded-xl flex items-center gap-2 border border-slate-200 shadow-sm hover:bg-rose-50 transition-all"
+              >
+                <Download className="w-3.5 h-3.5 text-rose-500" /> PDF
+              </button>
+              <button
+                onClick={exportToJSON}
+                className="px-4 py-2 bg-white text-indigo-600 font-bold text-xs rounded-xl flex items-center gap-2 border border-slate-200 shadow-sm hover:bg-indigo-50 transition-all"
+              >
+                <Download className="w-3.5 h-3.5 text-indigo-500" /> JSON
+              </button>
             </div>
           </div>
         </div>
