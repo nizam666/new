@@ -77,9 +77,19 @@ export function AttendanceReportModule() {
     }
   }, [workAreaFilter, dateFrom, dateTo, searchTerm]);
 
-  useEffect(() => {
-    fetchRecords();
+  const runCleanup = useCallback(async () => {
+    try {
+      await supabase.rpc('process_stale_attendance');
+      fetchRecords();
+    } catch (err) {
+      console.error('Error running cleanup:', err);
+    }
   }, [fetchRecords]);
+
+  useEffect(() => {
+    runCleanup();
+    fetchRecords();
+  }, [fetchRecords, runCleanup]);
 
   const workAreaTabs: { key: WorkAreaFilter; label: string; color: string }[] = [
     { key: 'all', label: 'All', color: 'slate' },
@@ -122,6 +132,21 @@ export function AttendanceReportModule() {
             <p className={`text-2xl font-bold text-${color}-900`}>{value}</p>
           </div>
         ))}
+        
+        {/* Quick Actions / Cleanup */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-2">
+            <RefreshCw className="w-4 h-4 text-amber-600" />
+            <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">System Maintenance</p>
+          </div>
+          <button
+            onClick={runCleanup}
+            className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all shadow-sm shadow-amber-200"
+          >
+            Auto-Punch Out Stale
+          </button>
+          <p className="text-[10px] text-amber-600 mt-2 font-medium leading-tight">Closes all forgotten shifts older than 12h or from previous days.</p>
+        </div>
       </div>
 
       {/* Work Area Tabs */}

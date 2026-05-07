@@ -85,9 +85,11 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     };
     
     runAttendanceCleanup();
-
+    const cleanupInterval = setInterval(runAttendanceCleanup, 60 * 60 * 1000); // Run every 1 hour
+    
     return () => {
       stopCamera();
+      clearInterval(cleanupInterval);
     };
   }, [startCamera, stopCamera]);
   
