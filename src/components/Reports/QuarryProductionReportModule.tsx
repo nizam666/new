@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Calculator, Calendar } from 'lucide-react';
+import { Calculator, Calendar, Download, FileText } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
+import ExcelJS from 'exceljs';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface DailyReportItem {
   date: string;
@@ -114,6 +117,127 @@ export function QuarryProductionReportModule() {
     fetchDailyReport();
   }, [fetchDailyReport]);
 
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Quarry Production');
+
+    worksheet.addRow(['Quarry Day-wise Production Report']).font = { name: 'Arial', size: 14, bold: true };
+    worksheet.addRow([`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`]).font = { name: 'Arial', size: 11, italic: true };
+    worksheet.addRow([]);
+
+    const headerRow = worksheet.addRow([
+      'Date', 
+      'Q-C (MT)', 
+      'Q-S (MT)', 
+      'S-C (MT)', 
+      'Q-Sales (MT)', 
+      'Total Quarry Prod (MT)', 
+      'Total Crusher Prod (MT)'
+    ]);
+
+    headerRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    dailyData.forEach(day => {
+      const row = worksheet.addRow([
+        formatDate(day.date),
+        day.qcQty,
+        day.qsQty,
+        day.scQty,
+        day.qSalesQty,
+        day.totalQuarryProd,
+        day.totalCrusherProd
+      ]);
+      row.font = { name: 'Arial', size: 10 };
+    });
+
+    const totals = dailyData.reduce((acc, day) => {
+      acc.qc += day.qcQty;
+      acc.qs += day.qsQty;
+      acc.sc += day.scQty;
+      acc.qSales += day.qSalesQty;
+      acc.totalQuarry += day.totalQuarryProd;
+      acc.totalCrusher += day.totalCrusherProd;
+      return acc;
+    }, { qc: 0, qs: 0, sc: 0, qSales: 0, totalQuarry: 0, totalCrusher: 0 });
+
+    const totalRow = worksheet.addRow([
+      'Total',
+      totals.qc,
+      totals.qs,
+      totals.sc,
+      totals.qSales,
+      totals.totalQuarry,
+      totals.totalCrusher
+    ]);
+    totalRow.font = { name: 'Arial', size: 10, bold: true };
+    totalRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'double' }, right: { style: 'thin' } };
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Quarry_Production_${startDate}_to_${endDate}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF('landscape');
+    doc.setFontSize(14);
+    doc.text(`Quarry Day-wise Production Report`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 14, 22);
+
+    const totals = dailyData.reduce((acc, day) => {
+      acc.qc += day.qcQty;
+      acc.qs += day.qsQty;
+      acc.sc += day.scQty;
+      acc.qSales += day.qSalesQty;
+      acc.totalQuarry += day.totalQuarryProd;
+      acc.totalCrusher += day.totalCrusherProd;
+      return acc;
+    }, { qc: 0, qs: 0, sc: 0, qSales: 0, totalQuarry: 0, totalCrusher: 0 });
+
+    const rows = dailyData.map(d => [
+      formatDate(d.date),
+      d.qcQty.toFixed(1),
+      d.qsQty.toFixed(1),
+      d.scQty.toFixed(1),
+      d.qSalesQty.toFixed(1),
+      d.totalQuarryProd.toFixed(1),
+      d.totalCrusherProd.toFixed(1)
+    ]);
+
+    rows.push([
+      'Total',
+      totals.qc.toFixed(1),
+      totals.qs.toFixed(1),
+      totals.sc.toFixed(1),
+      totals.qSales.toFixed(1),
+      totals.totalQuarry.toFixed(1),
+      totals.totalCrusher.toFixed(1)
+    ]);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [['Date', 'Q-C (MT)', 'Q-S (MT)', 'S-C (MT)', 'Q-Sales (MT)', 'Total Quarry Prod', 'Total Crusher Prod']],
+      body: rows,
+      theme: 'grid',
+      headStyles: { fillColor: [51, 65, 85] },
+      styles: { fontSize: 8 }
+    });
+
+    doc.save(`Quarry_Production_${startDate}_to_${endDate}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
@@ -149,6 +273,21 @@ export function QuarryProductionReportModule() {
                   className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={exportToExcel}
+                className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 flex items-center gap-2 shadow-lg shadow-emerald-200"
+              >
+                <Download className="w-3.5 h-3.5" /> Excel
+              </button>
+              <button
+                onClick={exportToPDF}
+                className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 flex items-center gap-2 shadow-lg shadow-slate-200"
+              >
+                <FileText className="w-3.5 h-3.5" /> PDF
+              </button>
             </div>
           </div>
         </div>
