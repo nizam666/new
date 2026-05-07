@@ -264,7 +264,7 @@ export function QuarryDeductionReport() {
 
     // --- Section 3: Explosives Dispatches ---
     const sec3 = ws.addRow(['3. Total Explosives Dispatched']);
-    sec3.font = { bold: true, size: 12, color: { argb: 'FF1E3A8A' } }; 
+    sec3.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }; 
     ws.mergeCells(sec3.number, 1, sec3.number, 6);
 
     const eHeader = ws.addRow(['Date', 'Item Name', 'Quantity', 'Unit', 'Price (₹)', 'Total Cost (₹)']);
@@ -288,7 +288,7 @@ export function QuarryDeductionReport() {
 
     // --- Section 4: Explosives (Weathered Rocks) ---
     const sec4 = ws.addRow(['4. Explosives Usage - Weathered Rocks']);
-    sec4.font = { bold: true, size: 12, color: { argb: 'FF1E3A8A' } };
+    sec4.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } };
     ws.mergeCells(sec4.number, 1, sec4.number, 7);
 
     const eWRHeader = ws.addRow(['Date', 'Location', 'PG (Boxes)', 'ED (Nos)', 'EDET (Nos)', 'NLO 3m (Nos)', 'NLO 4m (Nos)']);
@@ -325,6 +325,14 @@ export function QuarryDeductionReport() {
     wrCExpTotal.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } });
     ws.mergeCells(wrCExpTotal.number, 1, wrCExpTotal.number, 3);
     ws.addRow([]);
+    ws.addRow([]);
+
+    const grandTotal = totalDiesel + totalAdvances + totalExplosivesDispatchCost;
+    const gRow = ws.addRow(['GRAND TOTAL DEDUCTIONS (1+2+3)', '', '', '', '', Math.round(grandTotal)]);
+    gRow.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+    gRow.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } });
+    ws.mergeCells(gRow.number, 1, gRow.number, 5);
+    ws.addRow([]);
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -339,46 +347,135 @@ export function QuarryDeductionReport() {
 
   const exportToPDF = () => {
     const doc = new jsPDF('portrait');
+    const title = `Quarry Full Deductions Report: ${contractorName}`;
+    const period = `Period: ${formatDate(startDate)} to ${formatDate(endDate)}`;
+
     doc.setFontSize(14);
+    doc.text(title, 14, 15);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(period, 14, 22);
 
-    if (activeTab === 'diesel') {
-      doc.text(`Diesel Deductions Report`, 14, 15);
-      const rows = dieselLogs.map(d => [formatDate(d.dispatch_date), d.item_name, d.quantity_dispatched.toString(), d.unit, d.given_price.toLocaleString(), (d.quantity_dispatched * d.given_price).toLocaleString()]);
-      rows.push(['Total', '', '', '', '', totalDiesel.toLocaleString()]);
-      autoTable(doc, { startY: 25, head: [['Date', 'Item', 'Qty', 'Unit', 'Price', 'Total Cost']], body: rows, headStyles: { fillColor: [220, 38, 38] } });
-    } else if (activeTab === 'advances') {
-      doc.text(`Cash Advances Report`, 14, 15);
-      const rows = advanceLogs.map(a => [formatDate(a.transaction_date), a.amount_given.toLocaleString(), a.reason || '', a.notes || '']);
-      rows.push(['Total', totalAdvances.toLocaleString(), '', '']);
-      autoTable(doc, { startY: 25, head: [['Date', 'Amount', 'Reason', 'Notes']], body: rows, headStyles: { fillColor: [220, 38, 38] } });
-    } else {
-      if (activeTab === 'explosives') {
-        doc.text(`Explosives Dispatched Report`, 14, 15);
-        const rows = explosiveDispatches.map(e => {
-          const name = (e.item_name || '').toUpperCase();
-          let qty = e.quantity_dispatched || 0;
-          if ((name === 'PG' || name.includes('POWERGEL')) && e.unit?.toLowerCase() === 'nos') {
-            qty = qty / 200;
-          }
-          return [
-            formatDate(e.dispatch_date), 
-            e.item_name, 
-            qty.toFixed(2), 
-            (name === 'PG' || name.includes('POWERGEL')) ? 'Box' : (e.unit || 'Nos'), 
-            e.given_price.toLocaleString(), 
-            Math.round(qty * e.given_price).toLocaleString()
-          ];
-        });
-        rows.push(['Total', '', '', '', '', Math.round(totalExplosivesDispatchCost).toLocaleString()]);
-        autoTable(doc, { startY: 25, head: [['Date', 'Item Name', 'Qty', 'Unit', 'Price', 'Total Cost']], body: rows, headStyles: { fillColor: [220, 38, 38] } });
-      } else {
-        doc.text(`Explosives (Weather Rock) Blasting Logs`, 14, 15);
-        const rows = explosiveWRLogs.map(e => [formatDate(e.date), e.location, e.pg_nos.toString(), e.ed_nos.toString(), e.edet_nos.toString(), e.nonel_3m_nos.toString(), e.nonel_4m_nos.toString()]);
-        autoTable(doc, { startY: 25, head: [['Date', 'Loc', 'PG', 'ED', 'EDET', 'NLO 3m', 'NLO 4m']], body: rows, headStyles: { fillColor: [220, 38, 38] } });
+    let currentY = 30;
+
+    // 1. Diesel Deductions
+    doc.setFontSize(12);
+    doc.setTextColor(220, 38, 38);
+    doc.text("1. Diesel Deductions", 14, currentY);
+    const dieselRows = dieselLogs.map(d => [
+      formatDate(d.dispatch_date), 
+      d.item_name, 
+      d.quantity_dispatched.toString(), 
+      d.unit || 'Ltrs', 
+      d.given_price.toLocaleString(), 
+      (d.quantity_dispatched * d.given_price).toLocaleString()
+    ]);
+    dieselRows.push(['Total Diesel', '', '', '', '', totalDiesel.toLocaleString()]);
+    
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Date', 'Item', 'Qty', 'Unit', 'Price', 'Total Cost']],
+      body: dieselRows,
+      headStyles: { fillColor: [220, 38, 38] },
+      theme: 'grid',
+      styles: { fontSize: 8 }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+
+    // 2. Cash Advances
+    doc.setFontSize(12);
+    doc.setTextColor(220, 38, 38);
+    doc.text("2. Cash Advances", 14, currentY);
+    const advanceRows = advanceLogs.map(a => [
+      formatDate(a.transaction_date), 
+      a.amount_given.toLocaleString(), 
+      a.reason || '', 
+      a.notes || ''
+    ]);
+    advanceRows.push(['Total Advances', totalAdvances.toLocaleString(), '', '']);
+    
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Date', 'Amount', 'Reason', 'Notes']],
+      body: advanceRows,
+      headStyles: { fillColor: [220, 38, 38] },
+      theme: 'grid',
+      styles: { fontSize: 8 }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+
+    // 3. Explosives Dispatched
+    doc.setFontSize(12);
+    doc.setTextColor(220, 38, 38);
+    doc.text("3. Total Explosives Dispatched", 14, currentY);
+    const explosiveRows = explosiveDispatches.map(e => {
+      const name = (e.item_name || '').toUpperCase();
+      let qty = e.quantity_dispatched || 0;
+      if ((name === 'PG' || name.includes('POWERGEL')) && e.unit?.toLowerCase() === 'nos') {
+        qty = qty / 200;
       }
-    }
+      return [
+        formatDate(e.dispatch_date), 
+        e.item_name, 
+        qty.toFixed(2), 
+        (name === 'PG' || name.includes('POWERGEL')) ? 'Box' : (e.unit || 'Nos'), 
+        e.given_price.toLocaleString(), 
+        Math.round(qty * e.given_price).toLocaleString()
+      ];
+    });
+    explosiveRows.push(['Total Explosives', '', '', '', '', Math.round(totalExplosivesDispatchCost).toLocaleString()]);
+    
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Date', 'Item Name', 'Qty', 'Unit', 'Price', 'Total Cost']],
+      body: explosiveRows,
+      headStyles: { fillColor: [220, 38, 38] },
+      theme: 'grid',
+      styles: { fontSize: 8 }
+    });
 
-    doc.save(`Quarry_Deductions_${activeTab}.pdf`);
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+
+    // 4. Explosives WR Logs
+    if (currentY > 230) {
+      doc.addPage();
+      currentY = 20;
+    }
+    doc.setFontSize(12);
+    doc.setTextColor(220, 38, 38);
+    doc.text("4. Explosives (Weather Rock) Blasting Logs", 14, currentY);
+    const wrRows = explosiveWRLogs.map(e => [
+      formatDate(e.date), 
+      e.location, 
+      e.pg_nos.toString(), 
+      e.ed_nos.toString(), 
+      e.edet_nos.toString(), 
+      e.nonel_3m_nos.toString(), 
+      e.nonel_4m_nos.toString()
+    ]);
+    
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Date', 'Loc', 'PG', 'ED', 'EDET', 'NLO 3m', 'NLO 4m']],
+      body: wrRows,
+      headStyles: { fillColor: [220, 38, 38] },
+      theme: 'grid',
+      styles: { fontSize: 8 }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+
+    // Grand Total
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    const grandTotal = totalDiesel + totalAdvances + totalExplosivesDispatchCost;
+    doc.setFillColor(15, 23, 42); // Slate-900
+    doc.rect(14, currentY, 182, 10, 'F');
+    doc.text(`GRAND TOTAL DEDUCTIONS: Rs. ${Math.round(grandTotal).toLocaleString()}`, 105, currentY + 7, { align: 'center' });
+
+    doc.save(`Quarry_Full_Deductions_${startDate}_to_${endDate}.pdf`);
   };
 
   return (
