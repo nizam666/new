@@ -487,7 +487,7 @@ export function UserManagement() {
                           </div>
 
                           {/* Items */}
-                          <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 p-4 ${c.dot}`}>
+                          <div className={`grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-5 ${c.dot}`}>
                             {group.items.map(item => {
                               const isSelected = selectedPermissions.includes(item.key);
                               const ItemIcon = item.icon;
@@ -496,18 +496,29 @@ export function UserManagement() {
                                   key={item.key}
                                   type="button"
                                   onClick={() => togglePermission(item.key)}
-                                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 transition-all active:scale-95 text-left ${
+                                  className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border-2 transition-all active:scale-95 text-left group/item ${
                                     isSelected
-                                      ? `${c.activeBg} ${c.activeBorder} shadow-md`
-                                      : `bg-white ${c.border} hover:${c.bg}`
+                                      ? `${c.activeBg} ${c.activeBorder} shadow-lg shadow-slate-200`
+                                      : `bg-white border-slate-100 hover:border-slate-300`
                                   }`}
                                 >
-                                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-white/20' : c.bg}`}>
-                                    <ItemIcon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : c.text}`} />
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'bg-white/20' : c.bg}`}>
+                                      <ItemIcon className={`w-4 h-4 ${isSelected ? 'text-white' : c.text}`} />
+                                    </div>
+                                    <span className={`text-xs font-black leading-tight truncate ${isSelected ? 'text-white' : 'text-slate-700'}`}>
+                                      {item.label}
+                                    </span>
                                   </div>
-                                  <span className={`text-[11px] font-black leading-tight ${isSelected ? 'text-white' : 'text-slate-700'}`}>
-                                    {item.label}
-                                  </span>
+                                  
+                                  {/* Checkbox Indicator */}
+                                  <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                                    isSelected 
+                                      ? 'bg-white border-white' 
+                                      : 'bg-slate-50 border-slate-200 group-hover/item:border-slate-400'
+                                  }`}>
+                                    {isSelected && <CheckCircle className={`w-4 h-4 ${c.text}`} />}
+                                  </div>
                                 </button>
                               );
                             })}
