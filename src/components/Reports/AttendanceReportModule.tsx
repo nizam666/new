@@ -117,19 +117,19 @@ export function AttendanceReportModule() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {[
           { label: 'Total Records', value: records.length, color: 'slate', icon: Users },
           { label: 'Checked In', value: presentCount, color: 'green', icon: Clock },
           { label: 'Quarry', value: quarryCount, color: 'orange', icon: Users },
           { label: 'Crusher', value: crusherCount, color: 'blue', icon: Users },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-xl p-4`}>
+          <div key={label} className={`bg-${color}-50 border border-${color}-200 rounded-xl p-3 md:p-4`}>
             <div className="flex items-center gap-2 mb-1">
-              <Icon className={`w-4 h-4 text-${color}-600`} />
-              <p className={`text-xs font-medium text-${color}-700`}>{label}</p>
+              <Icon className={`w-3.5 h-3.5 md:w-4 h-4 text-${color}-600`} />
+              <p className={`text-[10px] md:text-xs font-medium text-${color}-700 uppercase tracking-wider`}>{label}</p>
             </div>
-            <p className={`text-2xl font-bold text-${color}-900`}>{value}</p>
+            <p className={`text-xl md:text-2xl font-bold text-${color}-900`}>{value}</p>
           </div>
         ))}
         
@@ -171,7 +171,7 @@ export function AttendanceReportModule() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-end">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row gap-4 items-stretch md:items-end">
         <div className="flex-1 min-w-[180px] relative">
           <label className="block text-xs font-medium text-slate-600 mb-1">Search Employee ID</label>
           <div className="relative">
@@ -185,35 +185,37 @@ export function AttendanceReportModule() {
             />
           </div>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">From Date</label>
-          <div className="relative flex items-center">
-            <Calendar className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={e => setDateFrom(e.target.value)}
-              className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">From Date</label>
+            <div className="relative flex items-center">
+              <Calendar className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
           </div>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">To Date</label>
-          <div className="relative flex items-center">
-            <Calendar className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
-            <input
-              type="date"
-              value={dateTo}
-              max={new Date().toISOString().split('T')[0]}
-              onChange={e => setDateTo(e.target.value)}
-              className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">To Date</label>
+            <div className="relative flex items-center">
+              <Calendar className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="date"
+                value={dateTo}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={e => setDateTo(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
           </div>
         </div>
         <button
           onClick={fetchRecords}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh

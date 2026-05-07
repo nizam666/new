@@ -223,16 +223,16 @@ export function SalesReportModule() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
+    <div className="space-y-4 md:space-y-6">
+      <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 p-4 md:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
-              <Calculator className="w-8 h-8 text-white" />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+              <Calculator className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
             <div>
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Sales Report</h3>
-              <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Day-wise Material Sales Breakdowns</p>
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Sales Report</h3>
+              <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest">Day-wise Material Sales Breakdowns</p>
             </div>
           </div>
 

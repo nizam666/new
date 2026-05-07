@@ -500,8 +500,8 @@ export function QuarryProductionCostReportModule() {
   };
 
   const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
+    const doc = new jsPDF('l', 'mm', 'a4'); // Use landscape for better alignment
+    doc.setFontSize(18);
     doc.setTextColor(15, 23, 42);
     doc.text('Quarry Production Cost Report', 14, 15);
     doc.setFontSize(10);
@@ -520,15 +520,15 @@ export function QuarryProductionCostReportModule() {
     groups.forEach(g => {
       const items = billItems.filter(i => i.group === g.id);
       if (items.length > 0) {
-        tableRows.push([{ content: g.label, colSpan: 6, styles: { fillColor: g.color, textColor: g.fontColor, fontStyle: 'bold' } }]);
+        tableRows.push([{ content: g.label, colSpan: 6, styles: { fillColor: g.color, textColor: g.fontColor, fontStyle: 'bold', fontSize: 10 } }]);
         items.forEach(item => {
           tableRows.push([
             item.slNo,
             item.description,
             item.uom,
-            `₹${item.rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+            item.rate.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
             item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
-            `₹${item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+            item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })
           ]);
         });
         // For D and E: subtotal = Original Cost − Contractor Expense (difference)
@@ -546,39 +546,48 @@ export function QuarryProductionCostReportModule() {
         }
         tableRows.push([
           { content: subtotalLabel, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [248, 250, 252] } },
-          { content: `₹${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], halign: 'right' } }
+          { content: subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { fontStyle: 'bold', fillColor: [248, 250, 252], halign: 'right' } }
         ]);
       }
     });
 
     tableRows.push([
-      { content: 'Overall Operational Cost:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
-      { content: `₹${totalCostAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255], halign: 'right' } }
+      { content: 'Overall Operational Cost:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255], fontSize: 11 } },
+      { content: totalCostAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255], halign: 'right', fontSize: 11 } }
     ]);
 
     autoTable(doc, {
-      head: [['Sl.No.', 'Item Description', 'UOM', 'Rate', 'QTY', 'Amount']],
+      head: [['Sl.No.', 'Item Description', 'UOM', 'Rate (Rs.)', 'QTY', 'Amount (Rs.)']],
       body: tableRows,
       startY: 30,
       theme: 'grid',
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [51, 65, 85] }
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [51, 65, 85], halign: 'center' },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 20 },
+        1: { cellWidth: 'auto' },
+        2: { halign: 'center', cellWidth: 25 },
+        3: { halign: 'right', cellWidth: 35 },
+        4: { halign: 'right', cellWidth: 35 },
+        5: { halign: 'right', cellWidth: 45 }
+      },
+      margin: { top: 30 }
     });
 
     doc.save(`Quarry_Production_Cost_${startDate}_to_${endDate}.pdf`);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
-              <Calculator className="w-8 h-8 text-white" />
+    <div className="space-y-4 md:space-y-6">
+      <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 p-4 md:p-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-800 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
+              <Calculator className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
             <div>
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Quarry Production Cost Report</h3>
-              <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Cumulative Yield & Financial Cost Matrices</p>
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Quarry Production Cost Report</h3>
+              <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest">Cumulative Yield & Financial Cost Matrices</p>
             </div>
           </div>
 

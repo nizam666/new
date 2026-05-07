@@ -584,7 +584,7 @@ export function ContractorCalculator() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <style>{`
         @media print {
           body {
@@ -604,15 +604,15 @@ export function ContractorCalculator() {
         }
       `}</style>
       {/* Header & Controls */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 print:border-none print:shadow-none print:p-0">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
-              <Calculator className="w-8 h-8 text-white" />
+      <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 p-4 md:p-8 print:border-none print:shadow-none print:p-0">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+              <Calculator className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
             <div>
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Contractor Bill Calculator</h3>
-              <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Automated Quarry billing system</p>
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Contractor Bill Calculator</h3>
+              <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest">Automated Quarry billing system</p>
             </div>
           </div>
 
@@ -656,12 +656,12 @@ export function ContractorCalculator() {
         </div>
 
         {/* Total Card */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 mb-8 relative overflow-hidden group">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-6 md:p-8 mb-8 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-blue-500/20 transition-all duration-700" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-2">Estimated Net Payable</p>
-              <h2 className="text-5xl font-black text-white tracking-tighter">
+              <p className="text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-2">Estimated Net Payable</p>
+              <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter">
                 ₹{totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
             </div>

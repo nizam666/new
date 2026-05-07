@@ -41,12 +41,12 @@ export function AccountsModule() {
   const NavItem = ({ id, label, icon: Icon }: { id: ViewType, label: string, icon: any }) => (
     <button
       onClick={() => setActiveView(id)}
-      className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-black uppercase tracking-[0.12em] transition-all duration-300 ${activeView === id
-          ? 'bg-slate-900 text-white shadow-2xl shadow-slate-300 translate-y-[-2px]'
+      className={`flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2.5 md:py-4 rounded-xl md:rounded-2xl text-[10px] md:text-sm font-black uppercase tracking-[0.12em] transition-all duration-300 whitespace-nowrap ${activeView === id
+          ? 'bg-slate-900 text-white shadow-2xl shadow-slate-300 md:translate-y-[-2px]'
           : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
         }`}
     >
-      <Icon className={`w-5 h-5 ${activeView === id ? 'text-indigo-400' : ''}`} />
+      <Icon className={`w-4 h-4 md:w-5 md:h-5 ${activeView === id ? 'text-indigo-400' : ''}`} />
       {label}
     </button>
   );
@@ -64,9 +64,9 @@ export function AccountsModule() {
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
 
       {/* ── Header Section ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">Financial Hub</h2>
+          <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Financial Hub</h2>
           <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mt-1 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
             Live Accounting System

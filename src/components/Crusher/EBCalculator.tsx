@@ -310,16 +310,16 @@ export function EBCalculator() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header Card */}
-      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg">
-        <div className="flex items-center gap-3 mb-4">
+      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-4 md:p-6 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
           <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
             <Calculator className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">EB Calculator</h2>
-            <p className="text-indigo-200 text-sm">Daily electricity cost breakdown</p>
+            <h2 className="text-lg md:text-xl font-bold">EB Calculator</h2>
+            <p className="text-indigo-200 text-xs md:text-sm">Daily electricity cost breakdown</p>
           </div>
         </div>
 
@@ -395,7 +395,7 @@ export function EBCalculator() {
 
       {/* Summary Cards */}
       {rows.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
           {[
             { label: 'Total Units', value: fmtUnits(totals.units) + ' kWh', color: 'yellow', icon: Zap },
             { label: 'Unit Amount', value: fmt(totals.unitAmount), color: 'blue', icon: IndianRupee },
@@ -405,10 +405,10 @@ export function EBCalculator() {
           ].map(card => (
             <div
               key={card.label}
-              className={`bg-${card.color}-50 border border-${card.color}-200 rounded-xl p-4`}
+              className={`bg-${card.color}-50 border border-${card.color}-200 rounded-xl p-3 md:p-4`}
             >
-              <p className={`text-xs font-medium text-${card.color}-600 mb-1`}>{card.label}</p>
-              <p className={`text-base font-bold text-${card.color}-900 break-words`}>{card.value}</p>
+              <p className={`text-[10px] md:text-xs font-medium text-${card.color}-600 mb-1`}>{card.label}</p>
+              <p className={`text-sm md:text-base font-bold text-${card.color}-900 break-words`}>{card.value}</p>
             </div>
           ))}
         </div>

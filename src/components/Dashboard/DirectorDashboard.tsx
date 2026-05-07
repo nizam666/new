@@ -298,23 +298,23 @@ export function DirectorDashboard() {
   }
 
   return (
-    <div className="space-y-8 max-w-[1600px] mx-auto pb-10">
+    <div className="space-y-6 md:space-y-8 max-w-[1600px] mx-auto pb-10 px-4 md:px-0">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Director Overview</h1>
-          <p className="text-slate-500 mt-1 flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Director Overview</h1>
+          <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
             <Activity className="w-4 h-4" />
             Real-time operational metrics
           </p>
         </div>
-        <div className="flex gap-3">
-          <div className="px-4 py-2 bg-white rounded-lg border border-slate-200 text-sm font-medium text-slate-600 shadow-sm flex items-center gap-2">
+        <div className="flex flex-wrap gap-2 md:gap-3">
+          <div className="px-3 md:px-4 py-2 bg-white rounded-lg border border-slate-200 text-xs md:text-sm font-medium text-slate-600 shadow-sm flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
             System Operational
           </div>
-          <div className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium shadow-lg shadow-slate-900/20">
-            {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          <div className="px-3 md:px-4 py-2 bg-slate-900 text-white rounded-lg text-xs md:text-sm font-medium shadow-lg shadow-slate-900/20">
+            {new Date().toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}
           </div>
         </div>
       </div>
@@ -350,8 +350,8 @@ export function DirectorDashboard() {
       </div>
 
       {/* Selfie Attendance Terminal */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-8 animate-in slide-in-from-bottom-4 duration-700">
-        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4 md:p-8 animate-in slide-in-from-bottom-4 duration-700">
+        <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
           <Clock className="w-5 h-5 text-indigo-500" />
           Selfie Attendance Terminal
         </h2>
