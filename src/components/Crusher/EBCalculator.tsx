@@ -62,8 +62,7 @@ export function EBCalculator() {
 
       if (error) throw error;
 
-      // Group by date — sum all units for the same day, fixed cost once per day
-      // Track the first starting reading and the last ending reading
+      // 1. Group existing data from DB
       const grouped: Record<string, { units: number, start: string, end: string }> = {};
       for (const row of data || []) {
         const d = row.report_date;
@@ -75,30 +74,53 @@ export function EBCalculator() {
           };
         }
         grouped[d].units += (row.units_consumed ?? 0);
-        // Overwrite end with the latest record for the day
         if (row.ending_reading?.['KW CH']) {
-            grouped[d].end = row.ending_reading['KW CH'];
+          grouped[d].end = row.ending_reading['KW CH'];
         }
       }
 
-      const calculated: DailyRow[] = Object.entries(grouped).map(([date, data]) => {
-        const unitAmount = data.units * RATE_PER_UNIT;
-        const fixedCost = DAILY_FIXED;          // ₹616 once per day
+      // 2. Generate dates up to today (don't show future data)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const lastDayOfMonth = new Date(selectedYear, selectedMonth + 1, 0);
+      
+      // Determine the last day to display
+      let displayUntilDay = lastDayOfMonth.getDate();
+      
+      // If the selected month is the current month, only show up to today
+      if (selectedYear === today.getFullYear() && selectedMonth === today.getMonth()) {
+        displayUntilDay = today.getDate();
+      } else if (new Date(selectedYear, selectedMonth, 1) > today) {
+        // If the selected month is in the future, don't show any days
+        displayUntilDay = 0;
+      }
+
+      const calculated: DailyRow[] = [];
+
+      for (let day = 1; day <= displayUntilDay; day++) {
+        const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayData = grouped[dateStr] || { units: 0, start: '-', end: '-' };
+        
+        const unitAmount = dayData.units * RATE_PER_UNIT;
+        const fixedCost = DAILY_FIXED; // Still apply fixed cost even if units are 0
         const tax = (unitAmount + fixedCost) * TAX_RATE;
         const sumAmount = unitAmount + fixedCost + tax;
-        return { 
-            report_date: date, 
-            starting_reading: data.start,
-            ending_reading: data.end,
-            units_consumed: data.units, 
-            unitAmount, 
-            fixedCost, 
-            tax, 
-            sumAmount 
-        };
-      });
+
+        calculated.push({
+          report_date: dateStr,
+          starting_reading: dayData.start,
+          ending_reading: dayData.end,
+          units_consumed: dayData.units,
+          unitAmount,
+          fixedCost,
+          tax,
+          sumAmount
+        });
+      }
 
       setRows(calculated);
+
     } catch (err) {
       console.error('Error fetching EB data:', err);
     } finally {
