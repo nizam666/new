@@ -150,7 +150,7 @@ export function ContractorCalculator() {
 
           dispatchData.forEach(d => {
             const rawName = d.item_name || 'Other Item';
-            const isExplosive = /PG|NONEL|DETONATOR|EXPLOSIVE/i.test(rawName);
+            const isExplosive = /PG|NONEL|DETONATOR|EXPLOSIVE|E\s*Det|\bED\b/i.test(rawName);
             const key = isExplosive ? 'Explosives' : rawName;
             
             const isPG = rawName.toUpperCase() === 'PG' || rawName.toUpperCase().includes('POWERGEL');
