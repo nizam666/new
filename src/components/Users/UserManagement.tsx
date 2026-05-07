@@ -31,7 +31,6 @@ const ACCESS_MODULES = [
       { key: 'selfie_attendance', label: 'Selfie Attendance', icon: Camera },
       { key: 'safety', label: 'Safety', icon: Shield },
       { key: 'permits', label: 'Permits', icon: FileText },
-      { key: 'accounts', label: 'Accounts', icon: Wallet },
     ]
   },
   {
@@ -86,13 +85,27 @@ const ACCESS_MODULES = [
     ]
   },
   {
+    group: 'Financials',
+    icon: Wallet,
+    color: 'indigo',
+    items: [
+      { key: 'accounts', label: 'Accounts', icon: Wallet },
+      { key: 'contractor_billing', label: 'Contractor Billing', icon: Calculator },
+      { key: 'contractor_deductions', label: 'Itemized Deductions', icon: Receipt },
+    ]
+  },
+  {
     group: 'Reports & Admin',
     icon: BarChart3,
     color: 'indigo',
     items: [
-      { key: 'reports', label: 'Reports Dashboard', icon: BarChart3 },
-      { key: 'permit_reports', label: 'Permit Reports', icon: FileText },
+      { key: 'quarry_production', label: 'Quarry Production', icon: BarChart3 },
+      { key: 'quarry_cost', label: 'Production Cost', icon: Calculator },
+      { key: 'sales_report', label: 'Sales Analytics', icon: ShoppingCart },
+      { key: 'accounting_report', label: 'Financial Report', icon: Wallet },
+      { key: 'operations_history', label: 'Operations History', icon: Database },
       { key: 'attendance_report', label: 'Attendance Report', icon: Clock },
+      { key: 'permit_reports', label: 'Permit Reports', icon: FileText },
       { key: 'user_management', label: 'User Management', icon: Users },
       { key: 'approvals', label: 'Approvals', icon: ClipboardCheck },
     ]
@@ -111,23 +124,23 @@ const COLOR_MAP: Record<string, { bg: string; activeBg: string; border: string; 
 // Derive a "role" string from permissions for DB storage
 function deriveRole(permissions: string[]): string {
   const p = new Set(permissions);
-  if (p.has('user_management') && p.has('accounts') && p.has('approvals') && p.has('reports')) return 'director';
-  if (p.has('accounts') && p.has('reports') && !p.has('drilling')) return 'chairmen';
+  if (p.has('user_management') && p.has('accounts') && p.has('approvals') && p.has('accounting_report')) return 'director';
+  if (p.has('accounts') && p.has('accounting_report') && !p.has('drilling')) return 'chairmen';
   if (p.has('sales') && !p.has('drilling') && !p.has('crusher_production')) return 'sales';
   if (p.has('crusher_production') && !p.has('drilling')) return 'crusher_manager';
   if (p.has('drilling') || p.has('blasting') || p.has('loading') || p.has('transport')) return 'contractor';
-  if (p.has('approvals') || p.has('reports') || p.has('inventory')) return 'manager';
+  if (p.has('approvals') || p.has('accounting_report') || p.has('inventory')) return 'manager';
   return 'worker';
 }
 
 // Preset access bundles
 const PRESETS: { label: string; color: string; permissions: string[] }[] = [
   { label: 'Director (Full)', color: 'slate', permissions: ACCESS_MODULES.flatMap(g => g.items.map(i => i.key)) },
-  { label: 'Chairmen', color: 'indigo', permissions: ['dashboard', 'selfie_attendance', 'accounts', 'reports', 'permit_reports', 'attendance_report'] },
-  { label: 'Manager', color: 'blue', permissions: ['dashboard', 'selfie_attendance', 'drilling', 'blasting', 'loading', 'transport', 'quarry_attendance', 'crusher_attendance', 'photos_videos', 'inventory', 'returnable_assets', 'safety', 'crusher_production', 'eb_reports', 'eb_records', 'eb_calculator', 'crusher_maintenance', 'sales', 'customers', 'approvals', 'reports', 'attendance_report'] },
-  { label: 'Contractor', color: 'orange', permissions: ['dashboard', 'selfie_attendance', 'drilling', 'blasting', 'loading', 'transport', 'quarry_attendance', 'photos_videos', 'inventory', 'safety'] },
+  { label: 'Chairmen', color: 'indigo', permissions: ['dashboard', 'selfie_attendance', 'accounts', 'accounting_report', 'sales_report', 'attendance_report'] },
+  { label: 'Manager', color: 'blue', permissions: ['dashboard', 'selfie_attendance', 'drilling', 'blasting', 'loading', 'transport', 'quarry_attendance', 'crusher_attendance', 'photos_videos', 'inventory', 'returnable_assets', 'safety', 'crusher_production', 'eb_reports', 'eb_records', 'eb_calculator', 'crusher_maintenance', 'sales', 'customers', 'approvals', 'quarry_production', 'sales_report', 'accounting_report', 'attendance_report'] },
+  { label: 'Contractor', color: 'orange', permissions: ['dashboard', 'selfie_attendance', 'drilling', 'blasting', 'loading', 'transport', 'quarry_attendance', 'photos_videos', 'inventory', 'safety', 'contractor_billing', 'contractor_deductions', 'quarry_production'] },
   { label: 'Crusher Manager', color: 'purple', permissions: ['dashboard', 'selfie_attendance', 'crusher_attendance', 'photos_videos', 'crusher_production', 'eb_reports', 'eb_records', 'eb_calculator', 'crusher_maintenance', 'inventory', 'returnable_assets'] },
-  { label: 'Sales', color: 'emerald', permissions: ['dashboard', 'selfie_attendance', 'sales', 'customers', 'accounts'] },
+  { label: 'Sales', color: 'emerald', permissions: ['dashboard', 'selfie_attendance', 'sales', 'customers', 'accounts', 'sales_report'] },
   { label: 'Quarry Worker', color: 'orange', permissions: ['dashboard', 'selfie_attendance', 'quarry_attendance'] },
 ];
 
