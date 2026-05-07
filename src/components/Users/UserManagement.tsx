@@ -43,6 +43,7 @@ const ACCESS_MODULES = [
       { key: 'loading', label: 'Breaking / Loading', icon: ClipboardCheck },
       { key: 'transport', label: 'Transport', icon: Truck },
       { key: 'quarry_attendance', label: 'Quarry Attendance', icon: Clock },
+      { key: 'quarry_jcb', label: 'JCB Operations (Quarry)', icon: Truck },
       { key: 'quarry_storage', label: 'Storage Management', icon: Database },
     ]
   },
@@ -54,6 +55,7 @@ const ACCESS_MODULES = [
       { key: 'crusher_attendance', label: 'Crusher Attendance', icon: Clock },
       { key: 'photos_videos', label: 'Photos / Videos', icon: Camera },
       { key: 'crusher_production', label: 'Crusher Production', icon: Factory },
+      { key: 'crusher_efficiency', label: 'Production Cost (Avg)', icon: Calculator },
       { key: 'eb_reports', label: 'EB Reports', icon: Zap },
       { key: 'eb_records', label: 'EB Records', icon: Receipt },
       { key: 'eb_calculator', label: 'EB Calculator', icon: Calculator },
@@ -68,10 +70,12 @@ const ACCESS_MODULES = [
     items: [
       { key: 'vendor_management', label: 'Vendor Management', icon: Users },
       { key: 'vendor_bill_entry', label: 'New Bill Entry', icon: Receipt },
-      { key: 'inventory', label: 'Inventory', icon: Package },
+      { key: 'inventory', label: 'Inventory Hub', icon: Package },
+      { key: 'item_management', label: 'Item Management', icon: Database },
+      { key: 'stock_issue', label: 'Issue Items', icon: ClipboardCheck },
       { key: 'returnable_assets', label: 'Returnable Assets', icon: RotateCcw },
-      { key: 'storage', label: 'Storage', icon: Database },
-      { key: 'dispatch', label: 'Dispatch', icon: Truck },
+      { key: 'storage', label: 'Storage Management', icon: Database },
+      { key: 'dispatch', label: 'Inventory Dispatch', icon: Truck },
     ]
   },
   {
@@ -89,7 +93,8 @@ const ACCESS_MODULES = [
     icon: Wallet,
     color: 'indigo',
     items: [
-      { key: 'accounts', label: 'Accounts', icon: Wallet },
+      { key: 'accounts', label: 'Accounts (Fund)', icon: Wallet },
+      { key: 'overhead_management', label: 'Overhead Management', icon: Shield },
       { key: 'contractor_billing', label: 'Contractor Billing', icon: Calculator },
       { key: 'contractor_deductions', label: 'Itemized Deductions', icon: Receipt },
     ]
@@ -99,14 +104,17 @@ const ACCESS_MODULES = [
     icon: BarChart3,
     color: 'indigo',
     items: [
+      { key: 'material_balance', label: 'Material Balance', icon: Factory },
       { key: 'quarry_production', label: 'Quarry Production', icon: BarChart3 },
-      { key: 'quarry_cost', label: 'Production Cost', icon: Calculator },
+      { key: 'boulders_report', label: 'Boulders Sale Report', icon: ShoppingCart },
+      { key: 'quarry_cost', label: 'Production Cost (Q)', icon: Calculator },
       { key: 'sales_report', label: 'Sales Analytics', icon: ShoppingCart },
       { key: 'accounting_report', label: 'Financial Report', icon: Wallet },
       { key: 'operations_history', label: 'Operations History', icon: Database },
       { key: 'attendance_report', label: 'Attendance Report', icon: Clock },
       { key: 'permit_reports', label: 'Permit Reports', icon: FileText },
       { key: 'user_management', label: 'User Management', icon: Users },
+      { key: 'contractor_management', label: 'Contractor Management', icon: Users },
       { key: 'approvals', label: 'Approvals', icon: ClipboardCheck },
     ]
   },
