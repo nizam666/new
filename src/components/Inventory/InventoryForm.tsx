@@ -507,11 +507,14 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         .eq('transaction_type', 'expense')
         .order('transaction_date', { ascending: false });
 
-      // Filter out contractor payments, overheads/salaries, and advances
+      // Filter out contractor payments, overheads/salaries, advances, and Sales-related bata/expenses
       const filteredBills = (allBills || []).filter((bill: any) => {
         const notesLower = (bill.notes || '').toLowerCase();
         const reasonLower = (bill.reason || '').toLowerCase();
-        const excludeKeywords = ['contractor payment', 'contractor advance', 'salary', 'advance'];
+        const excludeKeywords = [
+          'contractor payment', 'contractor advance', 'salary', 'advance', 
+          'bata', 'dept: sales', 'dept: weighbridge'
+        ];
         
         return !excludeKeywords.some(keyword => 
           notesLower.includes(keyword) || reasonLower.includes(keyword)
