@@ -42,9 +42,13 @@ const ACCESS_MODULES = [
       { key: 'blasting', label: 'Blasting', icon: Factory },
       { key: 'loading', label: 'Breaking / Loading', icon: ClipboardCheck },
       { key: 'transport', label: 'Transport', icon: Truck },
-      { key: 'quarry_attendance', label: 'Quarry Attendance', icon: Clock },
+      { key: 'quarry_attendance', label: 'Attendance', icon: Clock },
       { key: 'quarry_jcb', label: 'JCB Operations (Quarry)', icon: Truck },
       { key: 'quarry_storage', label: 'Storage Management', icon: Database },
+      { key: 'boulders_report', label: 'Boulders Sale Report', icon: BarChart3 },
+      { key: 'contractor_billing', label: 'Contractor Calculator', icon: Calculator },
+      { key: 'quarry_production', label: 'Quarry Production Report', icon: FileText },
+      { key: 'contractor_deductions', label: 'Quarry Deduction Report', icon: FileText },
     ]
   },
   {
@@ -95,8 +99,6 @@ const ACCESS_MODULES = [
     items: [
       { key: 'accounts', label: 'Accounts (Fund)', icon: Wallet },
       { key: 'overhead_management', label: 'Overhead Management', icon: Shield },
-      { key: 'contractor_billing', label: 'Contractor Billing', icon: Calculator },
-      { key: 'contractor_deductions', label: 'Itemized Deductions', icon: Receipt },
     ]
   },
   {
@@ -105,8 +107,6 @@ const ACCESS_MODULES = [
     color: 'indigo',
     items: [
       { key: 'material_balance', label: 'Material Balance', icon: Factory },
-      { key: 'quarry_production', label: 'Quarry Production', icon: BarChart3 },
-      { key: 'boulders_report', label: 'Boulders Sale Report', icon: ShoppingCart },
       { key: 'quarry_cost', label: 'Production Cost (Q)', icon: Calculator },
       { key: 'sales_report', label: 'Sales Analytics', icon: ShoppingCart },
       { key: 'accounting_report', label: 'Financial Report', icon: Wallet },
