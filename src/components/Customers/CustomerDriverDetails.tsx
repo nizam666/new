@@ -72,23 +72,23 @@ export function CustomerDriverDetails({ onAddNew, onEdit }: CustomerDriverDetail
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 md:mb-8">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by driver name, license number, or phone..."
+            placeholder="Search drivers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border-2 border-slate-50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
+            className="w-full pl-10 pr-4 py-2 text-sm border-2 border-slate-50 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
           />
         </div>
         <button
           onClick={onAddNew}
-          className="px-4 py-2 bg-[#4B6B9E] text-white rounded-lg hover:bg-[#3d5782] transition-colors shadow shadow-[#4B6B9E]/20"
-          title="Add Driver"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-[#4B6B9E] text-white rounded-xl hover:bg-[#3d5782] transition-colors shadow shadow-[#4B6B9E]/20 text-sm font-bold"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4 md:w-5 md:h-5" />
+          <span className="sm:hidden">Add Driver</span>
         </button>
       </div>
 
@@ -119,7 +119,7 @@ export function CustomerDriverDetails({ onAddNew, onEdit }: CustomerDriverDetail
               <div 
                 key={driver.id} 
                 onClick={() => onEdit(driver)}
-                className={`group rounded-2xl border-2 p-5 transition-all duration-300 cursor-pointer flex flex-col h-full relative overflow-hidden ${
+                className={`group rounded-2xl border-2 p-4 md:p-5 transition-all duration-300 cursor-pointer flex flex-col h-full relative overflow-hidden ${
                   isInactive 
                     ? 'bg-slate-50 border-slate-200 opacity-75 grayscale-[0.5]' 
                     : 'bg-white border-slate-50 hover:border-blue-500/20 hover:shadow-xl hover:shadow-slate-200/50'
@@ -131,14 +131,14 @@ export function CustomerDriverDetails({ onAddNew, onEdit }: CustomerDriverDetail
                 }`}></div>
                 
                 <div className="flex justify-between items-start mb-4">
-                  <div className={`p-2.5 rounded-xl transition-colors ${
+                  <div className={`p-2 md:p-2.5 rounded-xl transition-colors ${
                     isInactive ? 'bg-slate-200 text-slate-500' : 'bg-blue-50 text-[#4B6B9E]'
                   }`}>
-                    <UserCircle className="w-6 h-6" />
+                    <UserCircle className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
                   
-                  {/* Actions that appear on hover */}
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 duration-200">
+                  {/* Actions */}
+                  <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity md:translate-x-4 group-hover:translate-x-0 duration-200">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -159,15 +159,15 @@ export function CustomerDriverDetails({ onAddNew, onEdit }: CustomerDriverDetail
 
                 {/* Driver Identity Display */}
                 <div className="mb-4">
-                  <h3 className={`text-xl font-black tracking-wider capitalize ${isInactive ? 'text-slate-600' : 'text-slate-900'}`}>
+                  <h3 className={`text-lg md:text-xl font-black tracking-wider capitalize ${isInactive ? 'text-slate-600' : 'text-slate-900'}`}>
                     {driver.driver_name}
                   </h3>
-                  <span className={`inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                  <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border ${
                     isInactive 
                       ? 'bg-slate-100 text-slate-500 border-slate-200' 
                       : 'bg-green-50 text-green-600 border-green-200'
                   }`}>
-                    <Activity className="w-3 h-3" />
+                    <Activity className="w-2.5 h-2.5" />
                     {driver.status}
                   </span>
                 </div>

@@ -354,53 +354,53 @@ export function CustomerDetails() {
 
   if (selectedCustomer) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <div className="flex justify-between items-center">
           <button
             onClick={handleCloseCustomerView}
-            className="flex items-center text-sm text-cyan-600 hover:text-cyan-700 mb-4"
+            className="flex items-center text-xs md:text-sm text-cyan-600 hover:text-cyan-700"
           >
             ← Back to customers
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 pb-32">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6 pb-24 md:pb-32">
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
             <div className="w-full">
-              <h2 className="text-2xl font-black text-slate-900">{selectedCustomer.company || 'Untitled Company'}</h2>
+              <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedCustomer.company || 'Untitled Company'}</h2>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${selectedCustomer.is_gst_registered !== false ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest border ${selectedCustomer.is_gst_registered !== false ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                    {selectedCustomer.is_gst_registered !== false ? 'GST Registered' : 'URP (Unregistered)'}
                 </span>
                 {selectedCustomer.is_gst_registered !== false && (
-                   <span className="text-sm font-bold text-slate-500">{selectedCustomer.tax_id || selectedCustomer.gst_number}</span>
+                   <span className="text-xs md:text-sm font-bold text-slate-500">{selectedCustomer.tax_id || selectedCustomer.gst_number}</span>
                 )}
               </div>
 
               <div className="mt-4 space-y-2">
-                <div className="flex items-center text-slate-700">
-                  <User className="h-4 w-4 mr-2 text-slate-500" />
+                <div className="flex items-center text-xs md:text-sm text-slate-700">
+                  <User className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2 text-slate-500" />
                   {selectedCustomer.name}
                 </div>
-                <div className="flex items-center text-slate-700">
-                  <Phone className="h-4 w-4 mr-2 text-slate-500" />
+                <div className="flex items-center text-xs md:text-sm text-slate-700">
+                  <Phone className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2 text-slate-500" />
                   {selectedCustomer.phone || 'N/A'}
                 </div>
-                <div className="flex items-center text-slate-700">
-                  <Mail className="h-4 w-4 mr-2 text-slate-500" />
+                <div className="flex items-center text-xs md:text-sm text-slate-700">
+                  <Mail className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2 text-slate-500" />
                   {selectedCustomer.email || 'N/A'}
                 </div>
-                <div className="flex items-start text-slate-700 pt-2 border-t border-slate-100">
-                  <MapPin className="h-4 w-4 mr-2 mt-1 flex-shrink-0 text-slate-400" />
+                <div className="flex items-start text-xs md:text-sm text-slate-700 pt-2 border-t border-slate-100">
+                  <MapPin className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2 mt-1 flex-shrink-0 text-slate-400" />
                   <div className="space-y-3">
                     <div>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Billing Address</span>
-                      <span className="text-sm font-medium">{selectedCustomer.billing_address || selectedCustomer.address || 'N/A'}</span>
+                      <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Billing Address</span>
+                      <span className="text-xs md:text-sm font-medium">{selectedCustomer.billing_address || selectedCustomer.address || 'N/A'}</span>
                     </div>
                     {selectedCustomer.delivery_address && selectedCustomer.delivery_address !== selectedCustomer.billing_address && (
                       <div>
-                        <span className="text-[10px] font-black text-cyan-600 uppercase tracking-widest block mb-0.5">Delivery Site</span>
-                        <span className="text-sm font-medium">{selectedCustomer.delivery_address}</span>
+                        <span className="text-[9px] md:text-[10px] font-black text-cyan-600 uppercase tracking-widest block mb-0.5">Delivery Site</span>
+                        <span className="text-xs md:text-sm font-medium">{selectedCustomer.delivery_address}</span>
                       </div>
                     )}
                   </div>
@@ -408,27 +408,27 @@ export function CustomerDetails() {
               </div>
             </div>
 
-            <div className="w-full lg:w-auto bg-slate-50 p-4 sm:p-6 rounded-2xl min-w-[320px] border border-slate-200">
+            <div className="w-full lg:w-auto bg-slate-50 p-4 md:p-6 rounded-2xl md:min-w-[320px] border border-slate-200">
               <div className="flex items-center gap-2 mb-4">
                 <Wallet className="w-4 h-4 text-cyan-500" />
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Financial Summary</h3>
+                <h3 className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Financial Summary</h3>
               </div>
               
               <div className="space-y-4">
                 <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
-                  <span className="text-xs font-bold text-slate-500">Total Billed</span>
-                  <span className="text-sm font-black text-slate-900">₹{totalBilled.toLocaleString('en-IN')}</span>
+                  <span className="text-[10px] md:text-xs font-bold text-slate-500">Total Billed</span>
+                  <span className="text-xs md:text-sm font-black text-slate-900">₹{totalBilled.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
-                  <span className="text-xs font-bold text-slate-500">Total Received</span>
-                  <span className="text-sm font-black text-green-600">₹{totalPaid.toLocaleString('en-IN')}</span>
+                  <span className="text-[10px] md:text-xs font-bold text-slate-500">Total Received</span>
+                  <span className="text-xs md:text-sm font-black text-green-600">₹{totalPaid.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="pt-2">
-                  <div className={`p-4 rounded-xl border-2 ${totalBalance > 0 ? 'bg-orange-50 border-orange-200' : totalBalance < 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
-                    <span className="text-[10px] font-black uppercase tracking-widest block mb-1">
-                      {totalBalance > 0 ? 'Outstanding Balance' : totalBalance < 0 ? 'Advance Payment' : 'Account Settled'}
+                  <div className={`p-3 md:p-4 rounded-xl border-2 ${totalBalance > 0 ? 'bg-orange-50 border-orange-200' : totalBalance < 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest block mb-1">
+                      {totalBalance > 0 ? 'Outstanding' : totalBalance < 0 ? 'Advance' : 'Settled'}
                     </span>
-                    <div className={`text-2xl font-black ${totalBalance > 0 ? 'text-orange-700' : totalBalance < 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
+                    <div className={`text-xl md:text-2xl font-black ${totalBalance > 0 ? 'text-orange-700' : totalBalance < 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
                       ₹{Math.abs(totalBalance).toLocaleString('en-IN')}
                     </div>
                   </div>
@@ -441,50 +441,50 @@ export function CustomerDetails() {
                     e.stopPropagation();
                     handleEdit(selectedCustomer);
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 hover:border-cyan-500 hover:text-cyan-700 transition-all shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 md:py-3 bg-white border border-slate-200 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-wider text-slate-700 hover:border-cyan-500 hover:text-cyan-700 transition-all shadow-sm"
                 >
                   <Edit className="w-3.5 h-3.5" />
-                  Edit Customer Profile
+                  Edit Profile
                 </button>
               </div>
             </div>
           </div>
 
           {/* Ledger Section */}
-          <div className="mt-10">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div className="flex items-center gap-4 border-b border-slate-100 sm:border-0 pb-2 sm:pb-0">
+          <div className="mt-8 md:mt-10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 md:mb-6">
+              <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
                 <button
                   onClick={() => setActiveTab('statement')}
-                  className={`px-4 py-2 text-sm font-black rounded-lg transition-all ${
+                  className={`px-3 md:px-4 py-2 text-[10px] md:text-sm font-black rounded-lg transition-all whitespace-nowrap ${
                     activeTab === 'statement' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'
                   }`}
                 >
-                  Full Statement
+                  Statement
                 </button>
                 <button
                   onClick={() => setActiveTab('invoices')}
-                  className={`px-4 py-2 text-sm font-black rounded-lg transition-all ${
+                  className={`px-3 md:px-4 py-2 text-[10px] md:text-sm font-black rounded-lg transition-all whitespace-nowrap ${
                     activeTab === 'invoices' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'
                   }`}
                 >
-                  All Invoices
+                  Invoices
                 </button>
                 <button
                   onClick={() => setActiveTab('payments')}
-                  className={`px-4 py-2 text-sm font-black rounded-lg transition-all ${
+                  className={`px-3 md:px-4 py-2 text-[10px] md:text-sm font-black rounded-lg transition-all whitespace-nowrap ${
                     activeTab === 'payments' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'
                   }`}
                 >
-                  Payment History
+                  Payments
                 </button>
                 <button
                   onClick={() => setActiveTab('pricing')}
-                  className={`px-4 py-2 text-sm font-black rounded-lg transition-all ${
+                  className={`px-3 md:px-4 py-2 text-[10px] md:text-sm font-black rounded-lg transition-all whitespace-nowrap ${
                     activeTab === 'pricing' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'
                   }`}
                 >
-                  Custom Pricing
+                  Pricing
                 </button>
               </div>
             </div>
@@ -497,13 +497,13 @@ export function CustomerDetails() {
               <div className="space-y-4">
                 <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
                   <table className="min-w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
+                        <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
-                        <th className="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-wider">Transaction Details</th>
-                        <th className="px-6 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-wider">Debit (Bill)</th>
-                        <th className="px-6 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-wider">Credit (Paid)</th>
-                        <th className="px-6 py-3 text-center text-[10px] font-black text-slate-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 md:px-6 py-3 text-left text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider">Date</th>
+                        <th className="px-4 md:px-6 py-3 text-left text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider">Transaction</th>
+                        <th className="px-4 md:px-6 py-3 text-right text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider">Debit</th>
+                        <th className="px-4 md:px-6 py-3 text-right text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider">Credit</th>
+                        <th className="px-4 md:px-6 py-3 text-center text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
@@ -775,17 +775,17 @@ export function CustomerDetails() {
       </div>
 
       {/* Search and filter */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 md:p-4 mb-6">
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-slate-400" />
+            <Search className="h-4 w-4 md:h-5 md:w-5 text-slate-400" />
           </div>
           <input
             type="text"
-            placeholder="Search customers by name, company or phone..."
+            placeholder="Search customers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            className="block w-full pl-10 pr-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
           />
         </div>
       </div>

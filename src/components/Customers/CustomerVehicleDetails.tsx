@@ -70,23 +70,23 @@ export function CustomerVehicleDetails({ onAddNew, onEdit }: CustomerVehicleDeta
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 md:mb-8">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by license plate, owner, or vehicle type..."
+            placeholder="Search fleet..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border-2 border-slate-50 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium"
+            className="w-full pl-10 pr-4 py-2 text-sm border-2 border-slate-50 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium"
           />
         </div>
         <button
           onClick={onAddNew}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
-          title="Register New Vehicle"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 text-sm font-bold"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4 md:w-5 md:h-5" />
+          <span className="sm:hidden">Add Vehicle</span>
         </button>
       </div>
 
@@ -113,18 +113,18 @@ export function CustomerVehicleDetails({ onAddNew, onEdit }: CustomerVehicleDeta
             <div 
               key={vehicle.id} 
               onClick={() => onEdit(vehicle)}
-              className="group bg-white rounded-2xl border-2 border-slate-50 p-5 hover:border-indigo-500/20 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 cursor-pointer flex flex-col h-full relative overflow-hidden"
+              className="group bg-white rounded-2xl border-2 border-slate-50 p-4 md:p-5 hover:border-indigo-500/20 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 cursor-pointer flex flex-col h-full relative overflow-hidden"
             >
               {/* Colored top accent based on vehicle type */}
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-400 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               
               <div className="flex justify-between items-start mb-4">
-                <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 transition-colors">
-                  <Truck className="w-6 h-6" />
+                <div className="p-2 md:p-2.5 rounded-xl bg-indigo-50 text-indigo-600 transition-colors">
+                  <Truck className="w-5 h-5 md:w-6 md:h-6" />
                 </div>
                 
-                {/* Actions that appear on hover */}
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 duration-200">
+                {/* Actions */}
+                <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity md:translate-x-4 group-hover:translate-x-0 duration-200">
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -145,10 +145,10 @@ export function CustomerVehicleDetails({ onAddNew, onEdit }: CustomerVehicleDeta
 
               {/* Number Plate Display */}
               <div className="mb-4">
-                <h3 className="text-xl font-black text-slate-900 tracking-wider">
+                <h3 className="text-lg md:text-xl font-black text-slate-900 tracking-wider">
                   {vehicle.vehicle_number}
                 </h3>
-                <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+                <span className="inline-flex mt-1 px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
                   {vehicle.vehicle_type}
                 </span>
               </div>

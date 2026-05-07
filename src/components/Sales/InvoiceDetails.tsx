@@ -365,45 +365,45 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 items-stretch">
         {/* Total Invoices */}
-        <div className="bg-blue-50 bg-opacity-50 rounded-xl p-5 border border-blue-100 flex flex-col justify-between shadow-sm transition-all hover:shadow-md">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shadow-inner">
-              <FileText className="w-5 h-5 text-blue-600" />
+        <div className="bg-blue-50 bg-opacity-50 rounded-xl p-4 md:p-5 border border-blue-100 flex flex-col justify-between shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center gap-3 mb-3 md:mb-4">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg md:rounded-xl flex items-center justify-center shadow-inner">
+              <FileText className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
             </div>
-            <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">Total Invoices</p>
+            <p className="text-[9px] md:text-[10px] text-blue-600 font-black uppercase tracking-widest">Total Invoices</p>
           </div>
-          <p className="text-3xl font-black text-blue-900 leading-none">{stats.totalInvoices}</p>
+          <p className="text-2xl md:text-3xl font-black text-blue-900 leading-none">{stats.totalInvoices}</p>
         </div>
 
         {/* Total Sales Amount */}
-        <div className="bg-emerald-50 bg-opacity-50 rounded-xl p-5 border border-emerald-100 flex flex-col justify-between shadow-sm transition-all hover:shadow-md">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shadow-inner">
-              <DollarSign className="w-5 h-5 text-emerald-600" />
+        <div className="bg-emerald-50 bg-opacity-50 rounded-xl p-4 md:p-5 border border-emerald-100 flex flex-col justify-between shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center gap-3 mb-3 md:mb-4">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-100 rounded-lg md:rounded-xl flex items-center justify-center shadow-inner">
+              <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-emerald-600" />
             </div>
-            <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">Total Sales Amount</p>
+            <p className="text-[9px] md:text-[10px] text-emerald-600 font-black uppercase tracking-widest">Total Sales</p>
           </div>
-          <p className="text-3xl font-black text-emerald-900 leading-none">₹{stats.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl md:text-3xl font-black text-emerald-900 leading-none">₹{stats.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
         </div>
 
         {/* Total Received (Paid) */}
-        <div className="bg-emerald-50 bg-opacity-50 rounded-xl p-5 border border-emerald-200 flex flex-col shadow-sm transition-all hover:shadow-md">
+        <div className="bg-emerald-50 bg-opacity-50 rounded-xl p-4 md:p-5 border border-emerald-200 flex flex-col shadow-sm transition-all hover:shadow-md">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shadow-inner">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-100 rounded-lg md:rounded-xl flex items-center justify-center shadow-inner">
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-emerald-600" />
               </div>
-              <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">Total Received</p>
+              <p className="text-[9px] md:text-[10px] text-emerald-600 font-black uppercase tracking-widest">Received</p>
             </div>
           </div>
           
-          <p className="text-3xl font-black text-emerald-900 mb-4 leading-none">₹{stats.totalPaid.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+          <p className="text-2xl md:text-3xl font-black text-emerald-900 mb-3 md:mb-4 leading-none">₹{stats.totalPaid.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
           
-          <div className="space-y-1.5 pt-3 border-t border-emerald-100">
+          <div className="space-y-1 pt-2 md:pt-3 border-t border-emerald-100">
             {Object.entries(stats.breakdown).map(([mode, amount]) => amount > 0 && (
-              <div key={mode} className="flex justify-between items-center text-[10px]">
+              <div key={mode} className="flex justify-between items-center text-[9px] md:text-[10px]">
                 <span className="text-emerald-600 font-bold uppercase tracking-wider">{mode === 'netbanking' ? 'Bank' : mode}</span>
                 <span className="font-black text-emerald-800">₹{amount.toLocaleString('en-IN')}</span>
               </div>
@@ -412,34 +412,34 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
         </div>
 
         {/* Pending / Advance */}
-        <div className={`${stats.totalPending >= 0 ? 'bg-orange-50 border-orange-100' : 'bg-green-50 border-green-100'} bg-opacity-50 rounded-xl p-5 border flex flex-col justify-between shadow-sm transition-all hover:shadow-md`}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`w-10 h-10 ${stats.totalPending >= 0 ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'} rounded-xl flex items-center justify-center shadow-inner`}>
-              {stats.totalPending >= 0 ? <AlertCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+        <div className={`${stats.totalPending >= 0 ? 'bg-orange-50 border-orange-100' : 'bg-green-50 border-green-100'} bg-opacity-50 rounded-xl p-4 md:p-5 border flex flex-col justify-between shadow-sm transition-all hover:shadow-md`}>
+          <div className="flex items-center gap-3 mb-3 md:mb-4">
+            <div className={`w-8 h-8 md:w-10 md:h-10 ${stats.totalPending >= 0 ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'} rounded-lg md:rounded-xl flex items-center justify-center shadow-inner`}>
+              {stats.totalPending >= 0 ? <AlertCircle className="w-4 h-4 md:w-5 md:h-5" /> : <CheckCircle className="w-4 h-4 md:w-5 md:h-5" />}
             </div>
-            <p className={`text-[10px] ${stats.totalPending >= 0 ? 'text-orange-600' : 'text-green-600'} font-black uppercase tracking-widest`}>
-              {stats.totalPending >= 0 ? 'Total Pending' : 'Advance Balance'}
+            <p className={`text-[9px] md:text-[10px] ${stats.totalPending >= 0 ? 'text-orange-600' : 'text-green-600'} font-black uppercase tracking-widest`}>
+              {stats.totalPending >= 0 ? 'Pending' : 'Advance'}
             </p>
           </div>
-          <p className={`text-3xl font-black ${stats.totalPending >= 0 ? 'text-orange-700' : 'text-green-700'} leading-none`}>
+          <p className={`text-2xl md:text-3xl font-black ${stats.totalPending >= 0 ? 'text-orange-700' : 'text-green-700'} leading-none`}>
             ₹{Math.abs(stats.totalPending).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </p>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 md:p-4">
+        <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
           <input
             type="text"
-            placeholder="Search by invoice number or customer..."
+            placeholder="Search invoice or customer..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
+            className="px-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[140px]"
           >
             <option value="all">All Status</option>
             <option value="unpaid">Unpaid</option>
@@ -459,29 +459,29 @@ export function InvoiceDetails({ onEdit, onView }: InvoiceDetailsProps) {
           {filteredInvoices.map((invoice) => (
             <div
               key={invoice.id}
-              className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow"
+              className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6 hover:shadow-md transition-shadow"
             >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-blue-600" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
                       <button
                         onClick={() => onView?.(invoice)}
-                        className="text-lg font-bold text-blue-600 hover:text-blue-800 hover:underline transition-all text-left"
+                        className="text-base md:text-lg font-bold text-blue-600 hover:text-blue-800 hover:underline transition-all text-left"
                       >
                         {invoice.invoice_number}
                       </button>
-                      <span className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
+                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${getStatusColor(invoice.status)}`}>
                         {getStatusIcon(invoice.status)}
                         {invoice.status.toUpperCase()}
                       </span>
                     </div>
-                    <p className="text-sm font-bold text-slate-700">{invoice.customer_name}</p>
+                    <p className="text-xs md:text-sm font-bold text-slate-700">{invoice.customer_name}</p>
                     {invoice.delivery_location && (
-                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      <p className="text-[9px] md:text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                         Dest: {invoice.delivery_location}
                       </p>
                     )}

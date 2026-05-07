@@ -139,16 +139,16 @@ export function CustomerPricing({ customerId, customerName }: CustomerPricingPro
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Tag className="w-4 h-4 text-cyan-600" />
-          <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+          <Tag className="w-3.5 h-3.5 md:w-4 md:h-4 text-cyan-600" />
+          <span className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">
             Custom Pricing for {customerName}
           </span>
         </div>
         <button
           onClick={() => { setShowAddForm(true); setEditingId(null); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-black uppercase tracking-wider hover:bg-cyan-700 transition-all shadow-md shadow-cyan-200"
+          className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-2 md:py-1.5 bg-cyan-600 text-white rounded-lg text-[10px] md:text-xs font-black uppercase tracking-wider hover:bg-cyan-700 transition-all shadow-md shadow-cyan-200"
         >
           <Plus className="w-3.5 h-3.5" /> Add Price
         </button>
@@ -173,7 +173,7 @@ export function CustomerPricing({ customerId, customerName }: CustomerPricingPro
               </datalist>
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Price (₹) *</label>
+              <label className="block text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Price (₹) *</label>
               <input
                 type="number"
                 min="0"
@@ -181,15 +181,15 @@ export function CustomerPricing({ customerId, customerName }: CustomerPricingPro
                 value={form.price_per_unit}
                 onChange={(e) => setForm({ ...form, price_per_unit: e.target.value })}
                 placeholder="e.g. 720"
-                className="w-full px-3 py-2.5 bg-white border-2 border-cyan-200 rounded-xl focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 font-black text-lg outline-none transition-all"
+                className="w-full px-3 py-2 md:py-2.5 bg-white border-2 border-cyan-200 rounded-xl focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 font-black text-base md:text-lg outline-none transition-all"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Per Unit</label>
+              <label className="block text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Per Unit</label>
               <select
                 value={form.unit}
                 onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                className="w-full px-3 py-2.5 bg-white border-2 border-cyan-200 rounded-xl focus:border-cyan-500 font-bold text-sm outline-none appearance-none"
+                className="w-full px-3 py-2 md:py-2.5 bg-white border-2 border-cyan-200 rounded-xl focus:border-cyan-500 font-bold text-sm outline-none appearance-none"
               >
                 {['Ton', 'MT', 'CFT', 'Nos', 'Load', 'KG', 'Ltr'].map(u => <option key={u}>{u}</option>)}
               </select>
@@ -204,17 +204,17 @@ export function CustomerPricing({ customerId, customerName }: CustomerPricingPro
               />
             </div>
           </div>
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-col sm:flex-row gap-2 pt-1">
             <button
               onClick={handleAdd}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 text-white rounded-lg text-xs font-black uppercase tracking-wider hover:bg-cyan-700 transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 px-4 py-2 bg-cyan-600 text-white rounded-lg text-[10px] md:text-xs font-black uppercase tracking-wider hover:bg-cyan-700 transition-all disabled:opacity-50"
             >
               <Check className="w-3.5 h-3.5" /> {saving ? 'Saving...' : 'Save Price'}
             </button>
             <button
               onClick={() => { setShowAddForm(false); setForm({ product_name: '', price_per_unit: '', unit: 'Ton', notes: '' }); }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-black uppercase tracking-wider hover:bg-slate-50 transition-all"
+              className="flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-wider hover:bg-slate-50 transition-all"
             >
               <X className="w-3.5 h-3.5" /> Cancel
             </button>
@@ -309,23 +309,23 @@ export function CustomerPricing({ customerId, customerName }: CustomerPricingPro
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 ml-3 flex-shrink-0">
+                  <div className="flex items-center justify-between gap-2 md:gap-3 ml-2 md:ml-3 flex-shrink-0">
                     <div className="text-right">
-                      <p className="text-lg font-black text-cyan-700">₹{rule.price_per_unit.toLocaleString('en-IN')}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">per {rule.unit}</p>
+                      <p className="text-base md:text-lg font-black text-cyan-700 leading-tight">₹{rule.price_per_unit.toLocaleString('en-IN')}</p>
+                      <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase">per {rule.unit}</p>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleStartEdit(rule)}
                         className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-cyan-100 hover:text-cyan-700 transition-all"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <Edit2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDelete(rule.id, rule.product_name)}
                         className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-600 transition-all"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
                       </button>
                     </div>
                   </div>

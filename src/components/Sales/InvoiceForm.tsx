@@ -569,30 +569,30 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel, onSa
 
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-w-5xl mx-auto">
-      <div className="px-8 py-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 transform -rotate-6">
-            <FileText className="w-6 h-6 text-white" />
+      <div className="px-4 md:px-8 py-4 md:py-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 transform -rotate-6">
+            <FileText className="w-5 h-5 md:w-6 md:h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-slate-800 tracking-tight">
-              {isReadOnly ? 'View Dispatch Ticket' : initialData ? 'Update Dispatch Ticket' : 'Weighbridge Dispatch Ticket'}
+            <h2 className="text-lg md:text-xl font-black text-slate-800 tracking-tight leading-tight">
+              {isReadOnly ? 'View Ticket' : initialData ? 'Update Ticket' : 'Dispatch Ticket'}
             </h2>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-              Digital Weighbridge System • {formData.invoice_number}
+            <p className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest truncate max-w-[150px] md:max-w-none">
+              Weighbridge • {formData.invoice_number}
             </p>
           </div>
         </div>
         <button
           type="button"
           onClick={onCancel}
-          className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+          className="p-1.5 md:p-2 hover:bg-slate-200 rounded-lg transition-colors"
         >
-          <X className="w-6 h-6 text-slate-400" />
+          <X className="w-5 h-5 md:w-6 md:h-6 text-slate-400" />
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-8">
+      <form onSubmit={handleSubmit} className="p-4 md:p-8">
         <fieldset disabled={isReadOnly} className="contents space-y-8">
           {error && (
             <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-start gap-3 border border-red-100 mb-6">
@@ -731,7 +731,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel, onSa
                 const itemTotal = calculateItemTotal(item);
                 
                 return (
-                  <div key={item.id} className="relative bg-slate-50 rounded-2xl border border-slate-200 p-6 animate-in slide-in-from-left-2 duration-300">
+                  <div key={item.id} className="relative bg-slate-50 rounded-2xl border border-slate-200 p-4 md:p-6 animate-in slide-in-from-left-2 duration-300">
                     {!isReadOnly && formData.items.length > 1 && (
                       <button
                         type="button"

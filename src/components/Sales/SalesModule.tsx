@@ -152,33 +152,33 @@ export function SalesModule() {
 
   // ── Main view ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Sales &amp; Operations</h2>
-          <p className="text-slate-600 mt-1">Manage invoices, customers, and material price master</p>
+          <h2 className="text-xl md:text-2xl font-bold text-slate-900">Sales &amp; Operations</h2>
+          <p className="text-xs md:text-sm text-slate-600 mt-1">Manage invoices, customers, and price master</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           {activeTab === 'investors' ? (
             <button onClick={() => setShowInvestorForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
-              <Plus className="w-5 h-5" /> Add New Rate
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs md:text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+              <Plus className="w-4 h-4" /> Add Rate
             </button>
           ) : activeTab === 'vehicles' ? (
             <button onClick={() => { setEditingVehicle(null); setShowVehicleForm(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
-              <Plus className="w-5 h-5" /> Register Vehicle
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs md:text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+              <Plus className="w-4 h-4" /> Register Vehicle
             </button>
           ) : activeTab === 'drivers' ? (
             <button onClick={() => { setEditingDriver(null); setShowDriverForm(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#4B6B9E] text-white rounded-lg hover:bg-[#3d5782] transition-colors shadow-lg">
-              <Plus className="w-5 h-5" /> Add Driver
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-[#4B6B9E] text-white text-xs md:text-sm font-bold rounded-lg hover:bg-[#3d5782] transition-colors shadow-lg">
+              <Plus className="w-4 h-4" /> Add Driver
             </button>
           ) : activeTab === 'invoices' ? (
             <button onClick={() => setShowNewInvoice(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
-              <Plus className="w-5 h-5" /> New Invoice
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs md:text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
+              <Plus className="w-4 h-4" /> New Invoice
             </button>
           ) : null}
         </div>
@@ -256,12 +256,12 @@ export function SalesModule() {
               { id: 'customers', label: 'Customers', Icon: Users },
               { id: 'vehicles', label: 'Vehicles', Icon: Truck },
               { id: 'drivers', label: 'Drivers', Icon: User },
-              { id: 'investors', label: 'Price Master', Icon: TrendingUp },
+              { id: 'investors', label: 'Rates', Icon: TrendingUp },
             ].map(({ id, label, Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id as any)}
-                className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${
+                className={`px-4 md:px-6 py-3 md:py-4 font-bold text-[10px] md:text-sm uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${
                   activeTab === id
                     ? id === 'drivers'
                       ? 'text-[#4B6B9E] border-b-2 border-[#4B6B9E] bg-white'
@@ -269,14 +269,14 @@ export function SalesModule() {
                     : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3.5 h-3.5 md:w-4 h-4" />
                 {label}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {activeTab === 'invoices' && (
             <InvoiceDetails
               onEdit={(inv) => setEditingInvoice(inv)}

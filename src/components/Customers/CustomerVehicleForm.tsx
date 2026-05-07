@@ -101,11 +101,11 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6">
+      <form onSubmit={handleSubmit} className="p-4 md:p-6">
         {error && (
-          <div className="mb-6 bg-red-50 text-red-700 p-4 rounded-lg flex items-start gap-3 border border-red-100">
+          <div className="mb-4 md:mb-6 bg-red-50 text-red-700 p-3 md:p-4 rounded-lg flex items-start gap-3 border border-red-100">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <p className="text-sm font-medium">{error}</p>
+            <p className="text-xs md:text-sm font-medium">{error}</p>
           </div>
         )}
 
@@ -126,7 +126,7 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
                   placeholder="TN24AB5662"
                   value={formData.vehicle_number}
                   onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.replace(/\s+/g, '').toUpperCase() })}
-                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-bold uppercase tracking-wider"
+                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-bold uppercase tracking-wider text-base"
                 />
               </div>
             </div>
@@ -144,7 +144,7 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
                   required
                   value={formData.vehicle_type}
                   onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value })}
-                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium capitalize"
+                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium capitalize text-base"
                 >
                   {VEHICLE_TYPES.map(type => (
                     <option key={type} value={type}>{type}</option>
@@ -168,7 +168,7 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
                   placeholder="Owner Name"
                   value={formData.owner_name}
                   onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
-                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium"
+                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium text-base"
                 />
               </div>
             </div>
@@ -187,25 +187,25 @@ export function CustomerVehicleForm({ onSuccess, onCancel, initialData }: Custom
                   placeholder="Owner Contact"
                   value={formData.owner_contact}
                   onChange={(e) => setFormData({ ...formData, owner_contact: e.target.value })}
-                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium"
+                  className="block w-full pl-10 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium text-base"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-8 flex justify-end gap-3 pt-6 border-t border-slate-100">
+        <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3 pt-6 border-t border-slate-100">
           <button
             type="button"
             onClick={onCancel}
-            className="px-5 py-2.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            className="w-full sm:w-auto px-5 py-3 font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-all"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-indigo-200"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-200"
           >
             {loading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />

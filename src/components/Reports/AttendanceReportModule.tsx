@@ -132,7 +132,7 @@ export function AttendanceReportModule() {
             <p className={`text-xl md:text-2xl font-bold text-${color}-900`}>{value}</p>
           </div>
         ))}
-        
+
         {/* Quick Actions / Cleanup */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-2">
@@ -155,15 +155,14 @@ export function AttendanceReportModule() {
           <button
             key={tab.key}
             onClick={() => setWorkAreaFilter(tab.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
-              workAreaFilter === tab.key
+            className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${workAreaFilter === tab.key
                 ? tab.key === 'quarry'
                   ? 'bg-orange-600 text-white border-orange-600'
                   : tab.key === 'crusher'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-slate-800 text-white border-slate-800'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-slate-800 text-white border-slate-800'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -263,13 +262,13 @@ export function AttendanceReportModule() {
                       <td className="px-5 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
                         {record.date ? format(parseISO(record.date), 'dd MMM yyyy') : '—'}
                       </td>
-                      <td 
+                      <td
                         className="px-5 py-4 whitespace-nowrap cursor-pointer hover:bg-slate-100 group transition-all"
                         onClick={() => setSelectedRecord(record)}
                       >
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-slate-900 group-hover:text-indigo-600">
-                             {record.employee_name}
+                            {record.employee_name}
                           </span>
                           <span className="text-xs font-mono text-slate-500 uppercase tracking-wider">
                             {record.employee_id}
@@ -325,7 +324,7 @@ export function AttendanceReportModule() {
                   <p className="text-sm text-slate-500 uppercase tracking-widest font-mono font-semibold">{selectedRecord.employee_id}</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedRecord(null)}
                 className="p-2 hover:bg-slate-100 rounded-full transition-colors"
               >
@@ -397,7 +396,7 @@ export function AttendanceReportModule() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between px-1">
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Login Location</p>
-                          <a 
+                          <a
                             href={`https://www.google.com/maps?q=${selectedRecord.location_in}`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -424,7 +423,7 @@ export function AttendanceReportModule() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between px-1">
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Logout Location</p>
-                          <a 
+                          <a
                             href={`https://www.google.com/maps?q=${selectedRecord.location_out}`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -451,15 +450,15 @@ export function AttendanceReportModule() {
                 </div>
               )}
             </div>
-            
+
             {/* Modal Footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-               <button 
+              <button
                 onClick={() => setSelectedRecord(null)}
                 className="w-full py-3 px-4 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 hover:bg-slate-100 transition-all shadow-sm"
-               >
-                 Close Details
-               </button>
+              >
+                Close Details
+              </button>
             </div>
           </div>
         </div>
