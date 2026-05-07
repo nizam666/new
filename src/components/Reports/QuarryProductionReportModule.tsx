@@ -137,7 +137,7 @@ export function QuarryProductionReportModule() {
 
     headerRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
     headerRow.eachCell(cell => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
       cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
     });
 
@@ -231,7 +231,7 @@ export function QuarryProductionReportModule() {
       head: [['Date', 'Q-C (MT)', 'Q-S (MT)', 'S-C (MT)', 'Q-Sales (MT)', 'Total Quarry Prod', 'Total Crusher Prod']],
       body: rows,
       theme: 'grid',
-      headStyles: { fillColor: [51, 65, 85] },
+      headStyles: { fillColor: [5, 150, 105] },
       styles: { fontSize: 8 }
     });
 
