@@ -744,7 +744,15 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
 
       // 5. Log individual transactions for each line item
       const trans = itemsToSave.map(item => {
-        const si = saved?.find(s => s.item_name.toLowerCase() === item.item_name.toLowerCase());
+        // Try matching by name first, then by item_code as fallback
+        const si = saved?.find(s => s.item_name.toLowerCase() === item.item_name.trim().toLowerCase())
+                || saved?.find(s => s.item_code === item.item_ref_no);
+        const itemId = si?.id;
+
+        if (!itemId) {
+          throw new Error(`Could not resolve item_id for "${item.item_name}". Please ensure the item is registered in the inventory catalog before saving.`);
+        }
+
         const boxes = parseFloat(item.quantity) || 0;
         const unitsPerBox = item.unit === 'Box' && item.units_per_box ? parseFloat(item.units_per_box) : 1;
         const isPG = (item.item_name || '').toUpperCase().includes('PG') || (item.item_name || '').toUpperCase().includes('POWERGEL');
@@ -753,7 +761,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
           ? ` | Box: ${boxes} × ${unitsPerBox} Nos`
           : '';
         return {
-          item_id: si?.id,
+          item_id: itemId,
           user_id: user.id,
           transaction_type: 'in',
           quantity: actualQty,
@@ -762,6 +770,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
           notes: `Bill: ${billInvoice} | Rate: ${item.rate_per_unit}${boxNote}`
         };
       });
+
 
       const { error: tError } = await supabase.from('inventory_transactions').insert(trans);
       if (tError) throw tError;

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Printer, AlertCircle, X, Search, ChevronDown, Tag } from 'lucide-react';
+import { FileText, Printer, AlertCircle, X, Search, ChevronDown, Tag, Clock } from 'lucide-react';
 import { printThermalInvoice } from '../../utils/thermalPrinter';
+import { toast } from 'react-toastify';
 
 interface Customer {
   id: string;
@@ -42,9 +43,10 @@ interface InvoiceFormProps {
   isReadOnly?: boolean;
   onSuccess: () => void;
   onCancel: () => void;
+  onSaveTemp?: () => void; // callback to refresh temp list in parent
 }
 
-export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: InvoiceFormProps) {
+export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel, onSaveTemp }: InvoiceFormProps) {
   const [loading, setLoading] = useState(false);
   const [generatingInvoiceNumber, setGeneratingInvoiceNumber] = useState(true);
   const [error, setError] = useState('');
@@ -79,6 +81,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
   const [globalLocations, setGlobalLocations] = useState<string[]>([]);
   const [updateProfile, setUpdateProfile] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [bata, setBata] = useState(''); // Bata expense — saved to accounts, not invoice
 
   // Derived state calculations
   const calculateItemNet = (item: LineItem) => {
@@ -159,12 +162,14 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
         items: parsedItems
       });
 
-      if (initialData.payment_history) {
+      // Restore payments from temp draft if available
+      const paymentSource = initialData._payments || initialData.payment_history;
+      if (paymentSource) {
         try {
-          const history = typeof initialData.payment_history === 'string' 
-            ? JSON.parse(initialData.payment_history) 
-            : initialData.payment_history;
-          
+          const history = typeof paymentSource === 'string'
+            ? JSON.parse(paymentSource)
+            : paymentSource;
+
           if (Array.isArray(history) && history.length > 0) {
             setPayments(history.map((p: any) => ({
               id: p.id || crypto.randomUUID(),
@@ -178,7 +183,14 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
           console.error('Error parsing payment history:', e);
         }
       }
+
+      // Restore bata from temp draft
+      if (initialData.bata !== undefined) {
+        setBata(initialData.bata?.toString() || '');
+      }
+
       setGeneratingInvoiceNumber(false);
+
     } else {
       generateInvoiceNumber();
       setFormData(prev => ({
@@ -474,6 +486,25 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
         break;
       }
 
+      // ── Save Bata as an Accounts Expense ──────────────────────────────────────
+      const bataAmount = parseFloat(bata) || 0;
+      if (bataAmount > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('accounts').insert([{
+          transaction_type: 'expense',
+          category: 'misc',
+          customer_name: formData.vehicle_no || formData.customer_name,
+          amount: 0,
+          amount_given: bataAmount,
+          reason: `Vehicle Bata — ${formData.vehicle_no || formData.customer_name}`,
+          transaction_date: formData.invoice_date,
+          payment_method: 'cash',
+          status: 'paid',
+          notes: `Company: KVSS | Dept: Sales | Item: Bata | Ref: ${currentInvoiceNumber}`,
+          created_by: user?.id ?? null
+        }]);
+      }
+
       // Update customer profile if requested
       if (updateProfile && selectedCustomerId && formData.delivery_location) {
         const { error: profileError } = await supabase
@@ -512,6 +543,27 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
       setError(error.message || 'Unknown database error occurred.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveTemp = () => {
+    const draft = {
+      id: initialData?._tempId || `temp_${Date.now()}`,
+      savedAt: new Date().toISOString(),
+      formData,
+      payments,
+      bata
+    };
+    try {
+      const existing: any[] = JSON.parse(localStorage.getItem('sribaba_temp_invoices') || '[]');
+      // Replace if same temp id, else add
+      const updated = existing.filter(d => d.id !== draft.id);
+      updated.unshift(draft);
+      localStorage.setItem('sribaba_temp_invoices', JSON.stringify(updated));
+      toast.success(`Draft saved for ${formData.vehicle_no || 'Unknown Vehicle'}`);
+      onSaveTemp?.();
+    } catch (e) {
+      toast.error('Could not save draft to local storage.');
     }
   };
 
@@ -946,7 +998,35 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
                 </div>
               )}
 
-              {/* Payment Summary Banner */}
+              {/* ── Bata Row ── */}
+              <div className="flex items-center gap-4 px-5 py-4 bg-amber-50 border-2 border-amber-100 rounded-2xl">
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="w-8 h-8 bg-amber-500 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                    <span className="text-white text-[10px] font-black">₹</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-amber-900 uppercase tracking-widest">Bata</p>
+                    <p className="text-[10px] text-amber-600 font-bold">Vehicle allowance — saved as expense</p>
+                  </div>
+                </div>
+                {!isReadOnly ? (
+                  <div className="flex items-center bg-white border-2 border-amber-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-amber-400 transition-all shadow-sm">
+                    <span className="px-3 py-2 text-amber-600 font-black text-sm bg-amber-50 border-r border-amber-200">₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={bata}
+                      onChange={(e) => setBata(e.target.value)}
+                      className="px-3 py-2 w-36 font-black text-sm text-slate-800 outline-none bg-white"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm font-black text-amber-700">₹{parseFloat(bata || '0').toFixed(2)}</p>
+                )}
+              </div>
+
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-5 bg-indigo-900 rounded-2xl text-white shadow-xl shadow-indigo-900/10">
                 <div className="flex items-center gap-6 divide-x divide-indigo-800">
                   <div className="space-y-1">
@@ -984,6 +1064,15 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
           {!isReadOnly && (
             <div className="flex items-center gap-3">
               <button
+                type="button"
+                disabled={loading}
+                onClick={handleSaveTemp}
+                className="flex items-center gap-2 px-6 py-3.5 bg-amber-500 text-white rounded-xl font-black uppercase tracking-widest text-sm hover:bg-amber-600 transition-all hover:shadow-lg hover:shadow-amber-200 disabled:opacity-50"
+              >
+                <Clock className="w-4 h-4" />
+                Save Temporary
+              </button>
+              <button
                 type="submit"
                 disabled={loading || generatingInvoiceNumber}
                 onClick={() => { shouldPrintRef.current = true; }}
@@ -1003,6 +1092,7 @@ export function InvoiceForm({ initialData, isReadOnly, onSuccess, onCancel }: In
             </div>
           )}
         </div>
+
       </form>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { 
   FileText,
@@ -25,6 +26,7 @@ interface Account {
 }
 
 export function AccountsDetails() {
+  const { user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -33,15 +35,24 @@ export function AccountsDetails() {
 
   useEffect(() => {
     fetchAccounts();
-  }, []);
+  }, [user]);
 
   const fetchAccounts = async () => {
+    if (!user) return;
     try {
-      const { data, error } = await supabase
+      // Director sees all transactions; all other roles see only their own
+      const isDirector = (user as any).role === 'director';
+
+      let query = supabase
         .from('accounts')
         .select('*')
         .order('transaction_date', { ascending: false });
 
+      if (!isDirector) {
+        query = query.eq('created_by', user.id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setAccounts(data || []);
     } catch (error) {
@@ -50,6 +61,7 @@ export function AccountsDetails() {
       setLoading(false);
     }
   };
+
 
   const parseNotes = (notes: string) => {
     if (!notes) return { company: '—', remarks: '—', payedBy: '', projectItem: '' };

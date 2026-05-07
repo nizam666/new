@@ -141,23 +141,12 @@ export function ContractorCalculator() {
           .lte('dispatch_date', endDate)
           .not('given_price', 'is', null);
 
-        // Fetch Blasting Records for Weathered Rocks
-        const { data: blastingData } = await supabase
-          .from('blasting_records')
-          .select('pg_nos, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos, material_type')
-          .gte('date', startDate)
-          .lte('date', endDate)
-          .eq('material_type', 'Weathered Rocks');
-        
+
         if (dispatchData) {
           const groupedResources: Record<string, { qty: number, amount: number, unit: string, rate: number }> = {};
           
           let totalExplosivesAmount = 0;
-          let pgPriceSum = 0, pgCount = 0;
-          let edPriceSum = 0, edCount = 0;
-          let edetPriceSum = 0, edetCount = 0;
-          let nonel3PriceSum = 0, nonel3Count = 0;
-          let nonel4PriceSum = 0, nonel4Count = 0;
+
 
           dispatchData.forEach(d => {
             const rawName = d.item_name || 'Other Item';
@@ -165,20 +154,12 @@ export function ContractorCalculator() {
             const key = isExplosive ? 'Explosives' : rawName;
             
             const isPG = rawName.toUpperCase() === 'PG' || rawName.toUpperCase().includes('POWERGEL');
-            const isED = rawName.toUpperCase() === 'ED' || rawName.toUpperCase().includes('ELECTRIC DETONATOR');
-            const isEDET = rawName.toUpperCase() === 'EDET' || rawName.toUpperCase().includes('ELECTRONIC DETONATOR');
-            const isN3 = rawName.toUpperCase().includes('NONEL') && rawName.toUpperCase().includes('3M');
-            const isN4 = rawName.toUpperCase().includes('NONEL') && rawName.toUpperCase().includes('4M');
 
             const price = d.given_price || 0;
             let qty = d.quantity_dispatched || 0;
             if (isPG && d.unit?.toLowerCase() === 'nos') qty = qty / 200;
 
-            if (isPG) { pgPriceSum += price; pgCount++; }
-            else if (isED) { edPriceSum += price; edCount++; }
-            else if (isEDET) { edetPriceSum += price; edetCount++; }
-            else if (isN3) { nonel3PriceSum += price; nonel3Count++; }
-            else if (isN4) { nonel4PriceSum += price; nonel4Count++; }
+
 
             if (isExplosive) {
               totalExplosivesAmount += qty * price;
@@ -196,37 +177,16 @@ export function ContractorCalculator() {
             }
           });
 
-          // Calculate average prices
-          const avgPrices = {
-            pg: pgCount > 0 ? pgPriceSum / pgCount : 0,
-            ed: edCount > 0 ? edPriceSum / edCount : 0,
-            edet: edetCount > 0 ? edetPriceSum / edetCount : 0,
-            nonel3: nonel3Count > 0 ? nonel3PriceSum / nonel3Count : 0,
-            nonel4: nonel4Count > 0 ? nonel4PriceSum / nonel4Count : 0
-          };
 
-          // Weather Rock explosives cost
-          let wrExplosivesCost = 0;
-          blastingData?.forEach(b => {
-            const pgCost = (b.pg_nos || 0) * (avgPrices.pg || 0);
-            const edCost = (b.ed_nos || 0) * (avgPrices.ed || 0);
-            const edetCost = (b.edet_nos || 0) * (avgPrices.edet || 0);
-            const n3Cost = (b.nonel_3m_nos || 0) * (avgPrices.nonel3 || 0);
-            const n4Cost = (b.nonel_4m_nos || 0) * (avgPrices.nonel4 || 0);
-            wrExplosivesCost += (pgCost + edCost + edetCost + n3Cost + n4Cost);
-          });
-
-          const gbExplosivesCost = Math.max(0, totalExplosivesAmount - wrExplosivesCost);
-
-          // Add Explosives Deductions (ONLY for Good Boulders as requested)
-          if (gbExplosivesCost > 0) {
+          // Add Explosives Deductions (Full Cost)
+          if (totalExplosivesAmount > 0) {
             deductions.push({
-              slNo: 'EXP-GB',
-              description: 'Resource: Explosives (Good Boulders)',
+              slNo: 'EXP-ALL',
+              description: 'Resource: Full Cost of Explosives',
               uom: 'Value',
               rate: 1,
-              qty: gbExplosivesCost,
-              amount: -gbExplosivesCost,
+              qty: totalExplosivesAmount,
+              amount: -totalExplosivesAmount,
               category: 'deduction',
               group: 'D'
             });

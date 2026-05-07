@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Plus, FileText, Users, User, TrendingUp, Truck } from 'lucide-react';
+import { Plus, FileText, Users, User, TrendingUp, Truck, Clock, Trash2, ArrowRight } from 'lucide-react';
 import { InvoiceForm } from './InvoiceForm';
 import { InvoiceDetails } from './InvoiceDetails';
 import { MaterialInvestorsForm } from './MaterialInvestorsForm';
@@ -10,6 +10,8 @@ import { CustomerVehicleDetails } from '../Customers/CustomerVehicleDetails';
 import { CustomerDriverForm } from '../Customers/CustomerDriverForm';
 import { CustomerDriverDetails } from '../Customers/CustomerDriverDetails';
 import { CustomerDetails } from '../Customers/CustomerDetails';
+
+const TEMP_KEY = 'sribaba_temp_invoices';
 
 export function SalesModule() {
   useAuth();
@@ -28,13 +30,48 @@ export function SalesModule() {
 
   const [showInvestorForm, setShowInvestorForm] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<any>(null);
-  
+
   const [showVehicleForm, setShowVehicleForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<any>(null);
 
   const [showDriverForm, setShowDriverForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any>(null);
 
+  // ── Temporary Invoices ──────────────────────────────────────────────────────
+  const [tempInvoices, setTempInvoices] = useState<any[]>([]);
+
+  const loadTempInvoices = useCallback(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(TEMP_KEY) || '[]');
+      setTempInvoices(stored);
+    } catch {
+      setTempInvoices([]);
+    }
+  }, []);
+
+  useEffect(() => { loadTempInvoices(); }, [loadTempInvoices]);
+
+  const deleteTemp = (id: string) => {
+    const updated = tempInvoices.filter(t => t.id !== id);
+    localStorage.setItem(TEMP_KEY, JSON.stringify(updated));
+    setTempInvoices(updated);
+  };
+
+  const loadTemp = (draft: any) => {
+    const data = { ...draft.formData, _tempId: draft.id, _payments: draft.payments };
+    setEditingInvoice(data);
+    deleteTemp(draft.id);
+  };
+
+  // Group by vehicle number
+  const tempByVehicle: Record<string, any[]> = {};
+  tempInvoices.forEach(t => {
+    const veh = t.formData?.vehicle_no || '(No Vehicle)';
+    if (!tempByVehicle[veh]) tempByVehicle[veh] = [];
+    tempByVehicle[veh].push(t);
+  });
+
+  // ── Hash navigation ──────────────────────────────────────────────────────────
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace('#', '');
@@ -48,15 +85,12 @@ export function SalesModule() {
     return () => window.removeEventListener('hashchange', handleHash);
   }, []);
 
-  useEffect(() => {
-    // Customers handled by CustomerDetails component
-  }, [activeTab]);
-
   const handleEditInvestor = (investor: any) => {
     setEditingInvestor(investor);
     setShowInvestorForm(true);
   };
 
+  // ── Sub-form views ───────────────────────────────────────────────────────────
   if (showNewInvoice || editingInvoice || viewingInvoice) {
     return (
       <div className="space-y-6">
@@ -74,6 +108,7 @@ export function SalesModule() {
             setEditingInvoice(null);
             setViewingInvoice(null);
           }}
+          onSaveTemp={loadTempInvoices}
         />
       </div>
     );
@@ -84,14 +119,8 @@ export function SalesModule() {
       <div className="space-y-6">
         <MaterialInvestorsForm
           initialData={editingInvestor}
-          onSuccess={() => {
-            setShowInvestorForm(false);
-            setEditingInvestor(null);
-          }}
-          onCancel={() => {
-            setShowInvestorForm(false);
-            setEditingInvestor(null);
-          }}
+          onSuccess={() => { setShowInvestorForm(false); setEditingInvestor(null); }}
+          onCancel={() => { setShowInvestorForm(false); setEditingInvestor(null); }}
         />
       </div>
     );
@@ -102,14 +131,8 @@ export function SalesModule() {
       <div className="space-y-6">
         <CustomerVehicleForm
           initialData={editingVehicle}
-          onSuccess={() => {
-            setShowVehicleForm(false);
-            setEditingVehicle(null);
-          }}
-          onCancel={() => {
-            setShowVehicleForm(false);
-            setEditingVehicle(null);
-          }}
+          onSuccess={() => { setShowVehicleForm(false); setEditingVehicle(null); }}
+          onCancel={() => { setShowVehicleForm(false); setEditingVehicle(null); }}
         />
       </div>
     );
@@ -120,179 +143,165 @@ export function SalesModule() {
       <div className="space-y-6">
         <CustomerDriverForm
           initialData={editingDriver}
-          onSuccess={() => {
-            setShowDriverForm(false);
-            setEditingDriver(null);
-          }}
-          onCancel={() => {
-            setShowDriverForm(false);
-            setEditingDriver(null);
-          }}
+          onSuccess={() => { setShowDriverForm(false); setEditingDriver(null); }}
+          onCancel={() => { setShowDriverForm(false); setEditingDriver(null); }}
         />
       </div>
     );
   }
 
+  // ── Main view ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Sales & Operations</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Sales &amp; Operations</h2>
           <p className="text-slate-600 mt-1">Manage invoices, customers, and material price master</p>
         </div>
         <div className="flex gap-3">
           {activeTab === 'investors' ? (
-            <button
-              onClick={() => setShowInvestorForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
-            >
-              <Plus className="w-5 h-5" />
-              Add New Rate
+            <button onClick={() => setShowInvestorForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+              <Plus className="w-5 h-5" /> Add New Rate
             </button>
           ) : activeTab === 'vehicles' ? (
-            <button
-              onClick={() => {
-                setEditingVehicle(null);
-                setShowVehicleForm(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
-            >
-              <Plus className="w-5 h-5" />
-              Register Vehicle
+            <button onClick={() => { setEditingVehicle(null); setShowVehicleForm(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+              <Plus className="w-5 h-5" /> Register Vehicle
             </button>
           ) : activeTab === 'drivers' ? (
-            <button
-              onClick={() => {
-                setEditingDriver(null);
-                setShowDriverForm(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#4B6B9E] text-white rounded-lg hover:bg-[#3d5782] transition-colors shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              Add Driver
+            <button onClick={() => { setEditingDriver(null); setShowDriverForm(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-[#4B6B9E] text-white rounded-lg hover:bg-[#3d5782] transition-colors shadow-lg">
+              <Plus className="w-5 h-5" /> Add Driver
             </button>
           ) : activeTab === 'invoices' ? (
-            <button
-              onClick={() => setShowNewInvoice(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
-            >
-              <Plus className="w-5 h-5" />
-              New Invoice
+            <button onClick={() => setShowNewInvoice(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
+              <Plus className="w-5 h-5" /> New Invoice
             </button>
           ) : null}
         </div>
       </div>
 
+      {/* ── Temporary Drafts Panel ── */}
+      {activeTab === 'invoices' && tempInvoices.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 bg-amber-500 rounded-xl flex items-center justify-center shadow">
+              <Clock className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-amber-900 uppercase tracking-widest">Temporary Drafts</p>
+              <p className="text-[10px] text-amber-600 font-bold">
+                {tempInvoices.length} draft{tempInvoices.length > 1 ? 's' : ''} saved locally — click Resume to continue
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {Object.entries(tempByVehicle).map(([vehicleNo, drafts]) => (
+              <div key={vehicleNo} className="bg-white rounded-xl border border-amber-100 overflow-hidden shadow-sm">
+                {/* Vehicle group header */}
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-100/60 border-b border-amber-100">
+                  <Truck className="w-3.5 h-3.5 text-amber-700" />
+                  <span className="text-xs font-black text-amber-800 uppercase tracking-widest">{vehicleNo}</span>
+                  <span className="ml-auto text-[10px] font-bold text-amber-500">
+                    {drafts.length} draft{drafts.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Draft rows */}
+                {drafts.map(draft => (
+                  <div key={draft.id}
+                    className="flex items-center gap-3 px-4 py-3 border-b border-amber-50 last:border-0 hover:bg-amber-50/40 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-slate-800 truncate">
+                        {draft.formData?.customer_name || 'Unknown Customer'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">
+                        {draft.formData?.invoice_number}
+                        {' • '}
+                        {new Date(draft.savedAt).toLocaleString('en-IN', {
+                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                        })}
+                        {draft.formData?.delivery_location ? ` · ${draft.formData.delivery_location}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => loadTemp(draft)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-black uppercase tracking-widest transition-all shadow-sm">
+                      Resume <ArrowRight className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => deleteTemp(draft.id)}
+                      title="Delete draft"
+                      className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Main Tab Panel ── */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="border-b border-slate-200 bg-slate-50/50">
           <div className="flex overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('invoices')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'invoices'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+            {[
+              { id: 'invoices', label: 'Invoices', Icon: FileText },
+              { id: 'customers', label: 'Customers', Icon: Users },
+              { id: 'vehicles', label: 'Vehicles', Icon: Truck },
+              { id: 'drivers', label: 'Drivers', Icon: User },
+              { id: 'investors', label: 'Price Master', Icon: TrendingUp },
+            ].map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id as any)}
+                className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${
+                  activeTab === id
+                    ? id === 'drivers'
+                      ? 'text-[#4B6B9E] border-b-2 border-[#4B6B9E] bg-white'
+                      : 'text-blue-600 border-b-2 border-blue-600 bg-white'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
                 }`}
-            >
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Invoices
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('customers')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'customers'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Customers
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('vehicles')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'vehicles'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <Truck className="w-4 h-4" />
-                Vehicles
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('drivers')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'drivers'
-                  ? 'text-[#4B6B9E] border-b-2 border-[#4B6B9E] bg-white'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Drivers
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('investors')}
-              className={`px-6 py-4 font-bold text-sm uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === 'investors'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
-                Price Master
-              </div>
-            </button>
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="p-6">
           {activeTab === 'invoices' && (
-            <InvoiceDetails 
+            <InvoiceDetails
               onEdit={(inv) => setEditingInvoice(inv)}
               onView={(inv) => setViewingInvoice(inv)}
             />
           )}
-
           {activeTab === 'investors' && (
             <MaterialInvestorsDetails
               onEdit={handleEditInvestor}
               onAddNew={() => setShowInvestorForm(true)}
             />
           )}
-
           {activeTab === 'vehicles' && (
             <CustomerVehicleDetails
-              onEdit={(v) => {
-                setEditingVehicle(v);
-                setShowVehicleForm(true);
-              }}
-              onAddNew={() => {
-                setEditingVehicle(null);
-                setShowVehicleForm(true);
-              }}
+              onEdit={(v) => { setEditingVehicle(v); setShowVehicleForm(true); }}
+              onAddNew={() => { setEditingVehicle(null); setShowVehicleForm(true); }}
             />
           )}
-
           {activeTab === 'drivers' && (
             <CustomerDriverDetails
-              onEdit={(d) => {
-                setEditingDriver(d);
-                setShowDriverForm(true);
-              }}
-              onAddNew={() => {
-                setEditingDriver(null);
-                setShowDriverForm(true);
-              }}
+              onEdit={(d) => { setEditingDriver(d); setShowDriverForm(true); }}
+              onAddNew={() => { setEditingDriver(null); setShowDriverForm(true); }}
             />
           )}
-
-          {activeTab === 'customers' && (
-            <CustomerDetails />
-          )}
+          {activeTab === 'customers' && <CustomerDetails />}
         </div>
       </div>
     </div>
