@@ -143,13 +143,9 @@ export function QuarryProductionCostReportModule() {
         const isN3   = name.includes('NONEL') && (name.includes('3M') || name.includes('3 M') || name.includes('3MTR') || name.includes('3 MTR'));
         const isN4   = name.includes('NONEL') && (name.includes('4M') || name.includes('4 M') || name.includes('4MTR') || name.includes('4 MTR'));
         const isNonel= name.includes('NONEL'); // catch-all for any NONEL variant
-        const isDiesel = name.includes('DIESEL') || name === 'HSD';
+        const isExplosive = isPG || isEDET || isED || isNonel;
 
-        if (isDiesel) {
-          givenDiesel += qty;
-          dieselGivenPrice = price;          // store dispatch price per litre
-          totalDieselDispatched += qty * price;
-        } else if (isPG) {
+        if (isPG) {
           if (unit === 'nos') qty = qty / 200;  // convert Nos → Boxes
           givenPg += qty;
           pgGivenPrice = price;
@@ -171,8 +167,13 @@ export function QuarryProductionCostReportModule() {
           n4GivenPrice = price;
           totalExplosivesDispatched += qty * price;
         } else if (isNonel) {
-          // Any other NONEL variant (e.g. "NONEL 4 MTRS", "NONEL 3 MTRS") — sum into total
+          // Any other NONEL variant — sum into total explosives
           totalExplosivesDispatched += qty * price;
+        } else {
+          // Everything non-explosive dispatched to Quarry Operations is diesel
+          givenDiesel += qty;
+          dieselGivenPrice = price;
+          totalDieselDispatched += qty * price;
         }
       });
 
@@ -387,7 +388,7 @@ export function QuarryProductionCostReportModule() {
         },
         {
           slNo: 12,
-          description: `Contractor Diesel Expense: ${givenDiesel.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Ltrs × ₹${dieselGivenPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          description: `Contractor Diesel Expense (All Dispatched): ${givenDiesel.toFixed(2)} Ltrs × ₹${dieselGivenPrice.toFixed(2)}`,
           uom: 'Liters',
           rate: dieselGivenPrice,
           qty: givenDiesel,
