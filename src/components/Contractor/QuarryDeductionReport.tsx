@@ -153,9 +153,9 @@ export function QuarryDeductionReport() {
           totalED += qty; edPriceSum += price; edCount++; 
         } else if (rawName === 'EDET' || rawName.includes('ELECTRONIC DETONATOR')) { 
           totalEDET += qty; edetPriceSum += price; edetCount++; 
-        } else if (rawName.includes('NONEL') && rawName.includes('3M')) { 
+        } else if (rawName.includes('NONEL') && (rawName.includes('3M') || rawName.includes('3 M') || rawName.includes('3MTR') || rawName.includes('3 MTR'))) { 
           totalN3 += qty; nonel3PriceSum += price; nonel3Count++; 
-        } else if (rawName.includes('NONEL') && rawName.includes('4M')) { 
+        } else if (rawName.includes('NONEL') && (rawName.includes('4M') || rawName.includes('4 M') || rawName.includes('4MTR') || rawName.includes('4 MTR'))) { 
           totalN4 += qty; nonel4PriceSum += price; nonel4Count++; 
         }
       });

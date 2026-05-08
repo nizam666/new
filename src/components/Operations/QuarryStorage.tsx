@@ -147,8 +147,8 @@ export function QuarryStorage() {
         else if (name === 'pg' || name.includes('powergel') || name.includes('power gel')) { used_history = usedHistoryMap.pg; }
         else if (name === 'ed' || name.includes('electric detonator')) { used_history = usedHistoryMap.ed; }
         else if (name === 'edet' || name.includes('electronic detonator')) { used_history = usedHistoryMap.edet; }
-        else if (name.includes('nonel') && name.includes('3m')) { used_history = usedHistoryMap.nonel_3m; }
-        else if (name.includes('nonel') && name.includes('4m')) { used_history = usedHistoryMap.nonel_4m; }
+        else if (name.includes('nonel') && (name.includes('3m') || name.includes('3 m') || name.includes('3mtr') || name.includes('3 mtr'))) { used_history = usedHistoryMap.nonel_3m; }
+        else if (name.includes('nonel') && (name.includes('4m') || name.includes('4 m') || name.includes('4mtr') || name.includes('4 mtr'))) { used_history = usedHistoryMap.nonel_4m; }
 
         let totalBoxes = item.usages.reduce((sum, u) => sum + u.quantity, 0);
 

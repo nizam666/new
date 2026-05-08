@@ -24,11 +24,11 @@ export const ITEM_KEYWORDS = {
   },
   nonel_3m: (name: string) => {
     const n = name.toLowerCase();
-    return n.includes('nonel') && n.includes('3m');
+    return n.includes('nonel') && (n.includes('3m') || n.includes('3 m') || n.includes('3mtr') || n.includes('3 mtr'));
   },
   nonel_4m: (name: string) => {
     const n = name.toLowerCase();
-    return n.includes('nonel') && n.includes('4m');
+    return n.includes('nonel') && (n.includes('4m') || n.includes('4 m') || n.includes('4mtr') || n.includes('4 mtr'));
   }
 };
 
