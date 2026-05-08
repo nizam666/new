@@ -61,6 +61,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
   }[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -82,8 +83,10 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     setStatsLoading(true);
     setStatsError(null);
     try {
-      const start = startOfMonth(new Date());
-      const end = endOfMonth(new Date());
+      const year = parseInt(selectedMonth.split('-')[0]);
+      const month = parseInt(selectedMonth.split('-')[1]) - 1;
+      const start = startOfMonth(new Date(year, month));
+      const end = endOfMonth(new Date(year, month));
 
       const { data, error } = await supabase
         .from('blasting_records')
@@ -127,7 +130,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     } finally {
       setStatsLoading(false);
     }
-  }, [user]);
+  }, [user, selectedMonth]);
 
   useEffect(() => {
     fetchMonthlyStats();
@@ -470,9 +473,12 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
             <h4 className="text-sm font-bold text-slate-900">Monthly Usage Summary</h4>
           </div>
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded">
-            {format(new Date(), 'MMMM yyyy')}
-          </span>
+          <input 
+            type="month" 
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="text-[10px] font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-orange-500 outline-none"
+          />
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -495,7 +501,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
                 ) : statsError ? (
                   <div className="p-4 text-center text-xs text-red-500">{statsError}</div>
                 ) : monthlyStats.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-slate-500 italic">No records for this month</div>
+                  <div className="p-4 text-center text-xs text-slate-500 italic">No records for {safeFormat(selectedMonth + '-01', 'MMMM yyyy')}</div>
                 ) : (
                   monthlyStats.map((stat, idx) => (
                     <div key={`${stat.date}-${stat.material_type}-${idx}`} className="grid grid-cols-[90px_110px_70px_70px_70px_60px_60px] px-3 py-4 items-center hover:bg-slate-50/50 transition-colors text-center text-xs">

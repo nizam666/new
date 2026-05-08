@@ -1,9 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Truck, Save } from 'lucide-react';
+import { Truck, Save, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { fetchQuarryBalances } from '../../utils/quarryStock';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
+
+const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Invalid Date';
+    return format(d, formatStr);
+  } catch (e) {
+    return 'Error';
+  }
+};
 
 const MATERIAL_TYPES = [
   'KVSS Good Boulders',
@@ -46,6 +58,71 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
     custom_material_type: ''
   });
   const [dieselStock, setDieselStock] = useState<number | null>(null);
+
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [monthlyStats, setMonthlyStats] = useState<{
+    date: string;
+    totalHours: number;
+    totalDiesel: number;
+    breakdown: Record<string, number>;
+  }[]>([]);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  const fetchMonthlyStats = useCallback(async () => {
+    if (!user) return;
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const year = parseInt(selectedMonth.split('-')[0]);
+      const month = parseInt(selectedMonth.split('-')[1]) - 1;
+      const start = startOfMonth(new Date(year, month));
+      const end = endOfMonth(new Date(year, month));
+
+      const { data, error } = await supabase
+        .from('loading_records')
+        .select('date, material_type, quantity_loaded, starting_hours, ending_hours')
+        .eq('contractor_id', user.id)
+        .gte('date', format(start, 'yyyy-MM-dd'))
+        .lte('date', format(end, 'yyyy-MM-dd'))
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      // Group and sum by date
+      type DailyBreakdown = { totalHours: number; diesel: number; breakdown: Record<string, number> };
+      const statsMap = new Map<string, DailyBreakdown>();
+
+      data?.forEach(record => {
+        const hours = (record.ending_hours || 0) - (record.starting_hours || 0);
+        const actualHours = hours > 0 ? hours : 0;
+        const mType = record.material_type || 'Unknown';
+
+        const current = statsMap.get(record.date) || { totalHours: 0, diesel: 0, breakdown: {} };
+        current.totalHours += actualHours;
+        current.diesel += (record.quantity_loaded || 0);
+        current.breakdown[mType] = (current.breakdown[mType] || 0) + actualHours;
+        statsMap.set(record.date, current);
+      });
+
+      const statsArray = Array.from(statsMap.entries()).map(([date, data]) => ({
+        date,
+        totalHours: data.totalHours,
+        totalDiesel: data.diesel,
+        breakdown: data.breakdown
+      }));
+      setMonthlyStats(statsArray);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+      setStatsError('Failed to load summary');
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [user, selectedMonth]);
+
+  useEffect(() => {
+    fetchMonthlyStats();
+  }, [fetchMonthlyStats]);
 
   const getRunningHours = () => {
     const start = parseFloat(formData.starting_hours);
@@ -172,6 +249,7 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
 
       toast.success('Excavator breaking/loading record submitted successfully!', { position: 'top-right' });
       fetchStock(); // Refresh stock level
+      fetchMonthlyStats(); // Refresh stats
       if (onSuccess) onSuccess();
     } catch (error: any) {
       console.error('Loading record submission error:', error);
@@ -417,6 +495,82 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
               </>
             )}
           </button>
+        </div>
+
+        {/* ── Monthly Summary Section ── */}
+        <div className="pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                <Calendar className="w-4 h-4 text-slate-600" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900">Monthly Summary</h4>
+            </div>
+            <input 
+              type="month" 
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-green-500 outline-none"
+            />
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-[10px] sm:text-xs">
+            <div className="grid grid-cols-3 bg-slate-50 border-b border-slate-200 px-2 sm:px-4 py-2 font-bold text-slate-500 uppercase tracking-wider text-center">
+              <span className="text-left">Date</span>
+              <span>Running Hours</span>
+              <span className="text-right">Diesel</span>
+            </div>
+
+            <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+              {statsLoading ? (
+                <div className="p-4 text-center text-slate-500">Loading summary...</div>
+              ) : statsError ? (
+                <div className="p-4 text-center text-red-500">{statsError}</div>
+              ) : monthlyStats.length === 0 ? (
+                <div className="p-4 text-center text-slate-500 italic">No records for {safeFormat(selectedMonth + '-01', 'MMMM yyyy')}</div>
+              ) : (
+                monthlyStats.map((stat) => (
+                  <div key={stat.date} className="grid grid-cols-3 px-2 sm:px-4 py-3 items-center hover:bg-slate-50/50 transition-colors text-center text-xs">
+                    <div className="text-left">
+                      <div className="font-bold text-slate-900">{safeFormat(stat.date, 'dd MMM')}</div>
+                      <div className="text-[8px] sm:text-[10px] text-slate-400 capitalize">{safeFormat(stat.date, 'EEE')}</div>
+                    </div>
+                    <div className="text-blue-600 font-bold">
+                      {stat.totalHours.toFixed(1)}<span className="text-[8px] opacity-70 ml-0.5 font-normal">hrs</span>
+                    </div>
+                    <div className="text-green-600 font-bold text-right pr-1">
+                      {stat.totalDiesel.toFixed(1)}<span className="text-[8px] opacity-70 ml-0.5 font-normal text-slate-400">L</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {monthlyStats.length > 0 && (
+              <div className="bg-slate-900 px-4 py-4 text-white">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg border bg-blue-600/20 border-blue-600/30 flex flex-col items-center">
+                    <span className="text-[8px] sm:text-[10px] font-semibold uppercase tracking-widest opacity-70 mb-1 text-center">
+                      Total Hours
+                    </span>
+                    <span className="text-sm sm:text-lg font-black text-blue-400">
+                      {monthlyStats.reduce((acc, curr) => acc + curr.totalHours, 0).toFixed(1)}
+                      <span className="text-[10px] sm:text-xs font-medium opacity-60 ml-1 tracking-normal">hrs</span>
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-lg border bg-emerald-600/20 border-emerald-600/30 flex flex-col items-center">
+                    <span className="text-[8px] sm:text-[10px] font-semibold uppercase tracking-widest opacity-70 mb-1 text-center">
+                      Total Diesel
+                    </span>
+                    <span className="text-sm sm:text-lg font-black text-emerald-400">
+                      {monthlyStats.reduce((acc, curr) => acc + curr.totalDiesel, 0).toFixed(1)}
+                      <span className="text-[10px] sm:text-xs font-medium opacity-60 ml-1 tracking-normal">L</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </form>
