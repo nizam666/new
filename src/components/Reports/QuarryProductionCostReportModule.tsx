@@ -387,7 +387,7 @@ export function QuarryProductionCostReportModule() {
         },
         {
           slNo: 12,
-          description: `Contractor Diesel Expense (All Dispatched): ${givenDiesel.toFixed(2)} Ltrs × ₹${dieselGivenPrice.toFixed(2)}`,
+          description: `Contractor Diesel Expense: ${givenDiesel.toFixed(2)} Ltrs × ₹${dieselGivenPrice.toFixed(2)}`,
           uom: 'Liters',
           rate: dieselGivenPrice,
           qty: givenDiesel,
