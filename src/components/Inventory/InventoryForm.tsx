@@ -482,11 +482,23 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       // 1. Fetch all expenses for this month to calculate true Procurement Spend
       const { data: monthBills } = await supabase
         .from('accounts')
-        .select('amount')
+        .select('amount, notes, reason')
         .eq('transaction_type', 'expense')
         .gte('transaction_date', startOfMonth.split('T')[0]);
 
-      const totalVal = (monthBills || []).reduce((acc, b) => acc + (parseFloat(b.amount) || 0), 0);
+      const excludeKeywords = [
+        'contractor payment', 'contractor advance', 'salary', 'advance', 
+        'bata', 'dept: sales', 'dept: weighbridge', 'sales', 'weighbridge', 'inv-'
+      ];
+
+      const totalVal = (monthBills || []).reduce((acc, b: any) => {
+        const notesLower = (b.notes || '').toLowerCase();
+        const reasonLower = (b.reason || '').toLowerCase();
+        const shouldExclude = excludeKeywords.some(keyword => 
+          notesLower.includes(keyword) || reasonLower.includes(keyword)
+        );
+        return shouldExclude ? acc : acc + (parseFloat(b.amount) || 0);
+      }, 0);
 
       // 2. Fetch inventory items to calculate item count
       const { data: statsData } = await supabase
@@ -513,7 +525,7 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         const reasonLower = (bill.reason || '').toLowerCase();
         const excludeKeywords = [
           'contractor payment', 'contractor advance', 'salary', 'advance', 
-          'bata', 'dept: sales', 'dept: weighbridge'
+          'bata', 'dept: sales', 'dept: weighbridge', 'sales', 'weighbridge', 'inv-'
         ];
         
         return !excludeKeywords.some(keyword => 
