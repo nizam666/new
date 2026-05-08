@@ -143,7 +143,6 @@ export function QuarryProductionCostReportModule() {
         const isN3   = name.includes('NONEL') && (name.includes('3M') || name.includes('3 M') || name.includes('3MTR') || name.includes('3 MTR'));
         const isN4   = name.includes('NONEL') && (name.includes('4M') || name.includes('4 M') || name.includes('4MTR') || name.includes('4 MTR'));
         const isNonel= name.includes('NONEL'); // catch-all for any NONEL variant
-        const isExplosive = isPG || isEDET || isED || isNonel;
 
         if (isPG) {
           if (unit === 'nos') qty = qty / 200;  // convert Nos → Boxes
