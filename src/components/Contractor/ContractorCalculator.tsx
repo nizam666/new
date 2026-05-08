@@ -611,47 +611,49 @@ export function ContractorCalculator() {
               <Calculator className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
             <div>
-              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Contractor Bill Calculator</h3>
-              <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest">Automated Quarry billing system</p>
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight text-center sm:text-left">Contractor Bill Calculator</h3>
+              <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest text-center sm:text-left">Automated Quarry billing system</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 p-1 print:hidden">
-            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-              <div className="relative">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 p-1 print:hidden">
+            <div className="flex flex-col sm:flex-row items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100 w-full sm:w-auto">
+              <div className="relative w-full sm:w-auto">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-auto pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <span className="text-slate-400 font-black text-xs">TO</span>
-              <div className="relative">
+              <span className="text-slate-400 font-black text-xs hidden sm:inline">TO</span>
+              <div className="relative w-full sm:w-auto">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-auto pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
-            <button
-              onClick={exportToExcel}
-              className="px-4 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 flex items-center gap-2 shadow-lg shadow-slate-200 active:scale-95 transition-all"
-            >
-              <Download className="w-4 h-4" /> Excel
-            </button>
-            
-            <button
-              onClick={exportToPDF}
-              className="px-4 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 flex items-center gap-2 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
-            >
-              <FileText className="w-4 h-4" /> PDF
-            </button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                onClick={exportToExcel}
+                className="flex-1 sm:flex-none px-4 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 flex items-center justify-center gap-2 shadow-lg shadow-slate-200 active:scale-95 transition-all"
+              >
+                <Download className="w-4 h-4" /> Excel
+              </button>
+              
+              <button
+                onClick={exportToPDF}
+                className="flex-1 sm:flex-none px-4 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
+              >
+                <FileText className="w-4 h-4" /> PDF
+              </button>
+            </div>
           </div>
         </div>
 
@@ -659,25 +661,25 @@ export function ContractorCalculator() {
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-6 md:p-8 mb-8 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-blue-500/20 transition-all duration-700" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
+            <div className="text-center md:text-left">
               <p className="text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-2">Estimated Net Payable</p>
               <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter">
                 ₹{totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
             </div>
-            <div className="flex flex-col items-end">
+            <div className="flex flex-col items-center md:items-end">
               <div className="px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-xl mb-3">
-                <span className="text-blue-400 text-xs font-black uppercase tracking-widest">Contractor: {contractorName}</span>
+                <span className="text-blue-400 text-[10px] sm:text-xs font-black uppercase tracking-widest">Contractor: {contractorName}</span>
               </div>
-              <p className="text-slate-500 text-[10px] font-bold text-right leading-relaxed max-w-[200px]">
+              <p className="text-slate-500 text-[10px] font-bold text-center md:text-right leading-relaxed max-w-[200px]">
                 Net amount after itemized resource deductions and production credits.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Bill Table */}
-        <div className="overflow-hidden border border-slate-100 rounded-2xl shadow-sm">
+        {/* Bill Data - Desktop Table View */}
+        <div className="hidden md:block overflow-hidden border border-slate-100 rounded-2xl shadow-sm">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
@@ -814,8 +816,6 @@ export function ContractorCalculator() {
                     </td>
                   </tr>
 
-
-
                   <tr className="bg-emerald-600 text-white shadow-xl">
                     <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-emerald-100">Net Payable Amount</td>
                     <td className="px-6 py-6 text-right text-2xl font-black text-white">
@@ -828,7 +828,91 @@ export function ContractorCalculator() {
           </table>
         </div>
 
-        {/* Footer Disclaimer */}
+        {/* Bill Data - Mobile Card View */}
+        <div className="md:hidden space-y-4">
+          {loading ? (
+            <div className="py-12 text-center bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-sm font-bold text-slate-400">Processing Quarry Data...</p>
+            </div>
+          ) : billItems.length === 0 ? (
+            <div className="py-12 text-center bg-slate-50 rounded-2xl border border-slate-100">
+              <p className="text-sm font-bold text-slate-400 italic">No records found</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {[
+                { id: 'A', label: 'Group A: Quarry Production', bgColor: 'bg-blue-50', textColor: 'text-blue-600', borderColor: 'border-blue-100' },
+                { id: 'B', label: 'Group B: Soil/Weather Rocks', bgColor: 'bg-orange-50', textColor: 'text-orange-600', borderColor: 'border-orange-100' },
+                { id: 'C', label: 'Group C: Crusher Works', bgColor: 'bg-emerald-50', textColor: 'text-emerald-600', borderColor: 'border-emerald-100' },
+                { id: 'D', label: 'Group D: Deductions', bgColor: 'bg-rose-50', textColor: 'text-rose-600', borderColor: 'border-rose-100' }
+              ].map(group => {
+                const items = billItems.filter(i => i.group === group.id);
+                if (items.length === 0) return null;
+                
+                const groupSubtotal = items.reduce((s, i) => s + i.amount, 0);
+
+                return (
+                  <div key={group.id} className="space-y-3">
+                    <div className={`${group.bgColor} ${group.textColor} px-4 py-2 rounded-xl border ${group.borderColor}`}>
+                      <span className="text-[10px] font-black uppercase tracking-widest">{group.label}</span>
+                    </div>
+                    
+                    {items.map(item => (
+                      <div key={item.slNo} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex gap-3">
+                            <span className="text-xs font-black text-slate-400 mt-0.5">{item.slNo}</span>
+                            <h4 className="text-sm font-bold text-slate-900 leading-snug">{item.description}</h4>
+                          </div>
+                          <span className="bg-slate-100 px-2 py-1 rounded text-[10px] font-black text-slate-500 uppercase">{item.uom}</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-50">
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rate / QTY</p>
+                            <p className="text-xs font-black text-slate-700">
+                              ₹{item.rate.toLocaleString()} × {item.qty.toLocaleString(undefined, { minimumFractionDigits: 1 })}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Amount</p>
+                            <p className={`text-sm font-black ${item.category === 'deduction' ? 'text-rose-600' : 'text-slate-900'}`}>
+                              ₹{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="flex justify-between items-center px-4 py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Section Subtotal</span>
+                      <span className={`text-sm font-black ${group.id === 'D' ? 'text-rose-600' : group.textColor}`}>
+                        ₹{groupSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="mt-8 bg-slate-900 rounded-2xl p-5 shadow-xl">
+                <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-800">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Production Total</span>
+                  <span className="text-lg font-black text-blue-400">
+                    ₹{billItems.filter(i => i.category === 'production').reduce((s, i) => s + i.amount, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black text-white uppercase tracking-widest">Net Payable</span>
+                  <span className="text-2xl font-black text-white">
+                    ₹{totalBillAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="mt-8 flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
           <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <p className="text-xs font-medium text-blue-800 leading-relaxed">
