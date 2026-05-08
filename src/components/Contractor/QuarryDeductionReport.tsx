@@ -67,17 +67,75 @@ export function QuarryDeductionReport() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Diesel
-      const { data: dieselData } = await supabase
+      // 1. Fetch all dispatch for Quarry (Diesel + Explosives)
+      const { data: dispatchData } = await supabase
         .from('inventory_dispatch')
-        .select('dispatch_date, item_name, quantity_dispatched, unit, given_price')
+        .select('dispatch_date, item_name, quantity_dispatched, given_price, unit')
         .eq('department', 'Quarry Operations')
-        .ilike('item_name', '%diesel%')
         .gte('dispatch_date', startDate)
         .lte('dispatch_date', endDate)
+        .not('given_price', 'is', null)
         .order('dispatch_date', { ascending: true });
 
-      setDieselLogs(dieselData || []);
+      const explosives: any[] = [];
+      const diesel: any[] = [];
+
+      let totalPG = 0, totalED = 0, totalEDET = 0, totalN3 = 0, totalN4 = 0;
+      let pgPriceSum = 0, pgCount = 0;
+      let edPriceSum = 0, edCount = 0;
+      let edetPriceSum = 0, edetCount = 0;
+      let nonel3PriceSum = 0, nonel3Count = 0;
+      let nonel4PriceSum = 0, nonel4Count = 0;
+
+      dispatchData?.forEach(d => {
+        const name = (d.item_name || '').toUpperCase().trim();
+        const price = d.given_price || 0;
+        let qty = d.quantity_dispatched || 0;
+
+        const isPG   = name === 'PG' || name.includes('POWERGEL') || name.includes('POWER GEL');
+        const isEDET = name === 'EDET' || name.startsWith('E DET') || name.startsWith('E-DET')
+                    || name.includes('ELECTRONIC DET') || name.includes('E DETONATOR');
+        const isED   = !isEDET && (name === 'ED' || name.startsWith('ELEC DET')
+                    || name.includes('ELECTRIC DET') || (name.length <= 4 && name.includes('ED')));
+        const isN3   = name.includes('NONEL') && (name.includes('3M') || name.includes('3 M') || name.includes('3MTR') || name.includes('3 MTR'));
+        const isN4   = name.includes('NONEL') && (name.includes('4M') || name.includes('4 M') || name.includes('4MTR') || name.includes('4 MTR'));
+        const isNonel = name.includes('NONEL');
+
+        if (isPG || isEDET || isED || isNonel) {
+          explosives.push(d);
+          
+          if (isPG) {
+            if (d.unit?.toLowerCase() === 'nos') qty = qty / 200;
+            totalPG += qty; pgPriceSum += price; pgCount++;
+          } else if (isED) {
+            totalED += qty; edPriceSum += price; edCount++;
+          } else if (isEDET) {
+            totalEDET += qty; edetPriceSum += price; edetCount++;
+          } else if (isN3) {
+            totalN3 += qty; nonel3PriceSum += price; nonel3Count++;
+          } else if (isN4) {
+            totalN4 += qty; nonel4PriceSum += price; nonel4Count++;
+          }
+        } else {
+          // Treat as Diesel
+          diesel.push({
+            ...d,
+            quantity_dispatched: qty // ensure it's a number
+          });
+        }
+      });
+
+      setDieselLogs(diesel);
+      setExplosiveDispatches(explosives);
+
+      const averages = {
+        pg: pgCount > 0 ? pgPriceSum / pgCount : 0,
+        ed: edCount > 0 ? edPriceSum / edCount : 0,
+        edet: edetCount > 0 ? edetPriceSum / edetCount : 0,
+        nonel3: nonel3Count > 0 ? nonel3PriceSum / nonel3Count : 0,
+        nonel4: nonel4Count > 0 ? nonel4PriceSum / nonel4Count : 0
+      };
+      setAvgPrices(averages);
 
       // 2. Fetch Advances
       const { data: accountsData } = await supabase
@@ -111,63 +169,6 @@ export function QuarryDeductionReport() {
         });
         setAdvanceLogs(advances);
       }
-
-      // 3. Fetch Explosives Dispatched to calculate average pricing
-      const { data: dispatchData } = await supabase
-        .from('inventory_dispatch')
-        .select('dispatch_date, item_name, quantity_dispatched, given_price, unit')
-        .eq('department', 'Quarry Operations')
-        .gte('dispatch_date', startDate)
-        .lte('dispatch_date', endDate)
-        .not('given_price', 'is', null)
-        .order('dispatch_date', { ascending: true });
-
-      if (dispatchData) {
-        const expOnly = dispatchData.filter(d => {
-          const name = (d.item_name || '').toUpperCase();
-          return name.includes('PG') || name.includes('POWERGEL') ||
-                 name.includes('ED') || name.includes('DETONATOR') ||
-                 name.includes('NONEL');
-        });
-        setExplosiveDispatches(expOnly);
-      }
-
-      let totalPG = 0, totalED = 0, totalEDET = 0, totalN3 = 0, totalN4 = 0;
-      let pgPriceSum = 0, pgCount = 0;
-      let edPriceSum = 0, edCount = 0;
-      let edetPriceSum = 0, edetCount = 0;
-      let nonel3PriceSum = 0, nonel3Count = 0;
-      let nonel4PriceSum = 0, nonel4Count = 0;
-
-      dispatchData?.forEach(d => {
-        const rawName = (d.item_name || '').toUpperCase();
-        const price = d.given_price || 0;
-        let qty = d.quantity_dispatched || 0;
-        if ((rawName === 'PG' || rawName.includes('POWERGEL')) && d.unit?.toLowerCase() === 'nos') {
-          qty = qty / 200;
-        }
-
-        if (rawName === 'PG' || rawName.includes('POWERGEL')) { 
-          totalPG += qty; pgPriceSum += price; pgCount++; 
-        } else if (rawName === 'ED' || rawName.includes('ELECTRIC DETONATOR')) { 
-          totalED += qty; edPriceSum += price; edCount++; 
-        } else if (rawName === 'EDET' || rawName.includes('ELECTRONIC DETONATOR')) { 
-          totalEDET += qty; edetPriceSum += price; edetCount++; 
-        } else if (rawName.includes('NONEL') && (rawName.includes('3M') || rawName.includes('3 M') || rawName.includes('3MTR') || rawName.includes('3 MTR'))) { 
-          totalN3 += qty; nonel3PriceSum += price; nonel3Count++; 
-        } else if (rawName.includes('NONEL') && (rawName.includes('4M') || rawName.includes('4 M') || rawName.includes('4MTR') || rawName.includes('4 MTR'))) { 
-          totalN4 += qty; nonel4PriceSum += price; nonel4Count++; 
-        }
-      });
-
-      const averages = {
-        pg: pgCount > 0 ? pgPriceSum / pgCount : 0,
-        ed: edCount > 0 ? edPriceSum / edCount : 0,
-        edet: edetCount > 0 ? edetPriceSum / edetCount : 0,
-        nonel3: nonel3Count > 0 ? nonel3PriceSum / nonel3Count : 0,
-        nonel4: nonel4Count > 0 ? nonel4PriceSum / nonel4Count : 0
-      };
-      setAvgPrices(averages);
 
       // 4. Fetch Blasting Records
       const { data: blastingData } = await supabase
