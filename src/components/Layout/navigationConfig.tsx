@@ -113,6 +113,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
             { name: 'Accounting Report', icon: Wallet, href: '#accounting-report' },
             { name: 'Attendance Report', icon: Clock, href: '#attendance-report' },
             { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
+            { name: 'Master Contractor Report', icon: ClipboardCheck, href: '#contractor_report' },
         ]
     },
 ];
@@ -156,6 +157,7 @@ export const MANAGER_NAV: MenuItem[] = [
             { name: 'Accounting Report', icon: Wallet, href: '#accounting-report' },
             { name: 'Attendance Report', icon: Clock, href: '#attendance-report' },
             { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
+            { name: 'Master Contractor Report', icon: ClipboardCheck, href: '#contractor_report' },
         ]
     },
 ];
@@ -176,6 +178,7 @@ export const CHAIRMEN_NAV: MenuItem[] = [
             { name: 'Accounting Report', icon: Wallet, href: '#accounting-report' },
             { name: 'Attendance Report', icon: Clock, href: '#attendance-report' },
             { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
+            { name: 'Master Contractor Report', icon: ClipboardCheck, href: '#contractor_report' },
         ]
     },
 ];

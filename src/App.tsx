@@ -52,6 +52,7 @@ import { ContractorManagement } from './components/Contractor/ContractorManageme
 import { OverheadManagement } from './components/Overhead/OverheadManagement';
 import { QuarryProductionReport } from './components/Contractor/QuarryProductionReport';
 import { QuarryDeductionReport } from './components/Contractor/QuarryDeductionReport';
+import { ContractorMasterReport } from './components/Reports/ContractorMasterReport';
 
 function AppContent() {
   const { session, user, loading } = useAuth();
@@ -486,6 +487,17 @@ function AppContent() {
               <p className="text-slate-600 mt-1">View and export permit data</p>
             </div>
             <PermitReport />
+          </div>
+        );
+
+      case 'contractor_report':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Master Contractor Report</h2>
+              <p className="text-slate-600 mt-1">Production, Billing & Deductions Hub</p>
+            </div>
+            <ContractorMasterReport />
           </div>
         );
 
