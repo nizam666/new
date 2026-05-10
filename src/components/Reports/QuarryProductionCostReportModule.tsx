@@ -112,18 +112,13 @@ export function QuarryProductionCostReportModule() {
         .lte('dispatch_date', endDate);
 
       let givenDiesel = 0;
-      let givenPg = 0;     // in boxes
-      let givenEd = 0;
-      let givenEdet = 0;
-      let givenN3 = 0;
-      let givenN4 = 0;
 
       // Per-item given prices (for WR cost calculation from blasting records)
-      let pgGivenPrice = 0;
-      let edGivenPrice = 0;
-      let edetGivenPrice = 0;
-      let n3GivenPrice = 0;
-      let n4GivenPrice = 0;
+      let pgPriceSum = 0, pgCount = 0;
+      let edPriceSum = 0, edCount = 0;
+      let edetPriceSum = 0, edetCount = 0;
+      let n3PriceSum = 0, n3Count = 0;
+      let n4PriceSum = 0, n4Count = 0;
       let dieselGivenPrice = 0;        // price per litre from dispatch
       let totalExplosivesDispatched = 0; // total cost of all explosives dispatched
       let totalDieselDispatched = 0;   // total cost of diesel dispatched
@@ -136,34 +131,27 @@ export function QuarryProductionCostReportModule() {
 
         // Helper: is this item a known explosive type?
         const isPG   = name === 'PG' || name.includes('POWERGEL') || name.includes('POWER GEL');
-        const isEDET = name === 'EDET' || name.startsWith('E DET') || name.startsWith('E-DET')
-                    || name.includes('ELECTRONIC DET') || name.includes('E DETONATOR');
-        const isED   = !isEDET && (name === 'ED' || name.startsWith('ELEC DET')
-                    || name.includes('ELECTRIC DET') || (name.length <= 4 && name.includes('ED')));
+        const isEDET = name === 'EDET' || name.startsWith('E DET') || name.startsWith('E-DET') || name.includes('ELECTRONIC DET') || name.includes('E DETONATOR');
+        const isED   = !isEDET && (name === 'ED' || name.startsWith('ELEC DET') || name.includes('ELECTRIC DET') || (name.length <= 4 && name.includes('ED')));
         const isN3   = name.includes('NONEL') && (name.includes('3M') || name.includes('3 M') || name.includes('3MTR') || name.includes('3 MTR'));
         const isN4   = name.includes('NONEL') && (name.includes('4M') || name.includes('4 M') || name.includes('4MTR') || name.includes('4 MTR'));
         const isNonel= name.includes('NONEL'); // catch-all for any NONEL variant
 
         if (isPG) {
           if (unit === 'nos') qty = qty / 200;  // convert Nos → Boxes
-          givenPg += qty;
-          pgGivenPrice = price;
+          pgPriceSum += price; pgCount++;
           totalExplosivesDispatched += qty * price;
         } else if (isEDET) {
-          givenEdet += qty;
-          edetGivenPrice = price;
+          edetPriceSum += price; edetCount++;
           totalExplosivesDispatched += qty * price;
         } else if (isED) {
-          givenEd += qty;
-          edGivenPrice = price;
+          edPriceSum += price; edCount++;
           totalExplosivesDispatched += qty * price;
         } else if (isN3) {
-          givenN3 += qty;
-          n3GivenPrice = price;
+          n3PriceSum += price; n3Count++;
           totalExplosivesDispatched += qty * price;
         } else if (isN4) {
-          givenN4 += qty;
-          n4GivenPrice = price;
+          n4PriceSum += price; n4Count++;
           totalExplosivesDispatched += qty * price;
         } else if (isNonel) {
           // Any other NONEL variant — sum into total explosives
@@ -175,6 +163,12 @@ export function QuarryProductionCostReportModule() {
           totalDieselDispatched += qty * price;
         }
       });
+
+      const pgGivenPrice = pgCount > 0 ? pgPriceSum / pgCount : 0;
+      const edGivenPrice = edCount > 0 ? edPriceSum / edCount : 0;
+      const edetGivenPrice = edetCount > 0 ? edetPriceSum / edetCount : 0;
+      const n3GivenPrice = n3Count > 0 ? n3PriceSum / n3Count : 0;
+      const n4GivenPrice = n4Count > 0 ? n4PriceSum / n4Count : 0;
 
 
       let totalPg = 0;
@@ -193,7 +187,7 @@ export function QuarryProductionCostReportModule() {
 
       // WR explosives cost = what was used in blasting × given_price from dispatch
       const wrExplosivesCost =
-        (totalPg / 200) * pgGivenPrice +    // PG in boxes × price/box
+        totalPg * pgGivenPrice +    // PG in boxes × price/box
         totalEd * edGivenPrice +
         totalEdet * edetGivenPrice +
         totalN3 * n3GivenPrice +
@@ -366,7 +360,7 @@ export function QuarryProductionCostReportModule() {
         },
         {
           slNo: 10,
-          description: `Contractor Expense: WR Blasting ₹${wrExplosivesCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })} + GB (All Inventory Dispatched) ₹${gbExplosivesCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          description: `Contractor Expense: WR Blasting ₹${wrExplosivesCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })} + GB (Explosives used in good boulders) ₹${gbExplosivesCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
           uom: '—',
           rate: contractorExplosivesValue,
           qty: 1,
