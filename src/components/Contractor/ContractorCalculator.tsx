@@ -73,13 +73,6 @@ export function ContractorCalculator() {
 
       if (drillingError) throw drillingError;
 
-      // 4.5 Fetch Blasting Records (for WR Explosives)
-      const { data: blastingData } = await supabase
-        .from('blasting_records')
-        .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate);
-
       // 5. Fetch Deductions (Advances and Dispatch Items)
       const deductions: BillItem[] = [];
 
@@ -153,11 +146,6 @@ export function ContractorCalculator() {
           const groupedResources: Record<string, { qty: number, amount: number, unit: string, rate: number }> = {};
           
           let totalExplosivesAmount = 0;
-          let pgPriceSum = 0, pgCount = 0;
-          let edPriceSum = 0, edCount = 0;
-          let edetPriceSum = 0, edetCount = 0;
-          let nonel3PriceSum = 0, nonel3Count = 0;
-          let nonel4PriceSum = 0, nonel4Count = 0;
 
 
           dispatchData.forEach(d => {
@@ -166,11 +154,6 @@ export function ContractorCalculator() {
             const key = isExplosive ? 'Explosives' : rawName;
             
             const isPG = rawName.toUpperCase() === 'PG' || rawName.toUpperCase().includes('POWERGEL');
-            const name = rawName.toUpperCase().trim();
-            const isEDET = name === 'EDET' || name.startsWith('E DET') || name.startsWith('E-DET') || name.includes('ELECTRONIC DET') || name.includes('E DETONATOR');
-            const isED   = !isEDET && (name === 'ED' || name.startsWith('ELEC DET') || name.includes('ELECTRIC DET') || (name.length <= 4 && name.includes('ED')));
-            const isN3   = name.includes('NONEL') && (name.includes('3M') || name.includes('3 M') || name.includes('3MTR') || name.includes('3 MTR'));
-            const isN4   = name.includes('NONEL') && (name.includes('4M') || name.includes('4 M') || name.includes('4MTR') || name.includes('4 MTR'));
 
             const price = d.given_price || 0;
             let qty = d.quantity_dispatched || 0;
@@ -180,11 +163,6 @@ export function ContractorCalculator() {
 
             if (isExplosive) {
               totalExplosivesAmount += qty * price;
-              if (isPG) { pgPriceSum += price; pgCount++; }
-              else if (isED) { edPriceSum += price; edCount++; }
-              else if (isEDET) { edetPriceSum += price; edetCount++; }
-              else if (isN3) { nonel3PriceSum += price; nonel3Count++; }
-              else if (isN4) { nonel4PriceSum += price; nonel4Count++; }
             } else {
               if (!groupedResources[key]) {
                 groupedResources[key] = { 
@@ -199,39 +177,16 @@ export function ContractorCalculator() {
             }
           });
 
-          // Calculate WR Explosives Cost
-          const avgPrices = {
-            pg: pgCount > 0 ? pgPriceSum / pgCount : 0,
-            ed: edCount > 0 ? edPriceSum / edCount : 0,
-            edet: edetCount > 0 ? edetPriceSum / edetCount : 0,
-            nonel3: nonel3Count > 0 ? nonel3PriceSum / nonel3Count : 0,
-            nonel4: nonel4Count > 0 ? nonel4PriceSum / nonel4Count : 0
-          };
 
-          let wrPG = 0, wrED = 0, wrEDET = 0, wrN3 = 0, wrN4 = 0;
-          const wrLogs = blastingData?.filter((b: any) => b.material_type === 'Weathered Rocks') || [];
-          wrLogs.forEach((b: any) => {
-            wrPG += b.pg_nos || 0;
-            wrED += b.ed_nos || 0;
-            wrEDET += b.edet_nos || 0;
-            wrN3 += b.nonel_3m_nos || 0;
-            wrN4 += b.nonel_4m_nos || 0;
-          });
-
-          const wrExplosivesCost = (wrPG * avgPrices.pg) + (wrED * avgPrices.ed) + (wrEDET * avgPrices.edet) + (wrN3 * avgPrices.nonel3) + (wrN4 * avgPrices.nonel4);
-          
-          const netExplosivesAmount = totalExplosivesAmount - wrExplosivesCost;
-
-
-          // Add Explosives Deductions (Excluding WR)
-          if (netExplosivesAmount > 0) {
+          // Add Explosives Deductions (Full Cost)
+          if (totalExplosivesAmount > 0) {
             deductions.push({
-              slNo: 'EXP-NET',
-              description: 'Resource: Explosives (Excluding WR)',
+              slNo: 'EXP-ALL',
+              description: 'Resource: Full Cost of Explosives',
               uom: 'Value',
               rate: 1,
-              qty: Math.round(netExplosivesAmount),
-              amount: -Math.round(netExplosivesAmount),
+              qty: totalExplosivesAmount,
+              amount: -totalExplosivesAmount,
               category: 'deduction',
               group: 'D'
             });
