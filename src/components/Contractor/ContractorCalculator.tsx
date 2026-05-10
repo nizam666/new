@@ -5,7 +5,8 @@ import {
   Calendar, 
   AlertCircle,
   Download,
-  FileText
+  FileText,
+  Save
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import ExcelJS from 'exceljs';
@@ -369,6 +370,32 @@ export function ContractorCalculator() {
         }
       ];
 
+      // Fetch Last Month Bill (Group E)
+      try {
+        const prevMonthDate = new Date(startDate);
+        prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+        const prevMonthStr = prevMonthDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+        
+        const storedBills = localStorage.getItem('sribaba_contractor_bills');
+        const allBills = storedBills ? JSON.parse(storedBills) : [];
+        const lastMonthBill = allBills.find((b: any) => b.contractorName === contractorName && b.month === prevMonthStr);
+        
+        if (lastMonthBill && lastMonthBill.amount > 0) {
+          productionItems.push({
+            slNo: 'LMB',
+            description: `Last Month Bill (${prevMonthStr})`,
+            uom: 'Value',
+            rate: 1,
+            qty: lastMonthBill.amount,
+            amount: lastMonthBill.amount,
+            category: 'production',
+            group: 'E'
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching last month bill:', err);
+      }
+
       setBillItems([...productionItems, ...deductions]);
     } catch (err) {
       console.error('Error calculating contractor bill:', err);
@@ -377,7 +404,25 @@ export function ContractorCalculator() {
     }
   };
 
-  const totalBillAmount = billItems.reduce((sum, item) => sum + item.amount, 0);
+  const grossBillAmount = billItems.reduce((sum, item) => sum + item.amount, 0);
+  const netPayable = Math.max(0, grossBillAmount);
+  const remainingAdvance = grossBillAmount < 0 ? Math.abs(grossBillAmount) : 0;
+
+  useEffect(() => {
+    if (!loading && billItems.length > 0) {
+      try {
+        const isStartOfMonth = startDate === format(startOfMonth(new Date(startDate)), 'yyyy-MM-dd');
+        const isEndOfMonth = endDate === format(endOfMonth(new Date(endDate)), 'yyyy-MM-dd');
+        const isPastMonthEnd = new Date() > new Date(endDate);
+        
+        if (isStartOfMonth && isEndOfMonth && isPastMonthEnd) {
+          saveCalculation(true);
+        }
+      } catch (err) {
+        // Date parsing error, ignore
+      }
+    }
+  }, [loading, billItems, startDate, endDate]);
 
   const exportToExcel = async () => {
     const formatDate = (dateStr: string) => {
@@ -417,7 +462,8 @@ export function ContractorCalculator() {
       { id: 'A', label: 'Group A: Quarry Good Boulders', color: 'FFDBEAFE', fontColor: 'FF1D4ED8' },
       { id: 'B', label: 'Group B: Soil/Weather Rocks', color: 'FFFFEDD5', fontColor: 'FFC2410C' },
       { id: 'C', label: 'Group C: Crusher works', color: 'FFFEE2E2', fontColor: 'FFB91C1C' },
-      { id: 'D', label: 'Group D: Advance / Deductions', color: 'FFF3E8FF', fontColor: 'FF6B21A8' }
+      { id: 'D', label: 'Group D: Advance / Deductions', color: 'FFF3E8FF', fontColor: 'FF6B21A8' },
+      { id: 'E', label: 'Group E: Brought Forward', color: 'FFE0E7FF', fontColor: 'FF4338CA' }
     ];
 
     groups.forEach(g => {
@@ -474,7 +520,18 @@ export function ContractorCalculator() {
       }
     });
 
-    const totalRow = worksheet.addRow(['', 'Estimated Net Payable:', '', '', '', totalBillAmount]);
+    if (remainingAdvance > 0) {
+      const advRow = worksheet.addRow(['', 'Remaining Advance Balance:', '', '', '', remainingAdvance]);
+      worksheet.mergeCells(`B${advRow.number}:E${advRow.number}`);
+      advRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFB45309' } };
+      advRow.getCell(2).alignment = { horizontal: 'right' };
+      advRow.getCell(6).alignment = { horizontal: 'right' };
+      advRow.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } };
+      });
+    }
+
+    const totalRow = worksheet.addRow(['', 'Estimated Net Payable:', '', '', '', netPayable]);
     worksheet.mergeCells(`B${totalRow.number}:E${totalRow.number}`);
     totalRow.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
     totalRow.getCell(2).alignment = { horizontal: 'right' };
@@ -531,7 +588,8 @@ export function ContractorCalculator() {
       { id: 'A', label: 'Group A: Quarry Good Boulders', color: [219, 234, 254], fontColor: [29, 78, 216] },
       { id: 'B', label: 'Group B: Soil/Weather Rocks', color: [255, 237, 213], fontColor: [194, 65, 12] },
       { id: 'C', label: 'Group C: Crusher works', color: [254, 226, 226], fontColor: [185, 28, 28] },
-      { id: 'D', label: 'Group D: Advance / Deductions', color: [243, 232, 255], fontColor: [107, 33, 168] }
+      { id: 'D', label: 'Group D: Advance / Deductions', color: [243, 232, 255], fontColor: [107, 33, 168] },
+      { id: 'E', label: 'Group E: Brought Forward', color: [224, 231, 255], fontColor: [67, 56, 202] }
     ];
 
     groups.forEach(g => {
@@ -560,9 +618,16 @@ export function ContractorCalculator() {
       }
     });
 
+    if (remainingAdvance > 0) {
+      tableRows.push([
+        { content: 'Remaining Advance Balance:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9] } },
+        { content: `Rs ${remainingAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', textColor: [180, 83, 9], halign: 'right' } }
+      ]);
+    }
+
     tableRows.push([
       { content: 'Estimated Net Payable:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
-      { content: `Rs ${totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255], halign: 'right' } }
+      { content: `Rs ${netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [255, 255, 255], halign: 'right' } }
     ]);
 
     autoTable(doc, {
@@ -581,6 +646,37 @@ export function ContractorCalculator() {
     });
 
     doc.save(`Contractor_Bill_${contractorName}_${startDate}_to_${endDate}.pdf`);
+  };
+
+  const saveCalculation = (silent = false) => {
+    try {
+      const monthStr = new Date(startDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      const record = {
+        id: crypto.randomUUID(),
+        contractorName,
+        month: monthStr,
+        startDate,
+        endDate,
+        amount: netPayable,
+        savedAt: new Date().toISOString()
+      };
+      const stored = localStorage.getItem('sribaba_contractor_bills');
+      const bills = stored ? JSON.parse(stored) : [];
+      
+      // Update if same contractor and month exists, otherwise add
+      const existingIdx = bills.findIndex((b: any) => b.contractorName === contractorName && b.month === monthStr);
+      if (existingIdx >= 0) {
+        bills[existingIdx] = { ...bills[existingIdx], ...record, id: bills[existingIdx].id };
+      } else {
+        bills.push(record);
+      }
+      
+      localStorage.setItem('sribaba_contractor_bills', JSON.stringify(bills));
+      if (!silent) alert('Net Payable Amount saved successfully!');
+    } catch (err) {
+      console.error('Error saving calculation:', err);
+      if (!silent) alert('Failed to save calculation.');
+    }
   };
 
   return (
@@ -641,6 +737,13 @@ export function ContractorCalculator() {
 
             <div className="flex gap-2 w-full sm:w-auto">
               <button
+                onClick={() => saveCalculation(false)}
+                className="flex-1 sm:flex-none px-4 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 active:scale-95 transition-all"
+              >
+                <Save className="w-4 h-4" /> Save
+              </button>
+              
+              <button
                 onClick={exportToExcel}
                 className="flex-1 sm:flex-none px-4 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 flex items-center justify-center gap-2 shadow-lg shadow-slate-200 active:scale-95 transition-all"
               >
@@ -664,8 +767,18 @@ export function ContractorCalculator() {
             <div className="text-center md:text-left">
               <p className="text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-2">Estimated Net Payable</p>
               <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter">
-                ₹{totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
+              {remainingAdvance > 0 && (
+                <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg">
+                  <span className="text-[10px] md:text-xs font-black text-amber-400 uppercase tracking-widest">
+                    Remaining Advance Balance:
+                  </span>
+                  <span className="text-sm md:text-base font-black text-amber-300">
+                    ₹{remainingAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex flex-col items-center md:items-end">
               <div className="px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-xl mb-3">
@@ -816,10 +929,39 @@ export function ContractorCalculator() {
                     </td>
                   </tr>
 
+                  {/* Group E: Brought Forward */}
+                  {billItems.filter(i => i.group === 'E').length > 0 && (
+                    <>
+                      <tr className="bg-indigo-50/50">
+                        <td colSpan={6} className="px-6 py-3">
+                          <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Group E: Brought Forward</span>
+                        </td>
+                      </tr>
+                      {billItems.filter(i => i.group === 'E').map((item) => (
+                        <tr key={item.slNo} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 text-sm font-black text-slate-400">{item.slNo}</td>
+                          <td className="px-6 py-4 text-sm font-bold text-slate-900 tracking-tight">{item.description}</td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center justify-center px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 uppercase">{item.uom}</span>
+                          </td>
+                          <td className="px-6 py-4 text-right font-mono text-xs font-bold text-slate-500">{item.rate.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-right text-sm font-black text-slate-900">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="px-6 py-4 text-right text-sm font-black text-slate-900">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-indigo-50/30 border-b border-indigo-100">
+                        <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-indigo-400">Section Subtotal</td>
+                        <td className="px-6 py-3 text-right text-sm font-black text-indigo-600">
+                          ₹{billItems.filter(i => i.group === 'E').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    </>
+                  )}
+
                   <tr className="bg-emerald-600 text-white shadow-xl">
                     <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-emerald-100">Net Payable Amount</td>
                     <td className="px-6 py-6 text-right text-2xl font-black text-white">
-                      ₹{totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                   </tr>
                 </>
@@ -905,7 +1047,7 @@ export function ContractorCalculator() {
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-black text-white uppercase tracking-widest">Net Payable</span>
                   <span className="text-2xl font-black text-white">
-                    ₹{totalBillAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>

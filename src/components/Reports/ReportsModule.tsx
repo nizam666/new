@@ -6,7 +6,8 @@ import { AccountingReportModule } from './AccountingReportModule';
 import { OperationsHistoryModule } from './OperationsHistoryModule';
 import { AttendanceReportModule } from './AttendanceReportModule';
 import { QuarryProductionCostReportModule } from './QuarryProductionCostReportModule';
-import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock, Calculator } from 'lucide-react';
+import { QuarryDeductionReport } from '../Contractor/QuarryDeductionReport';
+import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock, Calculator, FileText } from 'lucide-react';
 
 export function ReportsModule() {
   const [activeReport, setActiveReport] = useState<string>('production');
@@ -60,6 +61,13 @@ export function ReportsModule() {
       description: 'Quarry & Crusher attendance records',
       icon: Clock,
       color: 'indigo'
+    },
+    {
+      id: 'contractor_report',
+      name: 'Contractor Deductions',
+      description: 'Itemized deduction break-ups',
+      icon: FileText,
+      color: 'red'
     }
   ];
 
@@ -78,6 +86,13 @@ export function ReportsModule() {
         iconBg: 'bg-blue-100',
         iconText: 'text-blue-600',
         text: isActive ? 'text-blue-900' : 'text-slate-700'
+      },
+      red: {
+        bg: isActive ? 'bg-red-50' : 'bg-white',
+        border: isActive ? 'border-red-500' : 'border-slate-200',
+        iconBg: 'bg-red-100',
+        iconText: 'text-red-600',
+        text: isActive ? 'text-red-900' : 'text-slate-700'
       },
       orange: {
         bg: isActive ? 'bg-orange-50' : 'bg-white',
@@ -134,6 +149,8 @@ export function ReportsModule() {
         return <AccountingReportModule />;
       case 'attendance':
         return <AttendanceReportModule />;
+      case 'contractor_report':
+        return <QuarryDeductionReport />;
       default:
         return <MaterialBalanceReportModule />;
     }

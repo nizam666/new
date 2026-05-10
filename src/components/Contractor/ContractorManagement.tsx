@@ -27,6 +27,7 @@ export function ContractorManagement() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [savedBills, setSavedBills] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     employee_id: '',
@@ -83,6 +84,34 @@ export function ContractorManagement() {
 
   useEffect(() => { 
     loadContractors(); 
+    
+    // Auto-inject Govindraj March bill
+    try {
+      const storedBills = localStorage.getItem('sribaba_contractor_bills');
+      const bills = storedBills ? JSON.parse(storedBills) : [];
+      const storedContractors = localStorage.getItem('sribaba_contractors');
+      const contractorsList = storedContractors ? JSON.parse(storedContractors) : [];
+      const govindraj = contractorsList.find((c: any) => c.full_name.toLowerCase().includes('govind'));
+      
+      if (govindraj) {
+        const monthStr = 'Mar 2026'; 
+        const exists = bills.find((b: any) => b.contractorName === govindraj.full_name && b.month === monthStr);
+        if (!exists) {
+          bills.push({
+            id: crypto.randomUUID(),
+            contractorName: govindraj.full_name,
+            month: monthStr,
+            startDate: '2026-03-01',
+            endDate: '2026-03-31',
+            amount: 225783.24,
+            savedAt: new Date().toISOString()
+          });
+          localStorage.setItem('sribaba_contractor_bills', JSON.stringify(bills));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }, [loadContractors]);
 
   useEffect(() => { 
@@ -102,6 +131,10 @@ export function ContractorManagement() {
 
       if (error) throw error;
       setTransactions(data || []);
+
+      const storedBills = localStorage.getItem('sribaba_contractor_bills');
+      const allBills = storedBills ? JSON.parse(storedBills) : [];
+      setSavedBills(allBills.filter((b: any) => b.contractorName === contractor.full_name));
     } catch (err) {
       console.error('Error fetching contractor history:', err);
     } finally {
@@ -306,6 +339,14 @@ export function ContractorManagement() {
     });
     
     return { advance, payment };
+  })();
+
+  const savedBillAmount = (() => {
+    if (selectedMonth === 'all') {
+      return savedBills.reduce((sum, b) => sum + (b.amount || 0), 0);
+    }
+    const bill = savedBills.find(b => b.month === selectedMonth);
+    return bill ? (bill.amount || 0) : 0;
   })();
 
   return (
@@ -579,13 +620,18 @@ export function ContractorManagement() {
                       </div>
                       <div className="border-l border-slate-700 h-6" />
                       <div className="text-right">
-                        <p className="text-[8px] font-black text-amber-400 uppercase tracking-wider">Adv</p>
-                        <p className="font-black text-amber-200">₹{selectedMonthTotals.advance.toLocaleString('en-IN')}</p>
+                        <p className="text-[8px] font-black text-emerald-400 uppercase tracking-wider">Net Bill</p>
+                        <p className="font-black text-emerald-200">₹{savedBillAmount.toLocaleString('en-IN')}</p>
                       </div>
                       <div className="border-l border-slate-700 h-6" />
                       <div className="text-right">
                         <p className="text-[8px] font-black text-blue-400 uppercase tracking-wider">Pay</p>
                         <p className="font-black text-blue-200">₹{selectedMonthTotals.payment.toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="border-l border-slate-700 h-6" />
+                      <div className="text-right">
+                        <p className="text-[8px] font-black text-amber-400 uppercase tracking-wider">Adv</p>
+                        <p className="font-black text-amber-200">₹{selectedMonthTotals.advance.toLocaleString('en-IN')}</p>
                       </div>
                     </div>
                   </div>

@@ -40,12 +40,13 @@ export function QuarryDeductionReport() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [activeTab, setActiveTab] = useState<'diesel' | 'advances' | 'explosives' | 'explosives_wr'>('diesel');
+  const [activeTab, setActiveTab] = useState<'diesel' | 'advances' | 'explosives' | 'explosives_wr' | 'explosives_gb'>('diesel');
   
   const [dieselLogs, setDieselLogs] = useState<DieselDeduction[]>([]);
   const [advanceLogs, setAdvanceLogs] = useState<AdvanceDeduction[]>([]);
   const [explosiveDispatches, setExplosiveDispatches] = useState<any[]>([]);
   const [explosiveWRLogs, setExplosiveWRLogs] = useState<ExplosiveUsage[]>([]);
+  const [dispatchedExplosives, setDispatchedExplosives] = useState({ pg: 0, ed: 0, edet: 0, nonel3: 0, nonel4: 0 });
   const [avgPrices, setAvgPrices] = useState({ pg: 0, ed: 0, edet: 0, nonel3: 0, nonel4: 0 });
   const [wrExplosives, setWrExplosives] = useState({ pg: 0, ed: 0, edet: 0, nonel3: 0, nonel4: 0 });
 
@@ -127,6 +128,7 @@ export function QuarryDeductionReport() {
 
       setDieselLogs(diesel);
       setExplosiveDispatches(explosives);
+      setDispatchedExplosives({ pg: totalPG, ed: totalED, edet: totalEDET, nonel3: totalN3, nonel4: totalN4 });
 
       const averages = {
         pg: pgCount > 0 ? pgPriceSum / pgCount : 0,
@@ -212,6 +214,21 @@ export function QuarryDeductionReport() {
     }
     return sum + (qty * (e.given_price || 0));
   }, 0);
+
+  const gbExplosives = {
+    pg: Math.max(0, dispatchedExplosives.pg - wrExplosives.pg),
+    ed: Math.max(0, dispatchedExplosives.ed - wrExplosives.ed),
+    edet: Math.max(0, dispatchedExplosives.edet - wrExplosives.edet),
+    nonel3: Math.max(0, dispatchedExplosives.nonel3 - wrExplosives.nonel3),
+    nonel4: Math.max(0, dispatchedExplosives.nonel4 - wrExplosives.nonel4),
+  };
+
+  const totalGbCost = 
+    (gbExplosives.pg * avgPrices.pg) +
+    (gbExplosives.ed * avgPrices.ed) +
+    (gbExplosives.edet * avgPrices.edet) +
+    (gbExplosives.nonel3 * avgPrices.nonel3) +
+    (gbExplosives.nonel4 * avgPrices.nonel4);
 
 
 
@@ -328,8 +345,33 @@ export function QuarryDeductionReport() {
     ws.addRow([]);
     ws.addRow([]);
 
-    const grandTotal = totalDiesel + totalAdvances + totalExplosivesDispatchCost;
-    const gRow = ws.addRow(['GRAND TOTAL DEDUCTIONS (1+2+3)', '', '', '', '', Math.round(grandTotal)]);
+    ws.addRow([]);
+    ws.addRow([]);
+
+    // --- Section 5: Explosives Usage - Good Boulders ---
+    const sec5 = ws.addRow(['5. Explosives Usage - Good Boulders']);
+    sec5.font = { bold: true, size: 12, color: { argb: 'FF15803D' } }; 
+    ws.mergeCells(sec5.number, 1, sec5.number, 6);
+
+    const gbHeader = ws.addRow(['', 'Explosive Type', 'Qty (GB)', 'Unit', 'Avg Price (₹)', 'Total Cost (₹)']);
+    gbHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    gbHeader.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF16A34A' } });
+
+    ws.addRow(['', 'PowerGel (PG)', gbExplosives.pg.toFixed(2), 'Box', avgPrices.pg.toFixed(2), Math.round(gbExplosives.pg * avgPrices.pg)]);
+    ws.addRow(['', 'Electric Detonator (ED)', gbExplosives.ed, 'Nos', avgPrices.ed.toFixed(2), Math.round(gbExplosives.ed * avgPrices.ed)]);
+    ws.addRow(['', 'Electronic Detonator (EDET)', gbExplosives.edet, 'Nos', avgPrices.edet.toFixed(2), Math.round(gbExplosives.edet * avgPrices.edet)]);
+    ws.addRow(['', 'Nonel 3M', gbExplosives.nonel3, 'Nos', avgPrices.nonel3.toFixed(2), Math.round(gbExplosives.nonel3 * avgPrices.nonel3)]);
+    ws.addRow(['', 'Nonel 4M', gbExplosives.nonel4, 'Nos', avgPrices.nonel4.toFixed(2), Math.round(gbExplosives.nonel4 * avgPrices.nonel4)]);
+
+    const gbTotalRow = ws.addRow(['Total GB Explosives Cost', '', '', '', '', Math.round(totalGbCost)]);
+    gbTotalRow.font = { bold: true };
+    gbTotalRow.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } });
+    ws.mergeCells(gbTotalRow.number, 1, gbTotalRow.number, 5);
+    ws.addRow([]);
+    ws.addRow([]);
+
+    const grandTotal = totalDiesel + totalAdvances + totalGbCost;
+    const gRow = ws.addRow(['GRAND TOTAL DEDUCTIONS (1+2+5)', '', '', '', '', Math.round(grandTotal)]);
     gRow.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
     gRow.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } });
     ws.mergeCells(gRow.number, 1, gRow.number, 5);
@@ -468,10 +510,42 @@ export function QuarryDeductionReport() {
 
     currentY = (doc as any).lastAutoTable.finalY + 15;
 
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+
+    if (currentY > 230) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    // 5. Explosives Usage - Good Boulders
+    doc.setFontSize(12);
+    doc.setTextColor(22, 163, 74); 
+    doc.text("5. Explosives Usage - Good Boulders", 14, currentY);
+
+    const gbRows = [
+      ['PowerGel (PG)', gbExplosives.pg.toFixed(2), 'Box', avgPrices.pg.toFixed(2), Math.round(gbExplosives.pg * avgPrices.pg).toLocaleString()],
+      ['Electric Detonator (ED)', gbExplosives.ed.toString(), 'Nos', avgPrices.ed.toFixed(2), Math.round(gbExplosives.ed * avgPrices.ed).toLocaleString()],
+      ['Electronic Detonator (EDET)', gbExplosives.edet.toString(), 'Nos', avgPrices.edet.toFixed(2), Math.round(gbExplosives.edet * avgPrices.edet).toLocaleString()],
+      ['Nonel 3M', gbExplosives.nonel3.toString(), 'Nos', avgPrices.nonel3.toFixed(2), Math.round(gbExplosives.nonel3 * avgPrices.nonel3).toLocaleString()],
+      ['Nonel 4M', gbExplosives.nonel4.toString(), 'Nos', avgPrices.nonel4.toFixed(2), Math.round(gbExplosives.nonel4 * avgPrices.nonel4).toLocaleString()]
+    ];
+    gbRows.push(['Total GB Explosives Cost', '', '', '', Math.round(totalGbCost).toLocaleString()]);
+
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Explosive Type', 'Qty (GB)', 'Unit', 'Avg Price', 'Total Cost']],
+      body: gbRows,
+      headStyles: { fillColor: [22, 163, 74] },
+      theme: 'grid',
+      styles: { fontSize: 8 }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+
     // Grand Total
     doc.setFontSize(14);
     doc.setTextColor(255, 255, 255);
-    const grandTotal = totalDiesel + totalAdvances + totalExplosivesDispatchCost;
+    const grandTotal = totalDiesel + totalAdvances + totalGbCost;
     doc.setFillColor(15, 23, 42); // Slate-900
     doc.rect(14, currentY, 182, 10, 'F');
     doc.text(`GRAND TOTAL DEDUCTIONS: Rs. ${Math.round(grandTotal).toLocaleString()}`, 105, currentY + 7, { align: 'center' });
@@ -524,6 +598,9 @@ export function QuarryDeductionReport() {
           </button>
           <button onClick={() => setActiveTab('explosives_wr')} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'explosives_wr' ? 'bg-red-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}>
             Explosives (Weather Rock)
+          </button>
+          <button onClick={() => setActiveTab('explosives_gb')} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'explosives_gb' ? 'bg-red-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}>
+            Explosives (Good Boulders)
           </button>
         </div>
 
@@ -655,6 +732,55 @@ export function QuarryDeductionReport() {
                         <td className="py-3">{e.nonel_4m_nos}</td>
                       </tr>
                     ))}
+                  </tbody>
+                </>
+              )}
+
+              {activeTab === 'explosives_gb' && (
+                <>
+                  <thead>
+                    <tr className="bg-slate-50 border-b text-[10px] uppercase font-black text-slate-400 text-center">
+                      <th className="px-4 py-3 text-left">Explosive Type</th>
+                      <th className="text-emerald-600 font-black">Good Boulders (GB)</th>
+                      <th>Avg Price (₹)</th>
+                      <th className="text-right">GB Cost (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700 text-sm font-bold text-center">
+                    <tr className="hover:bg-slate-50">
+                      <td className="px-4 py-3 text-left font-black text-slate-900">PG (Boxes)</td>
+                      <td className="py-3 text-emerald-600 bg-emerald-50/30">{gbExplosives.pg.toFixed(2)}</td>
+                      <td className="py-3 text-slate-500">₹{avgPrices.pg.toFixed(2)}</td>
+                      <td className="py-3 text-right font-black text-slate-900">₹{Math.round(gbExplosives.pg * avgPrices.pg).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50">
+                      <td className="px-4 py-3 text-left font-black text-slate-900">ED (Nos)</td>
+                      <td className="py-3 text-emerald-600 bg-emerald-50/30">{gbExplosives.ed}</td>
+                      <td className="py-3 text-slate-500">₹{avgPrices.ed.toFixed(2)}</td>
+                      <td className="py-3 text-right font-black text-slate-900">₹{Math.round(gbExplosives.ed * avgPrices.ed).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50">
+                      <td className="px-4 py-3 text-left font-black text-slate-900">EDET (Nos)</td>
+                      <td className="py-3 text-emerald-600 bg-emerald-50/30">{gbExplosives.edet}</td>
+                      <td className="py-3 text-slate-500">₹{avgPrices.edet.toFixed(2)}</td>
+                      <td className="py-3 text-right font-black text-slate-900">₹{Math.round(gbExplosives.edet * avgPrices.edet).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50">
+                      <td className="px-4 py-3 text-left font-black text-slate-900">Nonel 3M (Nos)</td>
+                      <td className="py-3 text-emerald-600 bg-emerald-50/30">{gbExplosives.nonel3}</td>
+                      <td className="py-3 text-slate-500">₹{avgPrices.nonel3.toFixed(2)}</td>
+                      <td className="py-3 text-right font-black text-slate-900">₹{Math.round(gbExplosives.nonel3 * avgPrices.nonel3).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50">
+                      <td className="px-4 py-3 text-left font-black text-slate-900">Nonel 4M (Nos)</td>
+                      <td className="py-3 text-emerald-600 bg-emerald-50/30">{gbExplosives.nonel4}</td>
+                      <td className="py-3 text-slate-500">₹{avgPrices.nonel4.toFixed(2)}</td>
+                      <td className="py-3 text-right font-black text-slate-900">₹{Math.round(gbExplosives.nonel4 * avgPrices.nonel4).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr className="bg-slate-50 font-black border-t-2 border-slate-200">
+                      <td colSpan={3} className="px-4 py-3 text-right text-[11px] uppercase tracking-widest text-slate-400">Total GB Explosives Cost:</td>
+                      <td className="px-4 py-3 text-right text-emerald-600 text-lg">₹{Math.round(totalGbCost).toLocaleString('en-IN')}</td>
+                    </tr>
                   </tbody>
                 </>
               )}
