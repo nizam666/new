@@ -30,6 +30,7 @@ export function ContractorCalculator() {
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const contractorName = 'Govindaraj';
   const [billItems, setBillItems] = useState<BillItem[]>([]);
+  const [recentBills, setRecentBills] = useState<any[]>([]);
 
   useEffect(() => {
     calculateBill();
@@ -100,22 +101,13 @@ export function ContractorCalculator() {
 
             if (!matchesName && !matchesRef) return;
 
-            const checkIsAdvance = () => {
-              if (rec.notes) {
-                const parts = rec.notes.split(' | ');
-                const itemPart = parts.find((p: string) => p.startsWith('Item: '));
-                if (itemPart) {
-                  const itemValue = itemPart.replace('Item: ', '').toLowerCase();
-                  if (itemValue.includes('payment')) return false;
-                  if (itemValue.includes('advance')) return true;
-                }
-              }
-              return rec.reason?.toLowerCase().includes('advance') || 
-                     rec.notes?.toLowerCase().includes('advance');
-            };
+            // Any expense or payment related to the contractor should be a deduction
+            // except if it's explicitly a "Contractor Bill" (which is the output of this calculator)
+            if (rec.transaction_type === 'contractor_bill') return;
 
-            if (checkIsAdvance()) {
-              totalAdvanceAmount += (rec.amount_given || 0);
+            totalAdvanceAmount += (rec.amount_given || 0);
+            if (rec.amount > 0 && !rec.amount_given) {
+              totalAdvanceAmount += rec.amount;
             }
           });
 
@@ -208,7 +200,10 @@ export function ContractorCalculator() {
           let wrPG = 0, wrED = 0, wrEDET = 0, wrN3 = 0, wrN4 = 0;
           const wrLogs = blastingData?.filter(b => b.material_type === 'Weathered Rocks') || [];
           wrLogs.forEach(b => {
-            wrPG += b.pg_nos || 0;
+            // Standardize WR PG to Boxes (1 box = 200 nos)
+            const pgVal = (b.pg_nos || 0);
+            wrPG += b.pg_unit === 'nos' ? pgVal / 200 : pgVal;
+            
             wrED += b.ed_nos || 0;
             wrEDET += b.edet_nos || 0;
             wrN3 += b.nonel_3m_nos || 0;
@@ -435,18 +430,23 @@ export function ContractorCalculator() {
         prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
         const prevMonthStr = prevMonthDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
         
-        const storedBills = localStorage.getItem('sribaba_contractor_bills');
-        const allBills = storedBills ? JSON.parse(storedBills) : [];
-        const lastMonthBill = allBills.find((b: any) => b.contractorName === contractorName && b.month === prevMonthStr);
+        const { data: lastMonthBill } = await supabase
+          .from('accounts')
+          .select('amount')
+          .eq('transaction_type', 'contractor_bill')
+          .eq('customer_name', contractorName)
+          .eq('reason', prevMonthStr)
+          .maybeSingle();
         
-        if (lastMonthBill && lastMonthBill.amount > 0) {
+        if (lastMonthBill && parseFloat(lastMonthBill.amount) > 0) {
+          const amt = parseFloat(lastMonthBill.amount);
           productionItems.push({
             slNo: 'LMB',
             description: `Last Month Bill (${prevMonthStr})`,
             uom: 'Value',
             rate: 1,
-            qty: lastMonthBill.amount,
-            amount: lastMonthBill.amount,
+            qty: amt,
+            amount: amt,
             category: 'production',
             group: 'E'
           });
@@ -707,36 +707,59 @@ export function ContractorCalculator() {
     doc.save(`Contractor_Bill_${contractorName}_${startDate}_to_${endDate}.pdf`);
   };
 
-  const saveCalculation = (silent = false) => {
+  const fetchRecentBills = async () => {
+    const { data } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('transaction_type', 'contractor_bill')
+      .eq('customer_name', contractorName)
+      .order('transaction_date', { ascending: false })
+      .limit(5);
+    setRecentBills(data || []);
+  };
+
+  const saveCalculation = async (silent = false) => {
     try {
       const monthStr = new Date(startDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-      const record = {
-        id: crypto.randomUUID(),
-        contractorName,
-        month: monthStr,
-        startDate,
-        endDate,
-        amount: netPayable,
-        savedAt: new Date().toISOString()
-      };
-      const stored = localStorage.getItem('sribaba_contractor_bills');
-      const bills = stored ? JSON.parse(stored) : [];
       
-      // Update if same contractor and month exists, otherwise add
-      const existingIdx = bills.findIndex((b: any) => b.contractorName === contractorName && b.month === monthStr);
-      if (existingIdx >= 0) {
-        bills[existingIdx] = { ...bills[existingIdx], ...record, id: bills[existingIdx].id };
+      const { data: existing } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('transaction_type', 'contractor_bill')
+        .eq('customer_name', contractorName)
+        .eq('reason', monthStr)
+        .maybeSingle();
+
+      const payload = {
+        transaction_type: 'contractor_bill',
+        customer_name: contractorName,
+        amount: netPayable,
+        reason: monthStr,
+        notes: `[BILL_SNAPSHOT] ${startDate} to ${endDate}`,
+        transaction_date: endDate,
+        status: 'pending',
+        updated_at: new Date().toISOString()
+      };
+
+      if (existing) {
+        const { error } = await supabase.from('accounts').update(payload).eq('id', existing.id);
+        if (error) throw error;
       } else {
-        bills.push(record);
+        const { error } = await supabase.from('accounts').insert([payload]);
+        if (error) throw error;
       }
       
-      localStorage.setItem('sribaba_contractor_bills', JSON.stringify(bills));
-      if (!silent) alert('Net Payable Amount saved successfully!');
+      if (!silent) alert('Net Payable Amount saved to database successfully!');
+      fetchRecentBills();
     } catch (err) {
       console.error('Error saving calculation:', err);
-      if (!silent) alert('Failed to save calculation.');
+      if (!silent) alert('Failed to save calculation to database.');
     }
   };
+
+  useEffect(() => {
+    fetchRecentBills();
+  }, []);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -1120,6 +1143,45 @@ export function ContractorCalculator() {
             <strong>Note:</strong> Itemized deductions are based on verified field records for {contractorName}. Production values reflect automated logs from transport, loading, and drilling modules.
           </p>
         </div>
+
+        {/* Recent Saved Bills Registry */}
+        {recentBills.length > 0 && (
+          <div className="mt-12 space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-lg">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-base font-black text-slate-900 tracking-tight">Recent Saved Bills</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Historical Snapshot Registry</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recentBills.map((bill) => (
+                <div key={bill.id} className="bg-white border border-slate-100 rounded-[30px] p-6 shadow-sm hover:shadow-xl transition-all group">
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest">
+                      {bill.reason}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {format(new Date(bill.transaction_date), 'dd MMM yyyy')}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Payable</p>
+                    <h5 className="text-xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">
+                      ₹{bill.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </h5>
+                  </div>
+                  <p className="text-[9px] font-medium text-slate-400 mt-4 italic line-clamp-1 border-t border-slate-50 pt-3">
+                    {bill.notes}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

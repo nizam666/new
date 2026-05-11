@@ -29,9 +29,13 @@ interface PermitReportData {
     permit_serial_end: string;
     postal_received_date: string;
     company_name: string;
+    royalty_base: string;
     royalty_gst: string;
+    dmf_base: string;
     dmf_gst: string;
+    gf_base: string;
     gf_gst: string;
+    miscellaneous: string;
 }
 
 export function PermitReport({ companyName }: { companyName?: string }) {
@@ -79,41 +83,49 @@ export function PermitReport({ companyName }: { companyName?: string }) {
         doc.text('Area: 0.78.13 Hectares', 120, 26); // Hardcoded sample
 
         const tableColumn = [
-            "S.No", "Date of Payment", "Date of Permit", "Applied Ton",
-            "Royalty", "MBL", "GF", "Total Amount",
-            "Payment Ref", "TDS", "TDS Ref", "DMF", "DMF Ref",
-            "GST Total", "GST Ref", "Permit Serials", "Postal Date"
+            "S.No", "Payment Date", "Permit Date", "Ton",
+            "Royalty (Base)", "DMF (Base)", "GF (Base)", "MBL", "TDS",
+            "Royalty GST", "DMF GST", "GF GST", "Misc",
+            "Total without Misc", "GST Total", "Grand Total",
+            "Ref / Serials"
         ];
 
         const tableRows = permits.map((permit, index) => {
-            // Calculate GST Total
-            const gstTotal = (
-                (parseFloat(permit.royalty_gst) || 0) +
-                (parseFloat(permit.dmf_gst) || 0) +
-                (parseFloat(permit.gf_gst) || 0)
-            ).toFixed(2);
+            const qty = parseFloat(permit.quantity_in_mt) || 0;
+            const royaltyBase = parseFloat(permit.royalty_base) || (qty * 33);
+            const royaltyGst = parseFloat(permit.royalty_gst) || (royaltyBase * 0.18);
+            const dmfBase = parseFloat(permit.dmf_base) || (royaltyBase * 0.10);
+            const dmfGst = parseFloat(permit.dmf_gst) || (dmfBase * 0.18);
+            const gfBase = parseFloat(permit.gf_base) || (royaltyBase * 0.10);
+            const gfGst = parseFloat(permit.gf_gst) || (gfBase * 0.18);
+            const mbl = parseFloat(permit.mbl) || 0;
+            const tds = parseFloat(permit.tds) || 0;
+            const misc = parseFloat(permit.miscellaneous) || 0;
 
-            // Construct Payment Ref
-            const payRef = `App: ${permit.application_no || '-'} \nChallan: ${permit.challan_no || '-'} \nBank: ${permit.bank_ref || '-'}`;
+            const totalWithoutMisc = (royaltyBase + dmfBase + gfBase + mbl + tds).toFixed(2);
+            const gstTotal = (royaltyGst + dmfGst + gfGst).toFixed(2);
+            const grandTotal = permit.total_cost || (parseFloat(totalWithoutMisc) + misc + parseFloat(gstTotal)).toFixed(2);
+
+            const details = `App: ${permit.application_no || '-'}\nSrl: ${permit.permit_serial_start || ''}-${permit.permit_serial_end || ''}`;
 
             return [
                 index + 1,
-                permit.payment_date,
-                permit.approval_date,
-                permit.quantity_in_mt,
-                permit.royalty_amount,
-                permit.mbl,
-                permit.gf,
-                permit.total_cost,
-                payRef,
-                permit.tds,
-                permit.bsr_code,
-                permit.dmf,
-                permit.dmf_reference,
+                permit.payment_date || '-',
+                permit.approval_date || '-',
+                qty.toLocaleString(),
+                royaltyBase.toFixed(2),
+                dmfBase.toFixed(2),
+                gfBase.toFixed(2),
+                mbl.toFixed(2),
+                tds.toFixed(2),
+                royaltyGst.toFixed(2),
+                dmfGst.toFixed(2),
+                gfGst.toFixed(2),
+                misc.toFixed(2),
+                totalWithoutMisc,
                 gstTotal,
-                permit.gst_reference,
-                `${permit.permit_serial_start || ''} - ${permit.permit_serial_end || ''}`,
-                permit.postal_received_date
+                grandTotal,
+                details
             ];
         });
 
@@ -131,24 +143,23 @@ export function PermitReport({ companyName }: { companyName?: string }) {
     const exportExcel = () => {
         const worksheet = XLSX.utils.json_to_sheet(permits.map((permit, index) => ({
             "S.No": index + 1,
-            "Date of Payment": permit.payment_date,
-            "Date of Permit": permit.approval_date,
-            "Applied Ton": permit.quantity_in_mt,
-            "Royalty": permit.royalty_amount,
+            "Payment Date": permit.payment_date,
+            "Permit Date": permit.approval_date,
+            "Quantity (MT)": permit.quantity_in_mt,
+            "Royalty Base": permit.royalty_base,
+            "DMF Base": permit.dmf_base,
+            "GF Base": permit.gf_base,
             "MBL": permit.mbl,
-            "GF": permit.gf,
-            "Total Amount": permit.total_cost,
-            "Application No": permit.application_no,
-            "Challan No": permit.challan_no,
-            "Bank Ref": permit.bank_ref,
-            "TDS Amount": permit.tds,
-            "BSR Code": permit.bsr_code,
-            "DMF Amount": permit.dmf,
-            "DMF Ref": permit.dmf_reference,
-            "GST Total": (parseFloat(permit.royalty_gst) + parseFloat(permit.dmf_gst) + parseFloat(permit.gf_gst)).toFixed(2),
-            "GST Ref": permit.gst_reference,
-            "Serial Start": permit.permit_serial_start,
-            "Serial End": permit.permit_serial_end,
+            "TDS": permit.tds,
+            "Royalty GST": permit.royalty_gst,
+            "DMF GST": permit.dmf_gst,
+            "GF GST": permit.gf_gst,
+            "Misc": permit.miscellaneous,
+            "Total without Misc": (parseFloat(permit.royalty_base || '0') + parseFloat(permit.dmf_base || '0') + parseFloat(permit.gf_base || '0') + parseFloat(permit.mbl || '0') + parseFloat(permit.tds || '0')).toFixed(2),
+            "GST Total": (parseFloat(permit.royalty_gst || '0') + parseFloat(permit.dmf_gst || '0') + parseFloat(permit.gf_gst || '0')).toFixed(2),
+            "Grand Total": permit.total_cost,
+            "App No": permit.application_no,
+            "Serials": `${permit.permit_serial_start || ''} - ${permit.permit_serial_end || ''}`,
             "Postal Date": permit.postal_received_date
         })));
 
@@ -185,59 +196,68 @@ export function PermitReport({ companyName }: { companyName?: string }) {
                 <table className="w-full text-sm text-left">
                     <thead className="text-xs text-slate-700 uppercase bg-yellow-100 border-b border-slate-200">
                         <tr>
-                            <th className="px-4 py-3 whitespace-nowrap">S.No</th>
-                            <th className="px-4 py-3 whitespace-nowrap">Payment Date</th>
-                            <th className="px-4 py-3 whitespace-nowrap">Permit Date</th>
-                            <th className="px-4 py-3 whitespace-nowrap">Ton</th>
-                            <th className="px-4 py-3 whitespace-nowrap">Royalty</th>
-                            <th className="px-4 py-3 whitespace-nowrap">MBL</th>
-                            <th className="px-4 py-3 whitespace-nowrap">GF</th>
-                            <th className="px-4 py-3 whitespace-nowrap">Total</th>
-                            <th className="px-4 py-3 min-w-[200px]">Payment Ref</th>
-                            <th className="px-4 py-3 whitespace-nowrap">TDS</th>
-                            <th className="px-4 py-3 whitespace-nowrap">BSR Code</th>
-                            <th className="px-4 py-3 whitespace-nowrap">DMF</th>
-                            <th className="px-4 py-3 whitespace-nowrap">DMF Ref</th>
-                            <th className="px-4 py-3 whitespace-nowrap">GST Total</th>
-                            <th className="px-4 py-3 whitespace-nowrap">GST Ref</th>
-                            <th className="px-4 py-3 whitespace-nowrap">Serials</th>
-                            <th className="px-4 py-3 whitespace-nowrap">Postal Date</th>
+                            <th className="px-3 py-3">S.No</th>
+                            <th className="px-3 py-3">Payment Date</th>
+                            <th className="px-3 py-3">Permit Date</th>
+                            <th className="px-3 py-3">Ton</th>
+                            <th className="px-1 py-3 bg-blue-50/50">Royalty (Base)</th>
+                            <th className="px-1 py-3 bg-blue-50/50">DMF (Base)</th>
+                            <th className="px-1 py-3 bg-blue-50/50">GF (Base)</th>
+                            <th className="px-1 py-3">MBL</th>
+                            <th className="px-1 py-3">TDS</th>
+                            <th className="px-1 py-3">Royalty GST</th>
+                            <th className="px-1 py-3">DMF GST</th>
+                            <th className="px-1 py-3">GF GST</th>
+                            <th className="px-1 py-3">Misc</th>
+                            <th className="px-1 py-3 font-bold text-slate-600 bg-slate-50">Total w/o Misc</th>
+                            <th className="px-1 py-3 font-bold text-blue-600">GST Total</th>
+                            <th className="px-1 py-3 font-bold text-slate-900">Grand Total</th>
+                            <th className="px-1 py-3 min-w-[100px]">Ref / Serials</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                        {permits.map((permit, index) => (
-                            <tr key={permit.id} className="hover:bg-slate-50">
-                                <td className="px-4 py-3 font-medium text-slate-900">{index + 1}</td>
-                                <td className="px-4 py-3">{permit.payment_date}</td>
-                                <td className="px-4 py-3">{permit.approval_date}</td>
-                                <td className="px-4 py-3 font-medium">{permit.quantity_in_mt}</td>
-                                <td className="px-4 py-3">{permit.royalty_amount}</td>
-                                <td className="px-4 py-3">{permit.mbl}</td>
-                                <td className="px-4 py-3">{permit.gf}</td>
-                                <td className="px-4 py-3 font-bold text-slate-900">{permit.total_cost}</td>
-                                <td className="px-4 py-3 text-xs">
-                                    <div className="space-y-1">
-                                        <p><span className="text-slate-500">App:</span> {permit.application_no}</p>
-                                        <p><span className="text-slate-500">Challan:</span> {permit.challan_no}</p>
-                                        <p><span className="text-slate-500">Bank:</span> {permit.bank_ref}</p>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3">{permit.tds}</td>
-                                <td className="px-4 py-3">{permit.bsr_code}</td>
-                                <td className="px-4 py-3">{permit.dmf}</td>
-                                <td className="px-4 py-3">{permit.dmf_reference}</td>
-                                <td className="px-4 py-3 text-blue-600 font-medium">
-                                    {((parseFloat(permit.royalty_gst) || 0) +
-                                        (parseFloat(permit.dmf_gst) || 0) +
-                                        (parseFloat(permit.gf_gst) || 0)).toFixed(2)}
-                                </td>
-                                <td className="px-4 py-3">{permit.gst_reference}</td>
-                                <td className="px-4 py-3 text-xs">
-                                    {permit.permit_serial_start} - {permit.permit_serial_end}
-                                </td>
-                                <td className="px-4 py-3">{permit.postal_received_date}</td>
-                            </tr>
-                        ))}
+                        {permits.map((permit, index) => {
+                            const qty = parseFloat(permit.quantity_in_mt) || 0;
+                            const royaltyBase = parseFloat(permit.royalty_base) || (qty * 33);
+                            const royaltyGst = parseFloat(permit.royalty_gst) || (royaltyBase * 0.18);
+                            const dmfBase = parseFloat(permit.dmf_base) || (royaltyBase * 0.10);
+                            const dmfGst = parseFloat(permit.dmf_gst) || (dmfBase * 0.18);
+                            const gfBase = parseFloat(permit.gf_base) || (royaltyBase * 0.10);
+                            const gfGst = parseFloat(permit.gf_gst) || (gfBase * 0.18);
+                            const mbl = parseFloat(permit.mbl) || 0;
+                            const tds = parseFloat(permit.tds) || 0;
+                            const misc = parseFloat(permit.miscellaneous) || 0;
+                            const totalWithoutMisc = (royaltyBase + dmfBase + gfBase + mbl + tds).toFixed(2);
+                            const gstTotal = (royaltyGst + dmfGst + gfGst).toFixed(2);
+                            const grandTotal = permit.total_cost || (parseFloat(totalWithoutMisc) + misc + parseFloat(gstTotal)).toFixed(2);
+
+                            return (
+                                <tr key={permit.id} className="hover:bg-slate-50 border-b border-slate-100 last:border-0 text-[9px]">
+                                    <td className="px-1 py-3 font-medium text-slate-900">{index + 1}</td>
+                                    <td className="px-1 py-3 whitespace-nowrap">{permit.payment_date || '-'}</td>
+                                    <td className="px-1 py-3 whitespace-nowrap">{permit.approval_date || '-'}</td>
+                                    <td className="px-1 py-3 font-bold text-slate-700">{qty.toLocaleString()}</td>
+                                    <td className="px-1 py-3 bg-blue-50/30 font-medium">₹{royaltyBase.toFixed(2)}</td>
+                                    <td className="px-1 py-3 bg-blue-50/30 font-medium">₹{dmfBase.toFixed(2)}</td>
+                                    <td className="px-1 py-3 bg-blue-50/30 font-medium">₹{gfBase.toFixed(2)}</td>
+                                    <td className="px-1 py-3">₹{mbl.toLocaleString()}</td>
+                                    <td className="px-1 py-3">₹{tds.toLocaleString()}</td>
+                                    <td className="px-1 py-3 text-slate-500">₹{royaltyGst.toFixed(2)}</td>
+                                    <td className="px-1 py-3 text-slate-500">₹{dmfGst.toFixed(2)}</td>
+                                    <td className="px-1 py-3 text-slate-500">₹{gfGst.toFixed(2)}</td>
+                                    <td className="px-1 py-3 italic text-slate-400">₹{misc.toLocaleString()}</td>
+                                    <td className="px-1 py-3 font-bold text-slate-500 bg-slate-50">₹{parseFloat(totalWithoutMisc).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-1 py-3 text-blue-600 font-bold">₹{gstTotal}</td>
+                                    <td className="px-1 py-3 font-black text-slate-900 text-[11px]">₹{parseFloat(grandTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-1 py-3 text-[7px] leading-tight">
+                                        <div className="space-y-0.5">
+                                            <p className="font-bold text-slate-500">App: <span className="text-slate-900">{permit.application_no || '-'}</span></p>
+                                            <p className="font-bold text-slate-500">Srl: <span className="text-slate-900">{permit.permit_serial_start || ''}-{permit.permit_serial_end || ''}</span></p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

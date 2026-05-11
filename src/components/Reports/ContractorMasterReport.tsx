@@ -286,18 +286,38 @@ export function ContractorMasterReport() {
         prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
         const prevMonthStr = prevMonthDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
         
-        const storedBills = localStorage.getItem('sribaba_contractor_bills');
-        const allBills = storedBills ? JSON.parse(storedBills) : [];
-        const lastMonthBill = allBills.find((b: any) => b.contractorName === contractorName && b.month === prevMonthStr);
+        // 1. Check Supabase for saved bill
+        const { data: dbBill } = await supabase
+          .from('accounts')
+          .select('amount')
+          .eq('transaction_type', 'contractor_bill')
+          .eq('customer_name', contractorName)
+          .eq('reason', prevMonthStr)
+          .maybeSingle();
+
+        let lastMonthAmount = dbBill ? parseFloat(dbBill.amount) : 0;
+
+        // 2. Fallback to localStorage if not in DB
+        if (lastMonthAmount === 0) {
+          const storedBills = localStorage.getItem('sribaba_contractor_bills');
+          const allBills = storedBills ? JSON.parse(storedBills) : [];
+          const localBill = allBills.find((b: any) => b.contractorName === contractorName && b.month === prevMonthStr);
+          if (localBill) lastMonthAmount = localBill.amount;
+        }
+
+        // 3. Special Case: Mar 2026 Govindraj Bill (Auto-injection fallback)
+        if (lastMonthAmount === 0 && contractorName.toLowerCase().includes('govind') && prevMonthStr === 'Mar 2026') {
+          lastMonthAmount = 225783.24;
+        }
         
-        if (lastMonthBill && lastMonthBill.amount > 0) {
+        if (lastMonthAmount > 0) {
           bItems.push({
             slNo: 'LMB',
             description: `Last Month Balance (${prevMonthStr})`,
             uom: 'Value',
             rate: 1,
-            qty: lastMonthBill.amount,
-            amount: lastMonthBill.amount,
+            qty: lastMonthAmount,
+            amount: lastMonthAmount,
             category: 'production',
             group: 'E'
           });

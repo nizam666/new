@@ -177,14 +177,20 @@ export function PermitForm({ onSuccess }: PermitFormProps) {
         return;
       }
 
-      // Create a copy of formData and remove display-only fields
+      // Create a copy of formData and remove aggregate display fields
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { royalty_base, royalty_gst, dmf_base, dmf_gst, gf_base, gf_gst, total_base, total_gst, total_cost, ...submissionData } = formData;
+      const { total_base, total_gst, total_cost, ...submissionData } = formData;
+
+      // Sanitize: convert empty strings to null for database compatibility
+      const sanitizedData = Object.entries(submissionData).reduce((acc, [key, value]) => {
+        acc[key] = value === '' ? null : value;
+        return acc;
+      }, {} as any);
 
       const { error } = await supabase
         .from('permits')
         .insert([{
-          ...submissionData,
+          ...sanitizedData,
           created_by: user.id
         }]);
 
@@ -231,8 +237,9 @@ export function PermitForm({ onSuccess }: PermitFormProps) {
         single_permit_ton: ''
       });
       onSuccess();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Unknown error');
+    } catch (error: any) {
+      console.error('Permit Save Error:', error);
+      alert(error?.message || error?.details || 'Unknown error occurred while saving permit');
     } finally {
       setLoading(false);
     }

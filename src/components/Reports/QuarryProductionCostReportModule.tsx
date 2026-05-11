@@ -64,13 +64,14 @@ export function QuarryProductionCostReportModule() {
         .gte('date', startDate)
         .lte('date', endDate);
 
-      // 5. Fetch Blasting Records for WR (to calculate WR explosives cost)
-      const { data: blastingData } = await supabase
-        .from('blasting_records')
-        .select('pg_nos, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos')
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .eq('material_type', 'Weathered Rocks');
+      // 5. Fetch Blasting Records for WR (Handled below)
+      
+      // 6. Fetch Permit Records for Group F
+      const { data: permitData } = await supabase
+        .from('permits')
+        .select('*')
+        .gte('payment_date', startDate)
+        .lte('payment_date', endDate);
 
       // Fetch Vendor Bills for Original Cost (from VendorManagement)
       const { data: accountsData } = await supabase
@@ -111,28 +112,71 @@ export function QuarryProductionCostReportModule() {
         .gte('dispatch_date', startDate)
         .lte('dispatch_date', endDate);
 
-      let givenDiesel = 0;
-      let givenPg = 0;     // in boxes
-      let givenEd = 0;
-      let givenEdet = 0;
-      let givenN3 = 0;
-      let givenN4 = 0;
+      // Fetch Latest Purchase Prices for Original Cost calculation
+      const { data: purchaseTransactions } = await supabase
+        .from('inventory_transactions')
+        .select('notes, date, inventory_items(item_name)')
+        .eq('transaction_type', 'in')
+        .lte('date', endDate)
+        .order('date', { ascending: false });
 
-      // Per-item given prices (for WR cost calculation from blasting records)
-      let pgGivenPrice = 0;
-      let edGivenPrice = 0;
-      let edetGivenPrice = 0;
-      let n3GivenPrice = 0;
-      let n4GivenPrice = 0;
-      let dieselGivenPrice = 0;        // price per litre from dispatch
+      const purchasePrices: Record<string, number> = {};
+      purchaseTransactions?.forEach(t => {
+        const name = ((t.inventory_items as any)?.item_name || '').toUpperCase().trim();
+        if (purchasePrices[name]) return; // Only take the latest
+
+        const match = (t.notes || '').match(/Rate:\s*([\d.]+)/);
+        if (match) purchasePrices[name] = parseFloat(match[1]);
+      });
+
+      // Helper to find purchase price by item type at a specific date
+      const getPriceAtDate = (type: 'PG' | 'ED' | 'EDET' | 'N3' | 'N4', date: string) => {
+        // Find the latest transaction for this type on or before the given date
+        const applicable = purchaseTransactions?.find(t => {
+          const name = ((t.inventory_items as any)?.item_name || '').toUpperCase().trim();
+          const tDate = t.date;
+          if (tDate > date) return false;
+
+          if (type === 'PG') return name === 'PG' || name.includes('POWERGEL') || name.includes('POWER GEL');
+          if (type === 'EDET') return name === 'EDET' || name.startsWith('E DET') || name.startsWith('E-DET') || name.includes('ELECTRONIC DET');
+          if (type === 'ED') return !name.includes('EDET') && (name === 'ED' || name.startsWith('ELEC DET') || name.includes('ELECTRIC DET'));
+          if (type === 'N3') return name.includes('NONEL') && (name.includes('3M') || name.includes('3 M'));
+          if (type === 'N4') return name.includes('NONEL') && (name.includes('4M') || name.includes('4 M'));
+          return false;
+        });
+
+        if (applicable) {
+          const match = (applicable.notes || '').match(/Rate:\s*([\d.]+)/);
+          return match ? parseFloat(match[1]) : 0;
+        }
+        return 0;
+      };
+
+
+      let givenDiesel = 0;
       let totalExplosivesDispatched = 0; // total cost of all explosives dispatched
       let totalDieselDispatched = 0;   // total cost of diesel dispatched
 
+      // Per-item given prices (normalized to consumption units)
+      let pgGivenPrice = 0;      // price per box
+      let edGivenPrice = 0;      // price per nos
+      let edetGivenPrice = 0;    // price per nos
+      let n3GivenPrice = 0;      // price per nos
+      let n4GivenPrice = 0;      // price per nos
+      let dieselGivenPrice = 0;  // price per litre
+
+      let totalDispatchedPgBoxes = 0;
+      let totalDispatchedEd = 0;
+      let totalDispatchedEdet = 0;
+      let totalDispatchedN3 = 0;
+      let totalDispatchedN4 = 0;
+
       dispatchData?.forEach(d => {
         const name = (d.item_name || '').toUpperCase().trim();
-        let qty = parseFloat(d.quantity_dispatched) || 0;
+        const originalQty = parseFloat(d.quantity_dispatched) || 0;
         const unit = (d.unit || '').toLowerCase();
         const price = parseFloat(d.given_price) || 0;
+        const cost = originalQty * price;
 
         // Helper: is this item a known explosive type?
         const isPG   = name === 'PG' || name.includes('POWERGEL') || name.includes('POWER GEL');
@@ -145,65 +189,113 @@ export function QuarryProductionCostReportModule() {
         const isNonel= name.includes('NONEL'); // catch-all for any NONEL variant
 
         if (isPG) {
-          if (unit === 'nos') qty = qty / 200;  // convert Nos → Boxes
-          givenPg += qty;
-          pgGivenPrice = price;
-          totalExplosivesDispatched += qty * price;
+          totalExplosivesDispatched += cost;
+          pgGivenPrice = (unit === 'nos') ? price * 200 : price;
+          totalDispatchedPgBoxes += (unit === 'nos' ? originalQty / 200 : originalQty);
         } else if (isEDET) {
-          givenEdet += qty;
+          totalExplosivesDispatched += cost;
           edetGivenPrice = price;
-          totalExplosivesDispatched += qty * price;
+          totalDispatchedEdet += originalQty;
         } else if (isED) {
-          givenEd += qty;
+          totalExplosivesDispatched += cost;
           edGivenPrice = price;
-          totalExplosivesDispatched += qty * price;
+          totalDispatchedEd += originalQty;
         } else if (isN3) {
-          givenN3 += qty;
+          totalExplosivesDispatched += cost;
           n3GivenPrice = price;
-          totalExplosivesDispatched += qty * price;
+          totalDispatchedN3 += originalQty;
         } else if (isN4) {
-          givenN4 += qty;
+          totalExplosivesDispatched += cost;
           n4GivenPrice = price;
-          totalExplosivesDispatched += qty * price;
+          totalDispatchedN4 += originalQty;
         } else if (isNonel) {
-          // Any other NONEL variant — sum into total explosives
-          totalExplosivesDispatched += qty * price;
+          totalExplosivesDispatched += cost;
         } else {
           // Everything non-explosive dispatched to Quarry Operations is diesel
-          givenDiesel += qty;
+          givenDiesel += originalQty;
           dieselGivenPrice = price;
-          totalDieselDispatched += qty * price;
+          totalDieselDispatched += cost;
         }
       });
 
 
-      let totalPg = 0;
-      let totalEd = 0;
-      let totalEdet = 0;
-      let totalN3 = 0;
-      let totalN4 = 0;
+      // 5. Fetch Blasting Records for WR (to calculate WR explosives cost)
+      const { data: blastingData } = await supabase
+        .from('blasting_records')
+        .select('date, pg_nos, pg_unit, ed_nos, edet_nos, nonel_3m_nos, nonel_4m_nos')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .eq('material_type', 'Weathered Rocks');
+
+      let totalWrExplosivesOriginalCost = 0;
 
       blastingData?.forEach(b => {
-        totalPg += (b.pg_nos || 0);
-        totalEd += (b.ed_nos || 0);
-        totalEdet += (b.edet_nos || 0);
-        totalN3 += (b.nonel_3m_nos || 0);
-        totalN4 += (b.nonel_4m_nos || 0);
+        const recordDate = b.date;
+        
+        // Calculate Qty
+        let pg = (b.pg_nos || 0);
+        if (b.pg_unit === 'nos') pg = pg / 200;
+        
+        const ed = (b.ed_nos || 0);
+        const edet = (b.edet_nos || 0);
+        const n3 = (b.nonel_3m_nos || 0);
+        const n4 = (b.nonel_4m_nos || 0);
+
+        // Get prices active on THIS record date
+        const pgPrice = getPriceAtDate('PG', recordDate);
+        const edPrice = getPriceAtDate('ED', recordDate);
+        const edetPrice = getPriceAtDate('EDET', recordDate);
+        const n3Price = getPriceAtDate('N3', recordDate);
+        const n4Price = getPriceAtDate('N4', recordDate);
+
+        totalWrExplosivesOriginalCost += (pg * pgPrice) + (ed * edPrice) + (edet * edetPrice) + (n3 * n3Price) + (n4 * n4Price);
       });
 
+      // Total WR usage stats (for display qty if needed, though we use cost directly now)
+      // Total WR usage stats (for GB deduction)
+      let totalPgBoxes = blastingData?.reduce((s, b) => s + (b.pg_unit === 'nos' ? (b.pg_nos || 0) / 200 : (b.pg_nos || 0)), 0) || 0;
+      const totalEd = blastingData?.reduce((s, b) => s + (b.ed_nos || 0), 0) || 0;
+      const totalEdet = blastingData?.reduce((s, b) => s + (b.edet_nos || 0), 0) || 0;
+      const totalN3 = blastingData?.reduce((s, b) => s + (b.nonel_3m_nos || 0), 0) || 0;
+      const totalN4 = blastingData?.reduce((s, b) => s + (b.nonel_4m_nos || 0), 0) || 0;
+
       // WR explosives cost = what was used in blasting × given_price from dispatch
-      const wrExplosivesCost =
-        (totalPg / 200) * pgGivenPrice +    // PG in boxes × price/box
-        totalEd * edGivenPrice +
-        totalEdet * edetGivenPrice +
-        totalN3 * n3GivenPrice +
-        totalN4 * n4GivenPrice;
 
-      // GB explosives cost = what remains after WR
-      const gbExplosivesCost = Math.max(0, totalExplosivesDispatched - wrExplosivesCost);
+      
+      // GB explosives = what was dispatched − what was used for WR
+      const gbPg = Math.max(0, totalDispatchedPgBoxes - totalPgBoxes);
+      const gbEd = Math.max(0, totalDispatchedEd - totalEd);
+      const gbEdet = Math.max(0, totalDispatchedEdet - totalEdet);
+      const gbN3 = Math.max(0, totalDispatchedN3 - totalN3);
+      const gbN4 = Math.max(0, totalDispatchedN4 - totalN4);
+      
+      const gbExplosivesCost = (gbPg * pgGivenPrice) + (gbEd * edGivenPrice) + (gbEdet * edetGivenPrice) + (gbN3 * n3GivenPrice) + (gbN4 * n4GivenPrice);
+      
+      const wrExplosivesOriginalCost = totalWrExplosivesOriginalCost;
+      
+      // Group F: Permit Calculations
+      let permitTotalWithoutMiscPlusGst = 0;
+      let permitMiscTotal = 0;
 
-      // Combined contractor explosives cost (WR + GB)
-      const contractorExplosivesValue = wrExplosivesCost + gbExplosivesCost; // = totalExplosivesDispatched
+      permitData?.forEach(p => {
+        const qty = parseFloat(p.quantity_in_mt) || 0;
+        const royaltyBase = parseFloat(p.royalty_base) || (qty * 33);
+        const royaltyGst = parseFloat(p.royalty_gst) || (royaltyBase * 0.18);
+        const dmfBase = parseFloat(p.dmf_base) || (royaltyBase * 0.10);
+        const dmfGst = parseFloat(p.dmf_gst) || (dmfBase * 0.18);
+        const gfBase = parseFloat(p.gf_base) || (royaltyBase * 0.10);
+        const gfGst = parseFloat(p.gf_gst) || (gfBase * 0.18);
+        const mbl = parseFloat(p.mbl) || 0;
+        const tds = parseFloat(p.tds) || 0;
+        const misc = parseFloat(p.miscellaneous) || 0;
+
+        const totalWithoutMisc = (royaltyBase + dmfBase + gfBase + mbl + tds);
+        const gstTotal = (royaltyGst + dmfGst + gfGst);
+
+        permitTotalWithoutMiscPlusGst += (totalWithoutMisc + gstTotal);
+        permitMiscTotal += misc;
+      });
+
 
       // Calculations:
       const qcQty = transportData
@@ -366,17 +458,27 @@ export function QuarryProductionCostReportModule() {
         },
         {
           slNo: 10,
-          description: `Contractor Expense: WR Blasting ₹${wrExplosivesCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })} + GB (All Inventory Dispatched) ₹${gbExplosivesCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          description: `Original Cost (Explosives Used on Weather Rock)`,
+          uom: 'Boxes',
+          rate: totalPgBoxes > 0 ? wrExplosivesOriginalCost / totalPgBoxes : 0,
+          qty: totalPgBoxes,
+          amount: wrExplosivesOriginalCost,
+          category: 'production',
+          group: 'D'
+        },
+        {
+          slNo: 11,
+          description: `Contractor Expense on GB`,
           uom: '—',
-          rate: contractorExplosivesValue,
+          rate: gbExplosivesCost,
           qty: 1,
-          amount: contractorExplosivesValue,
+          amount: gbExplosivesCost,
           category: 'production',
           group: 'D'
         },
 
         {
-          slNo: 11,
+          slNo: 12,
           description: 'Original Cost (Vendor Bills — Diesel)',
           uom: '—',
           rate: totalDieselVendorBills,
@@ -386,7 +488,7 @@ export function QuarryProductionCostReportModule() {
           group: 'E'
         },
         {
-          slNo: 12,
+          slNo: 13,
           description: `Contractor Diesel Expense: ${givenDiesel.toFixed(2)} Ltrs × ₹${dieselGivenPrice.toFixed(2)}`,
           uom: 'Liters',
           rate: dieselGivenPrice,
@@ -394,6 +496,26 @@ export function QuarryProductionCostReportModule() {
           amount: totalDieselDispatched,
           category: 'production',
           group: 'E'
+        },
+        {
+          slNo: 14,
+          description: 'Quarry Permit (Statutory Fees + GST)',
+          uom: '—',
+          rate: permitTotalWithoutMiscPlusGst,
+          qty: 1,
+          amount: permitTotalWithoutMiscPlusGst,
+          category: 'production',
+          group: 'F'
+        },
+        {
+          slNo: 15,
+          description: 'Miscellaneous Permit Charges',
+          uom: '—',
+          rate: permitMiscTotal,
+          qty: 1,
+          amount: permitMiscTotal,
+          category: 'production',
+          group: 'F'
         }
       ];
 
@@ -412,10 +534,12 @@ export function QuarryProductionCostReportModule() {
   // Overall = Group A+B+C (sum normally) + Group D subtotal (original−contractor) + Group E subtotal (original−contractor)
   const groupABC = billItems.filter(i => ['A', 'B', 'C'].includes(i.group)).reduce((sum, i) => sum + i.amount, 0);
   const groupDSubtotal = (billItems.find(i => i.group === 'D' && i.slNo === 9)?.amount || 0)
-                       - (billItems.find(i => i.group === 'D' && i.slNo === 10)?.amount || 0);
-  const groupESubtotal = (billItems.find(i => i.group === 'E' && i.slNo === 11)?.amount || 0)
+                       - (billItems.find(i => i.group === 'D' && i.slNo === 10)?.amount || 0)
+                       - (billItems.find(i => i.group === 'D' && i.slNo === 11)?.amount || 0);
+  const groupESubtotal = (billItems.find(i => i.group === 'E' && i.slNo === 13)?.amount || 0)
                        - (billItems.find(i => i.group === 'E' && i.slNo === 12)?.amount || 0);
-  const totalCostAmount = groupABC + groupDSubtotal + groupESubtotal;
+  const groupFSubtotal = billItems.filter(i => i.group === 'F').reduce((sum, i) => sum + i.amount, 0);
+  const totalCostAmount = groupABC + groupDSubtotal + groupESubtotal + groupFSubtotal;
 
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
@@ -438,7 +562,8 @@ export function QuarryProductionCostReportModule() {
       { id: 'B', label: 'Group B: Soil/Weather Rocks', color: 'FFFFEDD5', fontColor: 'FFC2410C' },
       { id: 'C', label: 'Group C: Crusher works', color: 'FFFEE2E2', fontColor: 'FFB91C1C' },
       { id: 'D', label: 'Group D: Contractors Expense (Explosives)', color: 'FFF3E8FF', fontColor: 'FF6B21A8' },
-      { id: 'E', label: 'Group E: Diesel Expense', color: 'FFE0F2FE', fontColor: 'FF0369A1' }
+      { id: 'E', label: 'Group E: Diesel Expense', color: 'FFE0F2FE', fontColor: 'FF0369A1' },
+      { id: 'F', label: 'Group F: Permit Details', color: 'FFF0FDF4', fontColor: 'FF15803D' }
     ];
 
     groups.forEach(g => {
@@ -466,13 +591,17 @@ export function QuarryProductionCostReportModule() {
         // For D and E: subtotal = Original Cost − Contractor Expense (difference)
         let subtotal: number;
         if (g.id === 'D') {
-          subtotal = (items.find(i => i.slNo === 9)?.amount || 0) - (items.find(i => i.slNo === 10)?.amount || 0);
+          subtotal = (items.find(i => i.slNo === 9)?.amount || 0) - (items.find(i => i.slNo === 10)?.amount || 0) - (items.find(i => i.slNo === 11)?.amount || 0);
         } else if (g.id === 'E') {
-          subtotal = (items.find(i => i.slNo === 11)?.amount || 0) - (items.find(i => i.slNo === 12)?.amount || 0);
+          subtotal = (items.find(i => i.slNo === 12)?.amount || 0) - (items.find(i => i.slNo === 13)?.amount || 0);
         } else {
           subtotal = items.reduce((sum, item) => sum + item.amount, 0);
         }
-        const sRow = worksheet.addRow(['', `${g.id === 'D' || g.id === 'E' ? 'Group ' + g.id + ' Subtotal' : 'Section Subtotal'}:`, '', '', '', subtotal]);
+        let label = 'Section Subtotal';
+        if (g.id === 'D') label = 'Additional Explosive Cost (Group D Subtotal)';
+        else if (g.id === 'E') label = 'Additional Diesel Cost (Group E Subtotal)';
+        
+        const sRow = worksheet.addRow(['', `${label}:`, '', '', '', subtotal]);
         worksheet.mergeCells(`B${sRow.number}:E${sRow.number}`);
         sRow.font = { name: 'Arial', size: 10, bold: true };
         sRow.getCell(2).alignment = { horizontal: 'right' };
@@ -488,6 +617,20 @@ export function QuarryProductionCostReportModule() {
     totalRow.getCell(2).alignment = { horizontal: 'right' };
     totalRow.getCell(6).alignment = { horizontal: 'right' };
     totalRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; });
+
+    // ── Financial Methodology Notes ──
+    worksheet.addRow([]);
+    worksheet.addRow([]);
+    const noteHeader = worksheet.addRow(['Calculation Methodology & Data Sources']);
+    noteHeader.font = { name: 'Arial', size: 10, bold: true };
+    
+    const note1 = worksheet.addRow(['1. Original Cost (Explosives on WR): Computed as (Actual Consumption from Blasting Form for "Weathered Rocks") × (Latest Original Procurement Price from Inventory Transactions).']);
+    const note2 = worksheet.addRow(['2. Contractor Expense on GB: Represents the value of explosives dispatched to Good Boulder operations at site-specific given rates.']);
+    const note3 = worksheet.addRow(['3. Net Explosive Cost (Group D Subtotal): Represents the net company cost for explosives (Vendor Bills - WR Original Cost - GB Contractor Charge).']);
+    
+    [note1, note2, note3].forEach(row => {
+      row.font = { name: 'Arial', size: 9, color: { argb: 'FF64748B' } };
+    });
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -514,7 +657,8 @@ export function QuarryProductionCostReportModule() {
       { id: 'B', label: 'Group B: Soil/Weather Rocks', color: [255, 237, 213], fontColor: [194, 65, 12] },
       { id: 'C', label: 'Group C: Crusher works', color: [254, 226, 226], fontColor: [185, 28, 28] },
       { id: 'D', label: 'Group D: Contractors Expense (Explosives)', color: [243, 232, 255], fontColor: [107, 33, 168] },
-      { id: 'E', label: 'Group E: Diesel Expense', color: [224, 242, 254], fontColor: [3, 105, 161] }
+      { id: 'E', label: 'Group E: Diesel Expense', color: [224, 242, 254], fontColor: [3, 105, 161] },
+      { id: 'F', label: 'Group F: Permit Details', color: [240, 253, 244], fontColor: [21, 128, 61] }
     ];
 
     groups.forEach(g => {
@@ -535,11 +679,11 @@ export function QuarryProductionCostReportModule() {
         let subtotal: number;
         let subtotalLabel: string;
         if (g.id === 'D') {
-          subtotal = (items.find(i => i.slNo === 9)?.amount || 0) - (items.find(i => i.slNo === 10)?.amount || 0);
-          subtotalLabel = 'Group D Subtotal:';
+          subtotal = (items.find(i => i.slNo === 9)?.amount || 0) - (items.find(i => i.slNo === 10)?.amount || 0) - (items.find(i => i.slNo === 11)?.amount || 0);
+          subtotalLabel = 'Additional Explosive Cost (Group D Subtotal):';
         } else if (g.id === 'E') {
-          subtotal = (items.find(i => i.slNo === 11)?.amount || 0) - (items.find(i => i.slNo === 12)?.amount || 0);
-          subtotalLabel = 'Group E Subtotal:';
+          subtotal = (items.find(i => i.slNo === 12)?.amount || 0) - (items.find(i => i.slNo === 13)?.amount || 0);
+          subtotalLabel = 'Additional Diesel Cost (Group E Subtotal):';
         } else {
           subtotal = items.reduce((sum, item) => sum + item.amount, 0);
           subtotalLabel = 'Section Subtotal:';
@@ -720,9 +864,9 @@ export function QuarryProductionCostReportModule() {
                     </tr>
                   ))}
                   <tr className="bg-purple-50/80 border-b border-purple-200 font-bold">
-                    <td colSpan={5} className="px-6 py-3 text-right text-xs text-purple-700">Group D Subtotal:</td>
+                    <td colSpan={5} className="px-6 py-3 text-right text-xs text-purple-700">Additional Explosive Cost (Group D Subtotal):</td>
                     <td className="px-6 py-3 text-right text-xs text-purple-800 font-black">
-                      {((billItems.find(i => i.group === 'D' && i.slNo === 9)?.amount || 0) - (billItems.find(i => i.group === 'D' && i.slNo === 10)?.amount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {groupDSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 
@@ -741,9 +885,30 @@ export function QuarryProductionCostReportModule() {
                     </tr>
                   ))}
                   <tr className="bg-sky-50/80 border-b border-sky-200 font-bold">
-                    <td colSpan={5} className="px-6 py-3 text-right text-xs text-sky-700">Group E Subtotal:</td>
+                    <td colSpan={5} className="px-6 py-3 text-right text-xs text-sky-700">Additional Diesel Cost (Group E Subtotal):</td>
                     <td className="px-6 py-3 text-right text-xs text-sky-800 font-black">
-                      {((billItems.find(i => i.group === 'E' && i.slNo === 11)?.amount || 0) - (billItems.find(i => i.group === 'E' && i.slNo === 12)?.amount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {groupESubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+
+                  {/* Group F */}
+                  <tr className="bg-emerald-50 text-emerald-900 border-t-2 border-emerald-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group F: Permit Details</td>
+                  </tr>
+                  {billItems.filter(i => i.group === 'F').map((item, idx) => (
+                    <tr key={`F-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-3 text-slate-400 text-xs">{item.slNo}</td>
+                      <td className="px-6 py-3 text-slate-800 text-xs">{item.description}</td>
+                      <td className="px-6 py-3 text-center text-slate-500 text-xs">{item.uom}</td>
+                      <td className="px-6 py-3 text-right text-slate-600 text-xs">{item.rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-3 text-right text-slate-800 text-xs">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-6 py-3 text-right font-bold text-slate-900 text-xs">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-emerald-50/80 border-b border-emerald-200 font-bold">
+                    <td colSpan={5} className="px-6 py-3 text-right text-xs text-emerald-700">Permit Cost Subtotal (Group F):</td>
+                    <td className="px-6 py-3 text-right text-xs text-emerald-800 font-black">
+                      {groupFSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 

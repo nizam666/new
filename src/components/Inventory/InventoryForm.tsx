@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, memo, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, memo, useMemo, Fragment } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -15,7 +15,9 @@ import {
   FileText,
   History,
   X,
-  PackagePlus
+  PackagePlus,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -422,18 +424,53 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
   
   const [selectedBillId, setSelectedBillId] = useState('');
   const [selectedBill, setSelectedBill] = useState<PurchaseBill | null>(null);
-  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
+const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [monthlyStats, setMonthlyStats] = useState({ totalValue: 0, totalItems: 0, billCount: 0 });
   const [history, setHistory] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7));
+  const filteredHistory = useMemo(() => history.filter(h => h.date.substring(0, 7) === selectedMonth), [history, selectedMonth]);
+  
+  const groupedHistory = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    filteredHistory.forEach(item => {
+      const ref = item.purpose?.split('Purchase Ref: ')[1] || 'Direct Entry';
+      if (!groups[ref]) groups[ref] = [];
+      groups[ref].push(item);
+    });
+    return groups;
+  }, [filteredHistory]);
   const [originalQty, setOriginalQty] = useState(0);
   const [billItems, setBillItems] = useState<any[]>([]);
+  const [inventorySummary, setInventorySummary] = useState<any[]>([]);
 
   // ── Quick Register new item state ──
   const [quickRegister, setQuickRegister] = useState<{
     show: boolean; name: string; category: string; unit: string; refNo: string; saving: boolean; lineIndex: number;
   }>({ show: false, name: '', category: '', unit: '', refNo: '', saving: false, lineIndex: -1 });
+
+  const [editMasterItem, setEditMasterItem] = useState<{
+    show: boolean;
+    id: string;
+    item_name: string;
+    item_code: string;
+    category: string;
+    unit: string;
+    location: string;
+    minimum_quantity: number;
+    saving: boolean;
+  }>({
+    show: false,
+    id: '',
+    item_name: '',
+    item_code: '',
+    category: '',
+    unit: '',
+    location: '',
+    minimum_quantity: 0,
+    saving: false
+  });
 
   const handleQuickRegister = async () => {
     if (!quickRegister.name || !quickRegister.category || !quickRegister.unit) {
@@ -442,30 +479,51 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
     }
     setQuickRegister(prev => ({ ...prev, saving: true }));
     try {
-      const { error } = await supabase.from('master_items').upsert([{
-        name: quickRegister.name.trim(),
+      const { error } = await supabase.from('inventory_items').insert([{
+        item_name: quickRegister.name.trim(),
+        item_code: quickRegister.refNo.trim(),
         category: quickRegister.category,
         unit: quickRegister.unit,
-        min_stock_level: 0,
-        description: ''
-      }], { onConflict: 'name' });
+        location: 'Main Store',
+        quantity: 0,
+        minimum_quantity: 10
+      }]);
       if (error) throw error;
       toast.success(`"${quickRegister.name}" registered in Master Catalog!`);
-      // Refresh master items list
-      const { data: masterData } = await supabase.from('master_items').select('id, name, category, unit');
-      setMasterItems((masterData || []).map((m: any) => ({ id: m.id, name: m.name, category: m.category, unit: m.unit })));
-      // Auto-fill the triggering line item with Category, Unit and Ref No
-      if (quickRegister.lineIndex >= 0) {
-        updateItem(quickRegister.lineIndex, {
-          category: quickRegister.category,
-          unit: quickRegister.unit,
-          item_ref_no: quickRegister.refNo,
-        });
-      }
+      fetchData();
       setQuickRegister({ show: false, name: '', category: '', unit: '', refNo: '', saving: false, lineIndex: -1 });
     } catch (err: any) {
       toast.error('Failed to register: ' + (err.message || 'Unknown error'));
       setQuickRegister(prev => ({ ...prev, saving: false }));
+    }
+  };
+
+  const handleUpdateMasterItem = async () => {
+    if (!editMasterItem.item_name || !editMasterItem.category) {
+      toast.warning('Please fill in Item Name and Category');
+      return;
+    }
+    setEditMasterItem(prev => ({ ...prev, saving: true }));
+    try {
+      const { error } = await supabase
+        .from('inventory_items')
+        .update({
+          item_name: editMasterItem.item_name.trim(),
+          item_code: editMasterItem.item_code.trim(),
+          category: editMasterItem.category,
+          unit: editMasterItem.unit,
+          location: editMasterItem.location,
+          minimum_quantity: editMasterItem.minimum_quantity
+        })
+        .eq('id', editMasterItem.id);
+      
+      if (error) throw error;
+      toast.success('Inventory item updated successfully');
+      fetchData();
+      setEditMasterItem(prev => ({ ...prev, show: false, saving: false }));
+    } catch (err: any) {
+      toast.error('Update failed: ' + err.message);
+      setEditMasterItem(prev => ({ ...prev, saving: false }));
     }
   };
 
@@ -556,7 +614,12 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
       setMasterItems(mappedMaster);
       setDbItemCount(mappedMaster.length);
 
-      // Fetch recent history
+      // Fetch history for the selected month
+      const startOfTargetMonth = `${selectedMonth}-01`;
+      const dateObj = new Date(selectedMonth + '-01');
+      const lastDay = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
+      const endOfTargetMonth = `${selectedMonth}-${lastDay}`;
+
       const { data: hData } = await supabase
         .from('inventory_transactions')
         .select(`
@@ -564,7 +627,8 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
           inventory_items!inner(item_name, item_code, category, unit, location)
         `)
         .eq('transaction_type', 'in')
-        .gte('date', startOfMonth.split('T')[0])
+        .gte('date', startOfTargetMonth)
+        .lte('date', endOfTargetMonth)
         .order('date', { ascending: false });
       setHistory(hData || []);
 
@@ -575,12 +639,20 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
           refMap[r.item_name.toLowerCase()] = r.item_code;
       });
       setInventoryRefMap(refMap);
+
+      // 4. Fetch full Inventory Summary
+      const { data: summary } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .order('item_name', { ascending: true });
+      setInventorySummary(summary || []);
+
     } catch (err) {
       console.error('Initialization Error:', err);
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, selectedMonth]);
 
   useEffect(() => {
     fetchData();
@@ -1189,97 +1261,233 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
         </form>
       )}
 
-      {/* ── Procurement History List (Monthly Summary) ── */}
+      {/* ── Inventory Summary (Master Catalog View) ── */}
       <div className="bg-white rounded-[40px] shadow-2xl border border-slate-100 overflow-hidden mt-10">
-        <div className="px-10 py-8 border-b border-slate-50 flex items-center justify-between">
+        <div className="px-10 py-8 border-b border-slate-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center">
-              <History className="h-6 w-6" />
+              <Layers className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="text-xl font-black text-slate-900 tracking-tight">Recent Procurements</h4>
-              <p className="text-xs font-bold text-slate-400">Review and correct this month's stock arrivals</p>
+              <h4 className="text-xl font-black text-slate-900 tracking-tight">Inventory Intelligence</h4>
+              <p className="text-xs font-bold text-slate-400">Monthly procurement trends & current stock levels</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest">
-            <TrendingUp className="h-3 w-3" /> Monthly Activity
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-100 rounded-2xl">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Month:</span>
+              <input 
+                type="month" 
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-transparent border-none text-xs font-black text-slate-900 focus:ring-0 outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest">
+              <Sparkles className="h-3 w-3" /> Real-time Repository
+            </div>
           </div>
         </div>
 
+        {/* ── Tabs for Summary vs Monthly Log ── */}
+        <div className="flex border-b border-slate-50">
+          <button 
+            onClick={() => {/* Toggle state or just show both */}} 
+            className="px-10 py-4 border-b-2 border-slate-900 text-xs font-black uppercase tracking-widest text-slate-900"
+          >
+            Current Stock Levels
+          </button>
+          <button 
+            className="px-10 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            Added This Month ({filteredHistory.length})
+          </button>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full">
+          {/* Current Stock Table */}
+          <table className="w-full border-collapse mb-10">
             <thead className="bg-slate-50/50">
+              <tr>
+                <th colSpan={5} className="px-10 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-900 bg-slate-50/30">
+                  Global Stock Overview
+                </th>
+              </tr>
+              <tr>
+                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Item Description</th>
+                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Category</th>
+                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Current Stock</th>
+                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Storage Location</th>
+                <th className="px-10 py-5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {inventorySummary.map((item) => {
+                const isLow = (item.quantity || 0) <= (item.minimum_quantity || 10);
+                const isPG = (item.item_name || '').toUpperCase().includes('PG');
+                const displayQty = isPG ? (item.quantity / 200).toFixed(2) : item.quantity;
+                const displayUnit = isPG ? 'Boxes' : item.unit;
+
+                return (
+                  <tr key={item.id} className="group hover:bg-slate-50 transition-all duration-300">
+                    <td className="px-10 py-6">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-black text-slate-900">{item.item_name}</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.item_code}</span>
+                      </div>
+                    </td>
+                    <td className="px-10 py-6">
+                      <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 font-black text-[10px] uppercase tracking-widest">
+                        {item.category}
+                      </span>
+                    </td>
+                    <td className="px-10 py-6">
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-lg font-black ${isLow ? 'text-rose-600' : 'text-slate-900'}`}>{displayQty}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{displayUnit}</span>
+                      </div>
+                    </td>
+                    <td className="px-10 py-6">
+                      <div className="flex items-center gap-2 text-slate-500 font-bold text-xs">
+                        <MapPin className="h-3.5 w-3.5 text-slate-300" />
+                        {item.location}
+                      </div>
+                    </td>
+                    <td className="px-10 py-6 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        {isLow ? (
+                          <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-[9px] font-black uppercase tracking-widest animate-pulse">
+                            <AlertCircle className="h-3 w-3" /> Reorder Soon
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                            <CheckCircle2 className="h-3 w-3" /> Healthy
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => setEditMasterItem({
+                            show: true,
+                            id: item.id,
+                            item_name: item.item_name,
+                            item_code: item.item_code,
+                            category: item.category,
+                            unit: item.unit,
+                            location: item.location,
+                            minimum_quantity: item.minimum_quantity || 10,
+                            saving: false
+                          })}
+                          className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-900 transition-all"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Monthly Procurement Log */}
+          <table className="w-full border-collapse">
+            <thead className="bg-slate-50/50">
+              <tr>
+                <th colSpan={5} className="px-10 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-900 bg-indigo-50/30">
+                  Procurements Recorded in {new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                </th>
+              </tr>
               <tr>
                 <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
                 <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Item Details</th>
                 <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Bill Ref</th>
-                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Quantity</th>
-                <th className="px-10 py-5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</th>
+                <th className="px-10 py-5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Quantity Added</th>
+                <th className="px-10 py-5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Unit Price</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {history.map((item) => (
-                <tr key={item.id} className="group hover:bg-slate-50 transition-colors">
-                  <td className="px-10 py-6 text-sm font-bold text-slate-600">
-                    {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </td>
-                  <td className="px-10 py-6">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-black text-slate-900">{item.inventory_items?.item_name || 'Generic Item'}</span>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.inventory_items?.category}</span>
-                    </div>
-                  </td>
-                  <td className="px-10 py-6">
-                    <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest">
-                      {item.purpose?.split('Purchase Ref: ')[1] || 'Direct'}
-                    </span>
-                  </td>
-                  <td className="px-10 py-6">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-black text-slate-900">{item.quantity}</span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">{item.inventory_items?.unit}</span>
-                    </div>
-                  </td>
-                  <td className="px-10 py-6 text-right">
-                    <button
-                      onClick={() => {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                        // Resolving Bill context
-                        const billRef = item.purpose?.split('Purchase Ref: ')[1];
-                        const matchedBill = purchaseBills.find(b => b.invoice_number === billRef);
-                        if (matchedBill) {
-                          handleBillSelect(matchedBill.id);
-                        }
-                        
-                        // Loading Item
-                        setEditingId(item.id);
-                        setOriginalQty(item.quantity);
-                        setLineItems([{
-                          id: Math.random().toString(36).substr(2, 9),
-                          item_name: item.inventory_items?.item_name || '',
-                          category: item.inventory_items?.category || 'General',
-                          quantity: item.quantity.toString(),
-                          rate_per_unit: (item.notes?.split('Rate: ')[1] || '').split(' ')[0],
-                          unit: item.inventory_items?.unit || 'Nos',
-                          units_per_box: '',
-                          item_ref_no: item.inventory_items?.item_code || '',
-                          manufacturer: '',
-                          storage_location: item.inventory_items?.location || 'Main Store',
-                          custom_location: ''
-                        }]);
-                        toast.info('Editing entry: Correcting stock arrival recorded on ' + item.date);
-                      }}
-                      className="px-6 py-2 bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all"
-                    >
-                      Edit Entry
-                    </button>
-                  </td>
-                </tr>
+              {Object.entries(groupedHistory).map(([ref, items]) => (
+                <Fragment key={ref}>
+                  <tr className="bg-slate-50/50">
+                    <td colSpan={5} className="px-10 py-3 text-[9px] font-black uppercase tracking-tighter text-indigo-600 bg-indigo-50/20">
+                      Reference: {ref} ({items.length} items)
+                    </td>
+                  </tr>
+                  {items.map((item) => (
+                    <tr key={item.id} className="group hover:bg-slate-50 transition-colors">
+                      <td className="px-10 py-6 text-sm font-bold text-slate-600">
+                        {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </td>
+                      <td className="px-10 py-6">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black text-slate-900">{item.inventory_items?.item_name || 'Generic Item'}</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.inventory_items?.category}</span>
+                        </div>
+                      </td>
+                      <td className="px-10 py-6">
+                        <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-widest">
+                          {ref}
+                        </span>
+                      </td>
+                      <td className="px-10 py-6">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-lg font-black text-slate-900">{item.quantity}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">{item.inventory_items?.unit}</span>
+                        </div>
+                      </td>
+                      <td className="px-10 py-6 text-right">
+                        <div className="flex items-center justify-end gap-4">
+                          <span className="text-sm font-black text-slate-900">₹{item.notes?.split('Rate: ')[1]?.split(' ')[0] || '—'}</span>
+                          <button
+                            onClick={() => {
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                              // Resolving Bill context
+                              const billRef = item.purpose?.split('Purchase Ref: ')[1];
+                              const matchedBill = purchaseBills.find(b => b.invoice_number === billRef);
+                              if (matchedBill) {
+                                handleBillSelect(matchedBill.id);
+                              }
+                              
+                              // Loading Item for correction
+                              setEditingId(item.id);
+                              setOriginalQty(item.quantity);
+                              
+                              // Extract rate from notes
+                              const rateMatch = item.notes?.match(/Rate:\s*([\d.]+)/);
+                              const rate = rateMatch ? rateMatch[1] : '';
+                              
+                              // Extract units per box if applicable
+                              const boxMatch = item.notes?.match(/Box:\s*[\d.]+\s*×\s*([\d.]+)\s*Nos/);
+                              const upb = boxMatch ? boxMatch[1] : '';
+
+                              setLineItems([{
+                                id: Math.random().toString(36).substr(2, 9),
+                                item_name: item.inventory_items?.item_name || '',
+                                category: item.inventory_items?.category || 'General',
+                                quantity: item.quantity.toString(),
+                                rate_per_unit: rate,
+                                unit: boxMatch ? 'Box' : (item.inventory_items?.unit || 'Nos'),
+                                units_per_box: upb,
+                                item_ref_no: item.inventory_items?.item_code || '',
+                                manufacturer: '',
+                                storage_location: item.inventory_items?.location || 'Main Store',
+                                custom_location: ''
+                              }]);
+                              toast.info('Correction Mode: Updating entry recorded on ' + item.date);
+                            }}
+                            className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm active:scale-95"
+                          >
+                            Edit Entry
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
-              {history.length === 0 && (
+              {filteredHistory.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-10 py-20 text-center">
-                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No procurement activity recorded this month</p>
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No procurement activity recorded for this period</p>
                   </td>
                 </tr>
               )}
@@ -1383,6 +1591,111 @@ export function InventoryForm({ onSuccess }: InventoryFormProps) {
                     ? <Loader2 className="h-4 w-4 animate-spin" />
                     : <PackagePlus className="h-4 w-4" />}
                   {quickRegister.saving ? 'REGISTERING...' : 'SAVE TO CATALOG'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Edit Master Item Modal ── */}
+      {editMasterItem.show && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-xl animate-in fade-in duration-300"
+            onClick={() => setEditMasterItem(prev => ({ ...prev, show: false }))} />
+          <div
+            className="relative z-10 w-full max-w-lg bg-white rounded-[40px] shadow-2xl p-10 border border-white/20 animate-in zoom-in-95 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl bg-indigo-100 flex items-center justify-center">
+                  <Layers className="h-7 w-7 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">Edit Inventory Item</h3>
+                  <p className="text-xs font-bold text-slate-400 mt-0.5">Master Catalog Entry</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditMasterItem(prev => ({ ...prev, show: false }))}
+                className="h-10 w-10 flex items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Item Name *</label>
+                <input
+                  type="text"
+                  value={editMasterItem.item_name}
+                  onChange={(e) => setEditMasterItem(prev => ({ ...prev, item_name: e.target.value }))}
+                  className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none text-slate-900 font-black text-base focus:outline-none focus:ring-4 focus:ring-indigo-400/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Category</label>
+                  <select
+                    value={editMasterItem.category}
+                    onChange={(e) => setEditMasterItem(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none font-bold text-slate-900 appearance-none focus:ring-4 focus:ring-indigo-400/20"
+                  >
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Location</label>
+                  <input
+                    type="text"
+                    value={editMasterItem.location}
+                    onChange={(e) => setEditMasterItem(prev => ({ ...prev, location: e.target.value }))}
+                    className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none text-slate-900 font-bold focus:outline-none focus:ring-4 focus:ring-indigo-400/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Item Code</label>
+                  <input
+                    type="text"
+                    value={editMasterItem.item_code}
+                    onChange={(e) => setEditMasterItem(prev => ({ ...prev, item_code: e.target.value }))}
+                    className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none text-slate-900 font-bold focus:outline-none focus:ring-4 focus:ring-indigo-400/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Min Qty Alert</label>
+                  <input
+                    type="number"
+                    value={editMasterItem.minimum_quantity}
+                    onChange={(e) => setEditMasterItem(prev => ({ ...prev, minimum_quantity: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none text-slate-900 font-bold focus:outline-none focus:ring-4 focus:ring-indigo-400/20"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditMasterItem(prev => ({ ...prev, show: false }))}
+                  className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black text-xs hover:bg-slate-100 transition-all uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpdateMasterItem}
+                  disabled={editMasterItem.saving}
+                  className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-xs shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95"
+                >
+                  {editMasterItem.saving
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <CheckCircle2 className="h-4 w-4" />}
+                  {editMasterItem.saving ? 'SAVING...' : 'UPDATE ITEM'}
                 </button>
               </div>
             </div>

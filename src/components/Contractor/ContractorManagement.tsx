@@ -71,10 +71,16 @@ export function ContractorManagement() {
     }
   };
 
-  const loadContractors = useCallback(() => {
+  const loadContractors = useCallback(async () => {
     try {
-      const stored = localStorage.getItem('sribaba_contractors');
-      setContractors(stored ? JSON.parse(stored) : []);
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'contractor')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setContractors(data || []);
     } catch (error) {
       console.error('Error loading contractors:', error);
     } finally {
@@ -85,32 +91,39 @@ export function ContractorManagement() {
   useEffect(() => { 
     loadContractors(); 
     
-    // Auto-inject Govindraj March bill
-    try {
-      const storedBills = localStorage.getItem('sribaba_contractor_bills');
-      const bills = storedBills ? JSON.parse(storedBills) : [];
-      const storedContractors = localStorage.getItem('sribaba_contractors');
-      const contractorsList = storedContractors ? JSON.parse(storedContractors) : [];
-      const govindraj = contractorsList.find((c: any) => c.full_name.toLowerCase().includes('govind'));
-      
-      if (govindraj) {
-        const monthStr = 'Mar 2026'; 
-        const exists = bills.find((b: any) => b.contractorName === govindraj.full_name && b.month === monthStr);
-        if (!exists) {
-          bills.push({
-            id: crypto.randomUUID(),
-            contractorName: govindraj.full_name,
-            month: monthStr,
-            startDate: '2026-03-01',
-            endDate: '2026-03-31',
-            amount: 225783.24,
-            savedAt: new Date().toISOString()
-          });
-          localStorage.setItem('sribaba_contractor_bills', JSON.stringify(bills));
+    // Auto-inject Govindraj March bill into DB if not exists
+    const injectMarchBill = async () => {
+      try {
+        const govindraj = contractors.find((c: any) => c.full_name.toLowerCase().includes('govind'));
+        if (govindraj) {
+          const monthStr = 'Mar 2026';
+          const { data: existing } = await supabase
+            .from('accounts')
+            .select('id')
+            .eq('transaction_type', 'contractor_bill')
+            .eq('customer_name', govindraj.full_name)
+            .eq('reason', monthStr)
+            .maybeSingle();
+
+          if (!existing) {
+            await supabase.from('accounts').insert([{
+              transaction_type: 'contractor_bill',
+              customer_name: govindraj.full_name,
+              amount: 225783.24,
+              reason: monthStr,
+              notes: '[AUTO_INJECT] Govindraj March 2026 Bill',
+              transaction_date: '2026-03-31',
+              status: 'pending'
+            }]);
+          }
         }
+      } catch (e) {
+        console.error('Error auto-injecting bill:', e);
       }
-    } catch (e) {
-      console.error(e);
+    };
+
+    if (contractors.length > 0) {
+      injectMarchBill();
     }
   }, [loadContractors]);
 
@@ -132,9 +145,15 @@ export function ContractorManagement() {
       if (error) throw error;
       setTransactions(data || []);
 
-      const storedBills = localStorage.getItem('sribaba_contractor_bills');
-      const allBills = storedBills ? JSON.parse(storedBills) : [];
-      setSavedBills(allBills.filter((b: any) => b.contractorName === contractor.full_name));
+      const { data: bills, error: billError } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('transaction_type', 'contractor_bill')
+        .eq('customer_name', contractor.full_name)
+        .order('transaction_date', { ascending: false });
+
+      if (billError) throw billError;
+      setSavedBills(bills || []);
     } catch (err) {
       console.error('Error fetching contractor history:', err);
     } finally {
@@ -144,61 +163,71 @@ export function ContractorManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const role = 'contractor';
+
     try {
-      const stored = localStorage.getItem('sribaba_contractors');
-      const currentList: Contractor[] = stored ? JSON.parse(stored) : [];
-      
       if (editingContractor) {
-        const updated = currentList.map(c => 
-          c.id === editingContractor.id 
-            ? { ...c, full_name: formData.full_name, email: formData.email, phone: formData.phone }
-            : c
-        );
-        localStorage.setItem('sribaba_contractors', JSON.stringify(updated));
+        const { error } = await supabase
+          .from('users')
+          .update({ 
+            full_name: formData.full_name, 
+            email: formData.email, 
+            phone: formData.phone 
+          })
+          .eq('id', editingContractor.id);
+        if (error) throw error;
         alert('Contractor updated successfully!');
       } else {
-        const newContractor: Contractor = {
-          id: crypto.randomUUID(),
-          employee_id: formData.employee_id,
-          email: formData.email,
-          full_name: formData.full_name,
-          role: 'contractor',
-          phone: formData.phone,
-          is_active: true,
-          created_at: new Date().toISOString(),
-        };
-        localStorage.setItem('sribaba_contractors', JSON.stringify([newContractor, ...currentList]));
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('No active session');
+        
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`;
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${session.access_token}`, 
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({ 
+            ...formData, 
+            role,
+            permissions: ['dashboard', 'selfie_attendance', 'drilling', 'blasting', 'loading', 'transport', 'quarry_attendance', 'photos_videos', 'inventory', 'safety', 'contractor_billing', 'contractor_deductions', 'quarry_production']
+          }),
+        });
+        
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to create contractor');
         alert('Contractor created successfully!');
       }
       cancelForm();
       loadContractors();
     } catch (error) {
       console.error('Error saving contractor:', error);
-      alert('Failed to save contractor');
+      alert(error instanceof Error ? error.message : 'Failed to save contractor');
     }
   };
 
-  const handleToggleActive = (contractorId: string, currentStatus: boolean) => {
+  const handleToggleActive = async (contractorId: string, currentStatus: boolean) => {
     try {
-      const stored = localStorage.getItem('sribaba_contractors');
-      const currentList: Contractor[] = stored ? JSON.parse(stored) : [];
-      const updated = currentList.map(c => 
-        c.id === contractorId ? { ...c, is_active: !currentStatus } : c
-      );
-      localStorage.setItem('sribaba_contractors', JSON.stringify(updated));
+      const { error } = await supabase
+        .from('users')
+        .update({ is_active: !currentStatus })
+        .eq('id', contractorId);
+      if (error) throw error;
       loadContractors();
     } catch (error) {
       console.error('Error toggling contractor status:', error);
     }
   };
 
-  const handleDeleteContractor = (contractorId: string, name: string) => {
+  const handleDeleteContractor = async (contractorId: string, name: string) => {
     if (!confirm(`Delete contractor "${name}"? This cannot be undone.`)) return;
     try {
-      const stored = localStorage.getItem('sribaba_contractors');
-      const currentList: Contractor[] = stored ? JSON.parse(stored) : [];
-      const updated = currentList.filter(c => c.id !== contractorId);
-      localStorage.setItem('sribaba_contractors', JSON.stringify(updated));
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', contractorId);
+      if (error) throw error;
       alert('Contractor deleted.');
       loadContractors();
     } catch (error) {
@@ -244,10 +273,7 @@ export function ContractorManagement() {
     const prefix = prefixMap[func] || 'CON-GEN-';
     
     try {
-      const stored = localStorage.getItem('sribaba_contractors');
-      const currentList: Contractor[] = stored ? JSON.parse(stored) : [];
-      
-      const numbers = currentList
+      const numbers = contractors
         .map(u => {
           if (u.employee_id && u.employee_id.startsWith(prefix)) {
             const parts = u.employee_id.split('-');
