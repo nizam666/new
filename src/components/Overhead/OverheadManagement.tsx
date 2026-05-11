@@ -41,21 +41,31 @@ export function OverheadManagement() {
 
   const loadData = useCallback(async () => {
     try {
-      // Fetch users from Supabase
+      // Fetch users from Supabase with new columns
       const { data, error } = await supabase
         .from('users')
-        .select('id, employee_id, email, full_name, role, phone, is_active')
+        .select('id, employee_id, email, full_name, role, phone, is_active, is_overhead, salary, salary_department')
         .order('full_name', { ascending: true });
       if (error) throw error;
-      setAllUsers(data || []);
+      
+      const userList = data || [];
+      setAllUsers(userList);
 
-      // Load overhead user IDs from localStorage
-      const storedIds = localStorage.getItem('sribaba_overhead_user_ids');
-      setOverheadUserIds(storedIds ? JSON.parse(storedIds) : []);
+      // Map salaries from DB results
+      const salariesMap: Record<string, OverheadSalary> = {};
+      userList.forEach(u => {
+        if (u.is_overhead) {
+          salariesMap[u.id] = {
+            userId: u.id,
+            amount: u.salary || 0,
+            department: u.salary_department || 'Quarry',
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      });
+      setSalaries(salariesMap);
+      setOverheadUserIds(userList.filter(u => u.is_overhead).map(u => u.id));
 
-      // Load salaries from localStorage
-      const storedSalaries = localStorage.getItem('sribaba_overhead_salaries');
-      setSalaries(storedSalaries ? JSON.parse(storedSalaries) : {});
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -63,38 +73,60 @@ export function OverheadManagement() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { 
+    const migrateLegacyData = async () => {
+      const storedIds = localStorage.getItem('sribaba_overhead_user_ids');
+      if (storedIds) {
+        console.log('Migrating legacy overhead data to DB...');
+        const ids: string[] = JSON.parse(storedIds);
+        const storedSalaries = localStorage.getItem('sribaba_overhead_salaries');
+        const salariesMap: Record<string, any> = storedSalaries ? JSON.parse(storedSalaries) : {};
 
-  const handleAddEmployee = (e: React.FormEvent) => {
+        for (const id of ids) {
+          await supabase.from('users').update({
+            is_overhead: true,
+            salary: salariesMap[id]?.amount || 0,
+            salary_department: salariesMap[id]?.department || 'Quarry'
+          }).eq('id', id);
+        }
+        localStorage.removeItem('sribaba_overhead_user_ids');
+        localStorage.removeItem('sribaba_overhead_salaries');
+        loadData();
+      }
+    };
+
+    loadData(); 
+    migrateLegacyData();
+  }, [loadData]);
+
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserId) return;
 
     const amount = parseFloat(initialSalary) || 0;
     
-    const updatedIds = [...overheadUserIds, selectedUserId];
-    const updatedSalaries = {
-      ...salaries,
-      [selectedUserId]: {
-        userId: selectedUserId,
-        amount,
-        department: selectedDept,
-        updatedAt: new Date().toISOString(),
-      },
-    };
+    try {
+      const { error } = await supabase.from('users').update({
+        is_overhead: true,
+        salary: amount,
+        salary_department: selectedDept
+      }).eq('id', selectedUserId);
 
-    localStorage.setItem('sribaba_overhead_user_ids', JSON.stringify(updatedIds));
-    localStorage.setItem('sribaba_overhead_salaries', JSON.stringify(updatedSalaries));
-    
-    setOverheadUserIds(updatedIds);
-    setSalaries(updatedSalaries);
-    setShowAddModal(false);
-    setSelectedUserId('');
-    setInitialSalary('');
-    setSelectedDept('Quarry');
-    alert('Employee added to overhead successfully!');
+      if (error) throw error;
+      
+      await loadData();
+      setShowAddModal(false);
+      setSelectedUserId('');
+      setInitialSalary('');
+      setSelectedDept('Quarry');
+      alert('Employee added to overhead successfully!');
+    } catch (err) {
+      console.error('Error adding employee:', err);
+      alert('Failed to add employee');
+    }
   };
 
-  const handleSaveSalary = (e: React.FormEvent) => {
+  const handleSaveSalary = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
 
@@ -104,40 +136,44 @@ export function OverheadManagement() {
       return;
     }
 
-    const updatedSalaries: Record<string, OverheadSalary> = {
-      ...salaries,
-      [editingUser.id]: {
-        userId: editingUser.id,
-        amount,
-        department: editDept,
-        updatedAt: new Date().toISOString(),
-      },
-    };
+    try {
+      const { error } = await supabase.from('users').update({
+        salary: amount,
+        salary_department: editDept
+      }).eq('id', editingUser.id);
 
-    localStorage.setItem('sribaba_overhead_salaries', JSON.stringify(updatedSalaries));
-    setSalaries(updatedSalaries);
-    setEditingUser(null);
-    setSalaryAmount('');
-    alert('Salary updated successfully!');
+      if (error) throw error;
+      
+      await loadData();
+      setEditingUser(null);
+      setSalaryAmount('');
+      alert('Salary updated successfully!');
+    } catch (err) {
+      console.error('Error updating salary:', err);
+      alert('Failed to update salary');
+    }
   };
 
-  const handleRemoveEmployee = (userId: string, name: string) => {
+  const handleRemoveEmployee = async (userId: string, name: string) => {
     if (!confirm(`Remove "${name}" from the overhead list?`)) return;
     
-    const updatedIds = overheadUserIds.filter(id => id !== userId);
-    const updatedSalaries = { ...salaries };
-    delete updatedSalaries[userId];
+    try {
+      const { error } = await supabase.from('users').update({
+        is_overhead: false
+      }).eq('id', userId);
 
-    localStorage.setItem('sribaba_overhead_user_ids', JSON.stringify(updatedIds));
-    localStorage.setItem('sribaba_overhead_salaries', JSON.stringify(updatedSalaries));
-    
-    setOverheadUserIds(updatedIds);
-    setSalaries(updatedSalaries);
+      if (error) throw error;
+      await loadData();
+    } catch (err) {
+      console.error('Error removing employee:', err);
+    }
   };
 
   const openEditModal = (user: User) => {
     setEditingUser(user);
-    setSalaryAmount(salaries[user.id]?.amount?.toString() || '');
+    const salary = salaries[user.id];
+    setSalaryAmount(salary?.amount?.toString() || '0');
+    setEditDept(salary?.department || 'Quarry');
   };
 
   // Get users currently in overhead

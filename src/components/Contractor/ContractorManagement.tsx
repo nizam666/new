@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   UserPlus, Trash2, Edit2, CheckCircle, XCircle, Search, X,
-  User, Phone, Mail, Lock, Key, Clock
+  User, Phone, Mail, Lock, Key, Clock, DollarSign
 } from 'lucide-react';
 
 interface Contractor {
@@ -14,6 +14,7 @@ interface Contractor {
   phone?: string;
   is_active: boolean;
   created_at: string;
+  salary?: number;
 }
 
 export function ContractorManagement() {
@@ -36,10 +37,11 @@ export function ContractorManagement() {
     email: '',
     phone: '',
     function: 'Quarry',
+    salary: '',
   });
   const [contractorExpenses, setContractorExpenses] = useState<Record<string, number>>({});
 
-  const loadAllExpenses = async () => {
+  const loadAllExpenses = async (contractorList: Contractor[]) => {
     try {
       const { data, error } = await supabase
         .from('accounts')
@@ -48,10 +50,8 @@ export function ContractorManagement() {
       if (error) throw error;
       
       const expenseMap: Record<string, number> = {};
-      const stored = localStorage.getItem('sribaba_contractors');
-      const contractorList: any[] = stored ? JSON.parse(stored) : [];
       
-      if (data) {
+      if (data && contractorList.length > 0) {
         contractorList.forEach(c => {
           const total = data.filter(rec => {
             const matchesName = rec.customer_name?.toLowerCase().includes(c.full_name.toLowerCase());
@@ -76,7 +76,7 @@ export function ContractorManagement() {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('role', 'contractor')
+        .or('role.eq.contractor,employee_id.ilike.CON-%')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -91,44 +91,79 @@ export function ContractorManagement() {
   useEffect(() => { 
     loadContractors(); 
     
-    // Auto-inject Govindraj March bill into DB if not exists
-    const injectMarchBill = async () => {
+    // Auto-inject Monthly Fixed Bills for contractors for all missing months
+    const autoInjectMonthlyBills = async () => {
       try {
-        const govindraj = contractors.find((c: any) => c.full_name.toLowerCase().includes('govind'));
-        if (govindraj) {
-          const monthStr = 'Mar 2026';
-          const { data: existing } = await supabase
-            .from('accounts')
-            .select('id')
-            .eq('transaction_type', 'contractor_bill')
-            .eq('customer_name', govindraj.full_name)
-            .eq('reason', monthStr)
-            .maybeSingle();
+        const fixedContractors = contractors.filter(c => (c.salary || 0) > 0);
+        if (fixedContractors.length === 0) return;
 
-          if (!existing) {
-            await supabase.from('accounts').insert([{
-              transaction_type: 'contractor_bill',
-              customer_name: govindraj.full_name,
-              amount: 225783.24,
-              reason: monthStr,
-              notes: '[AUTO_INJECT] Govindraj March 2026 Bill',
-              transaction_date: '2026-03-31',
-              status: 'pending'
-            }]);
+        // CLEANUP: Delete ALL auto-injected bills first to prevent duplicates
+        await supabase
+          .from('accounts')
+          .delete()
+          .eq('transaction_type', 'contractor_bill')
+          .ilike('notes', '%[AUTO]%');
+
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+
+        for (const contractor of fixedContractors) {
+          // Start from April 2026 (0 = Jan, 1 = Feb, 2 = Mar, 3 = Apr)
+          let y = 2026;
+          let m = 3; // April
+
+          while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+            const dateObj = new Date(y, m, 1);
+            const monthStr = dateObj.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+            
+            // Use the 5th of the month to avoid any timezone/end-of-month confusion
+            const billingDate = `${y}-${(m + 1).toString().padStart(2, '0')}-05`;
+
+            // Check if bill already exists for this specific month
+            const { data: existing, error: checkError } = await supabase
+              .from('accounts')
+              .select('id')
+              .eq('transaction_type', 'contractor_bill')
+              .eq('customer_name', contractor.full_name)
+              .eq('reason', monthStr)
+              .maybeSingle();
+
+            if (!checkError && !existing) {
+              console.log(`Auto-injecting missing ${monthStr} bill for ${contractor.full_name}`);
+              await supabase.from('accounts').insert([{
+                transaction_type: 'contractor_bill',
+                customer_name: contractor.full_name,
+                amount: contractor.salary,
+                reason: monthStr,
+                notes: `[AUTO] Historical Fixed Payment for ${monthStr}`,
+                transaction_date: billingDate,
+                status: 'pending'
+              }]);
+            }
+
+            // Increment month
+            m++;
+            if (m > 11) {
+              m = 0;
+              y++;
+            }
           }
         }
       } catch (e) {
-        console.error('Error auto-injecting bill:', e);
+        console.error('Error auto-injecting monthly bills:', e);
       }
     };
 
     if (contractors.length > 0) {
-      injectMarchBill();
+      autoInjectMonthlyBills();
     }
   }, [loadContractors]);
 
   useEffect(() => { 
-    loadAllExpenses();
+    if (contractors.length > 0) {
+      loadAllExpenses(contractors);
+    }
   }, [contractors]);
 
   const fetchHistory = async (contractor: Contractor) => {
@@ -172,7 +207,9 @@ export function ContractorManagement() {
           .update({ 
             full_name: formData.full_name, 
             email: formData.email, 
-            phone: formData.phone 
+            phone: formData.phone,
+            salary: parseFloat(formData.salary) || 0,
+            role: 'contractor'
           })
           .eq('id', editingContractor.id);
         if (error) throw error;
@@ -223,15 +260,28 @@ export function ContractorManagement() {
   const handleDeleteContractor = async (contractorId: string, name: string) => {
     if (!confirm(`Delete contractor "${name}"? This cannot be undone.`)) return;
     try {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', contractorId);
-      if (error) throw error;
-      alert('Contractor deleted.');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: contractorId }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to delete contractor');
+
+      alert('Contractor deleted successfully from system and auth.');
       loadContractors();
     } catch (error) {
       console.error('Error deleting contractor:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete contractor');
     }
   };
 
@@ -253,6 +303,7 @@ export function ContractorManagement() {
       email: contractor.email || '',
       phone: contractor.phone?.replace(/^\+91\s*/, '') || '',
       function: getFunctionFromRef(contractor.employee_id),
+      salary: contractor.salary?.toString() || '',
     });
     setShowForm(true);
   };
@@ -260,7 +311,7 @@ export function ContractorManagement() {
   const cancelForm = () => {
     setShowForm(false);
     setEditingContractor(null);
-    setFormData({ employee_id: '', password: '', full_name: '', email: '', phone: '', function: 'Quarry' });
+    setFormData({ employee_id: '', password: '', full_name: '', email: '', phone: '', function: 'Quarry', salary: '' });
   };
 
   const generateRefNumber = (func: string) => {
@@ -328,9 +379,13 @@ export function ContractorManagement() {
 
   const availableMonths = Array.from(new Set(
     transactions
-      .filter(t => t.transaction_type === 'expense')
+      .filter(t => t.transaction_type === 'expense' || t.transaction_type === 'contractor_bill')
       .map(t => new Date(t.transaction_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }))
-  ));
+  )).sort((a, b) => {
+    const dateA = new Date(a);
+    const dateB = new Date(b);
+    return dateB.getTime() - dateA.getTime(); // Newest first
+  });
 
   const selectedMonthTotals = (() => {
     let advance = 0;
@@ -592,6 +647,24 @@ export function ContractorManagement() {
                     />
                   </div>
                 </div>
+
+                {editingContractor && (
+                  <div className="pt-2 animate-in slide-in-from-top-2 duration-300">
+                    <label className="block text-xs font-bold text-orange-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <DollarSign className="w-3 h-3" /> Monthly Fixed Payment (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.salary}
+                      onChange={e => setFormData({ ...formData, salary: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-orange-100 bg-orange-50/30 rounded-xl text-sm font-black text-slate-900 focus:ring-4 focus:ring-orange-600/10 focus:border-orange-600 transition-all outline-none"
+                      placeholder="e.g. 50000"
+                    />
+                    <p className="text-[10px] font-bold text-slate-400 mt-1.5 px-1 italic">
+                      This amount will be used as a fixed monthly base for billing calculations.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="px-8 py-5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-4">
@@ -645,20 +718,45 @@ export function ContractorManagement() {
                         </p>
                       </div>
                       <div className="border-l border-slate-700 h-6" />
+                      
+                      {activeHistoryContractor.salary && selectedMonth !== 'all' && (
+                        <>
+                          <div className="text-right">
+                            <p className="text-[8px] font-black text-indigo-400 uppercase tracking-wider">Fixed Pay</p>
+                            <p className="font-black text-indigo-200">₹{activeHistoryContractor.salary.toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="border-l border-slate-700 h-6" />
+                        </>
+                      )}
+
                       <div className="text-right">
                         <p className="text-[8px] font-black text-emerald-400 uppercase tracking-wider">Net Bill</p>
                         <p className="font-black text-emerald-200">₹{savedBillAmount.toLocaleString('en-IN')}</p>
                       </div>
                       <div className="border-l border-slate-700 h-6" />
-                      <div className="text-right">
-                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-wider">Pay</p>
-                        <p className="font-black text-blue-200">₹{selectedMonthTotals.payment.toLocaleString('en-IN')}</p>
-                      </div>
-                      <div className="border-l border-slate-700 h-6" />
+                      
                       <div className="text-right">
                         <p className="text-[8px] font-black text-amber-400 uppercase tracking-wider">Adv</p>
                         <p className="font-black text-amber-200">₹{selectedMonthTotals.advance.toLocaleString('en-IN')}</p>
                       </div>
+                      <div className="border-l border-slate-700 h-6" />
+
+                      <div className="text-right">
+                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-wider">Pay</p>
+                        <p className="font-black text-blue-200">₹{selectedMonthTotals.payment.toLocaleString('en-IN')}</p>
+                      </div>
+
+                      {activeHistoryContractor.salary && selectedMonth !== 'all' && (
+                        <>
+                          <div className="border-l border-slate-700 h-6" />
+                          <div className="text-right">
+                            <p className="text-[8px] font-black text-orange-400 uppercase tracking-wider">Balance</p>
+                            <p className="font-black text-orange-200">
+                              ₹{((activeHistoryContractor.salary || 0) - (selectedMonthTotals.advance + selectedMonthTotals.payment)).toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -696,7 +794,7 @@ export function ContractorManagement() {
                           <th className="p-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Date</th>
                           <th className="p-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Type</th>
                           <th className="p-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Purpose</th>
-                          <th className="p-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Amount Paid</th>
+                          <th className="p-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Amount</th>
                           <th className="p-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Method</th>
                         </tr>
                       </thead>
@@ -710,10 +808,25 @@ export function ContractorManagement() {
                           .map(t => (
                         <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="p-4 text-sm font-bold text-slate-800 font-mono">
-                            {new Date(t.transaction_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {(() => {
+                              // Split YYYY-MM-DD and create date manually to avoid TZ shifts
+                              const parts = t.transaction_date.split('-');
+                              if (parts.length === 3) {
+                                const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                                return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                              }
+                              return t.transaction_date;
+                            })()}
                           </td>
                           <td className="p-4">
                             {(() => {
+                              if (t.transaction_type === 'contractor_bill') {
+                                return (
+                                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                                    Bill
+                                  </span>
+                                );
+                              }
                               const isAdvance = (() => {
                                 if (t.notes) {
                                   const parts = t.notes.split(' | ');

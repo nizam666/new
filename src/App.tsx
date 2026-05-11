@@ -53,6 +53,7 @@ import { OverheadManagement } from './components/Overhead/OverheadManagement';
 import { QuarryProductionReport } from './components/Contractor/QuarryProductionReport';
 import { QuarryDeductionReport } from './components/Contractor/QuarryDeductionReport';
 import { ContractorMasterReport } from './components/Reports/ContractorMasterReport';
+import { CrusherContractorReport } from './components/Reports/CrusherContractorReport';
 
 function AppContent() {
   const { session, user, loading } = useAuth();
@@ -500,6 +501,9 @@ function AppContent() {
             <ContractorMasterReport />
           </div>
         );
+
+      case 'crusher-contractor-report':
+        return <CrusherContractorReport />;
 
       case 'accounts':
         return (

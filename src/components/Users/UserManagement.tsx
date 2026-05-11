@@ -136,8 +136,8 @@ function deriveRole(permissions: string[]): string {
   if (p.has('accounts') && p.has('accounting_report') && !p.has('drilling')) return 'chairmen';
   if (p.has('sales') && !p.has('drilling') && !p.has('crusher_production')) return 'sales';
   if (p.has('crusher_production') && !p.has('drilling')) return 'crusher_manager';
-  if (p.has('drilling') || p.has('blasting') || p.has('loading') || p.has('transport')) return 'contractor';
   if (p.has('approvals') || p.has('accounting_report') || p.has('inventory')) return 'manager';
+  if (p.has('drilling') || p.has('blasting') || p.has('loading') || p.has('transport')) return 'worker'; // Changed from contractor to worker
   return 'worker';
 }
 
@@ -146,7 +146,7 @@ const PRESETS: { label: string; color: string; permissions: string[] }[] = [
   { label: 'Director (Full)', color: 'slate', permissions: ACCESS_MODULES.flatMap(g => g.items.map(i => i.key)) },
   { label: 'Chairmen', color: 'indigo', permissions: ['dashboard', 'selfie_attendance', 'accounts', 'accounting_report', 'sales_report', 'attendance_report'] },
   { label: 'Manager', color: 'blue', permissions: ['dashboard', 'selfie_attendance', 'drilling', 'blasting', 'loading', 'transport', 'quarry_attendance', 'crusher_attendance', 'photos_videos', 'inventory', 'returnable_assets', 'safety', 'crusher_production', 'eb_reports', 'eb_records', 'eb_calculator', 'crusher_maintenance', 'sales', 'customers', 'approvals', 'quarry_production', 'sales_report', 'accounting_report', 'attendance_report'] },
-  { label: 'Contractor', color: 'orange', permissions: ['dashboard', 'selfie_attendance', 'drilling', 'blasting', 'loading', 'transport', 'quarry_attendance', 'photos_videos', 'inventory', 'safety', 'contractor_billing', 'contractor_deductions', 'quarry_production'] },
+  { label: 'Quarry Staff', color: 'orange', permissions: ['dashboard', 'selfie_attendance', 'drilling', 'blasting', 'loading', 'transport', 'quarry_attendance', 'photos_videos', 'inventory', 'safety', 'contractor_billing', 'contractor_deductions', 'quarry_production'] },
   { label: 'Crusher Manager', color: 'purple', permissions: ['dashboard', 'selfie_attendance', 'crusher_attendance', 'photos_videos', 'crusher_production', 'eb_reports', 'eb_records', 'eb_calculator', 'crusher_maintenance', 'inventory', 'returnable_assets'] },
   { label: 'Sales', color: 'emerald', permissions: ['dashboard', 'selfie_attendance', 'sales', 'customers', 'accounts', 'sales_report'] },
   { label: 'Quarry Worker', color: 'orange', permissions: ['dashboard', 'selfie_attendance', 'quarry_attendance'] },
@@ -173,6 +173,7 @@ export function UserManagement() {
       const { data, error } = await supabase
         .from('users')
         .select('id, employee_id, email, full_name, role, phone, is_active, created_at')
+        .neq('role', 'contractor') // Filter out contractors from User Management
         .order('created_at', { ascending: false });
       if (error) throw error;
       setUsers(data || []);
@@ -251,12 +252,27 @@ export function UserManagement() {
   const handleDeleteUser = async (userId: string, name: string) => {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
     try {
-      const { error } = await supabase.from('users').delete().eq('id', userId);
-      if (error) throw error;
-      alert('User deleted.');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`;
+      const response = await fetch(apiUrl, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: userId }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to delete user');
+
+      alert('Employee deleted successfully.');
       loadUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete user');
     }
   };
 

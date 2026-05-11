@@ -23,7 +23,7 @@ const DEPARTMENTS = [
 
 const PROJECT_ITEMS = [
   'Explosive', 'Fuels', 'VSI', 'Jaw-Crusher', 'Salary', 'Advance', 'Payment', 
-  'Contractor Payment', 'Contractor Advance', 'Miscellaneous', 'Other'
+  'Contractor Payment', 'Contractor Advance', 'Opening Balance', 'Miscellaneous', 'Other'
 ];
 
 export function AccountsForm({ onSuccess }: AccountsFormProps) {
@@ -110,10 +110,17 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
       }
     };
 
-    const fetchContractors = () => {
+    const fetchContractors = async () => {
       try {
-        const stored = localStorage.getItem('sribaba_contractors');
-        if (stored) setContractorsList(JSON.parse(stored));
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, full_name, employee_id')
+          .or('role.eq.contractor,employee_id.ilike.CON-%')
+          .eq('is_active', true)
+          .order('full_name');
+        
+        if (error) throw error;
+        setContractorsList(data || []);
       } catch (err) {
         console.error('Error loading contractors:', err);
       }
@@ -121,25 +128,22 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
 
     const fetchOverhead = async () => {
       try {
-        const storedIds = localStorage.getItem('sribaba_overhead_user_ids');
-        const overheadUserIds: string[] = storedIds ? JSON.parse(storedIds) : [];
-        const storedSalaries = localStorage.getItem('sribaba_overhead_salaries');
-        const salariesMap: Record<string, any> = storedSalaries ? JSON.parse(storedSalaries) : {};
-
-        if (overheadUserIds.length > 0) {
-          const { data } = await supabase
-            .from('users')
-            .select('id, full_name, employee_id, role')
-            .in('id', overheadUserIds);
-          
-          if (data) {
-            const mapped = data.map(u => ({
-              ...u,
-              amount: salariesMap[u.id]?.amount || 0,
-              department: salariesMap[u.id]?.department || 'Quarry'
-            }));
-            setOverheadList(mapped);
-          }
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, full_name, employee_id, role, salary, salary_department')
+          .eq('is_overhead', true)
+          .eq('is_active', true)
+          .order('full_name');
+        
+        if (error) throw error;
+        
+        if (data) {
+          const mapped = data.map(u => ({
+            ...u,
+            amount: u.salary || 0,
+            department: u.salary_department || 'Quarry'
+          }));
+          setOverheadList(mapped);
         }
       } catch (err) {
         console.error('Error loading overhead:', err);

@@ -13,6 +13,8 @@ interface CreateUserRequest {
   role: string;
   email?: string;
   phone?: string;
+  salary?: number;
+  salary_department?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -41,20 +43,46 @@ Deno.serve(async (req: Request) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { data: { user: requester }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
-    if (authError || !user) {
+    if (authError || !requester) {
       throw new Error('Unauthorized');
     }
 
     const { data: userData } = await supabaseAdmin
       .from('users')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', requester.id)
       .single();
 
     if (userData?.role !== 'director') {
       throw new Error('Only directors can manage users');
+    }
+
+    if (req.method === 'DELETE') {
+      const { id } = await req.json();
+      if (!id) throw new Error('User ID is required for deletion');
+
+      // 1. Delete from Auth
+      const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(id);
+      if (deleteAuthError) {
+        console.warn('Auth user might already be gone:', deleteAuthError.message);
+      }
+
+      // 2. Delete from users table
+      const { error: deleteDbError } = await supabaseAdmin
+        .from('users')
+        .delete()
+        .eq('id', id);
+
+      if (deleteDbError) throw deleteDbError;
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'User deleted successfully' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const requestData: CreateUserRequest = await req.json();
@@ -79,6 +107,7 @@ Deno.serve(async (req: Request) => {
       ? requestData.email.trim()
       : `${requestData.employee_id.replace(/\s+/g, '').toLowerCase()}@sribaba-internal.com`;
 
+    let authUser;
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: userEmail,
       password: requestData.password,
@@ -93,33 +122,81 @@ Deno.serve(async (req: Request) => {
     });
 
     if (createError) {
-      throw createError;
+      // SELF-HEALING LOGIC: If email is taken, check if it's an orphan ghost account
+      if (createError.message.toLowerCase().includes('already been registered')) {
+        console.log('Detected potential ghost user for email:', userEmail);
+        
+        // Find the ghost user by email
+        const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        if (listError) throw createError; // Fallback to original error
+
+        const ghost = users.find(u => u.email === userEmail);
+        if (ghost) {
+          // Check if this ghost exists in the users table
+          const { data: dbUser } = await supabaseAdmin
+            .from('users')
+            .select('id')
+            .eq('id', ghost.id)
+            .maybeSingle();
+
+          if (!dbUser) {
+            console.log('Ghost confirmed (no DB record). Cleaning up Auth user:', ghost.id);
+            await supabaseAdmin.auth.admin.deleteUser(ghost.id);
+            
+            // Try creating again
+            const { data: retryNewUser, error: retryError } = await supabaseAdmin.auth.admin.createUser({
+              email: userEmail,
+              password: requestData.password,
+              email_confirm: true,
+              user_metadata: {
+                full_name: requestData.full_name,
+                role: requestData.role,
+                email: userEmail,
+                phone: requestData.phone || '',
+                employee_id: requestData.employee_id,
+              },
+            });
+            if (retryError) throw retryError;
+            authUser = retryNewUser.user;
+          } else {
+            throw createError; // It's a real user, re-throw
+          }
+        } else {
+          throw createError;
+        }
+      } else {
+        throw createError;
+      }
+    } else {
+      authUser = newUser.user;
     }
 
-    if (!newUser.user) {
+    if (!authUser) {
       throw new Error('Failed to create user - no user returned');
     }
 
     const { error: insertError } = await supabaseAdmin
       .from('users')
       .insert({
-        id: newUser.user.id,
-        email: userEmail, // Still required for compatibility and uniqueness at DB level occasionally
+        id: authUser.id,
+        email: userEmail,
         employee_id: requestData.employee_id,
         full_name: requestData.full_name,
         role: requestData.role,
         phone: requestData.phone || null,
         is_active: true,
+        salary: requestData.salary || 0,
+        salary_department: requestData.salary_department || 'Quarry',
       });
 
     if (insertError) {
       console.error('Failed to insert user record, cleaning up auth user:', insertError);
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-      throw new Error(`DB Error: ${insertError.message} - Details: ${JSON.stringify(insertError)}`);
+      await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      throw new Error(`DB Error: ${insertError.message}`);
     }
 
     return new Response(
-      JSON.stringify({ success: true, user: newUser.user }),
+      JSON.stringify({ success: true, user: authUser }),
       {
         headers: {
           ...corsHeaders,

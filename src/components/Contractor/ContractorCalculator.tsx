@@ -1069,7 +1069,8 @@ export function ContractorCalculator() {
                 { id: 'A', label: 'Group A: Quarry Production', bgColor: 'bg-blue-50', textColor: 'text-blue-600', borderColor: 'border-blue-100' },
                 { id: 'B', label: 'Group B: Soil/Weather Rocks', bgColor: 'bg-orange-50', textColor: 'text-orange-600', borderColor: 'border-orange-100' },
                 { id: 'C', label: 'Group C: Crusher Works', bgColor: 'bg-emerald-50', textColor: 'text-emerald-600', borderColor: 'border-emerald-100' },
-                { id: 'D', label: 'Group D: Deductions', bgColor: 'bg-rose-50', textColor: 'text-rose-600', borderColor: 'border-rose-100' }
+                { id: 'D', label: 'Group D: Deductions', bgColor: 'bg-rose-50', textColor: 'text-rose-600', borderColor: 'border-rose-100' },
+                { id: 'E', label: 'Group E: Brought Forward', bgColor: 'bg-indigo-50', textColor: 'text-indigo-600', borderColor: 'border-indigo-100' }
               ].map(group => {
                 const items = billItems.filter(i => i.group === group.id);
                 if (items.length === 0) return null;

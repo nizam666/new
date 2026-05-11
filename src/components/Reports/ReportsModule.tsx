@@ -7,6 +7,7 @@ import { OperationsHistoryModule } from './OperationsHistoryModule';
 import { AttendanceReportModule } from './AttendanceReportModule';
 import { QuarryProductionCostReportModule } from './QuarryProductionCostReportModule';
 import { ContractorMasterReport } from './ContractorMasterReport';
+import { CrusherContractorReport } from './CrusherContractorReport';
 import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock, Calculator, ClipboardCheck } from 'lucide-react';
 
 export function ReportsModule() {
@@ -68,6 +69,13 @@ export function ReportsModule() {
       description: 'Production, Billing & Deductions',
       icon: ClipboardCheck,
       color: 'red'
+    },
+    {
+      id: 'crusher_contractor_report',
+      name: 'Crusher Contractor Report',
+      description: 'Crusher Payment History & Balance',
+      icon: ClipboardCheck,
+      color: 'blue'
     }
   ];
 
@@ -151,6 +159,8 @@ export function ReportsModule() {
         return <AttendanceReportModule />;
       case 'contractor_report':
         return <ContractorMasterReport />;
+      case 'crusher_contractor_report':
+        return <CrusherContractorReport />;
       default:
         return <MaterialBalanceReportModule />;
     }

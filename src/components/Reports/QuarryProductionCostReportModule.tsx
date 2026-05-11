@@ -73,6 +73,13 @@ export function QuarryProductionCostReportModule() {
         .gte('payment_date', startDate)
         .lte('payment_date', endDate);
 
+      // 7. Fetch Overhead Employees for Group G (Quarry department)
+      const { data: overheadData } = await supabase
+        .from('users')
+        .select('id, full_name, salary, salary_department')
+        .eq('is_overhead', true)
+        .eq('is_active', true);
+
       // Fetch Vendor Bills for Original Cost (from VendorManagement)
       const { data: accountsData } = await supabase
         .from('accounts')
@@ -519,6 +526,24 @@ export function QuarryProductionCostReportModule() {
         }
       ];
 
+      // Group G: Overhead Salaries (Quarry department)
+      const quarryOverheads = (overheadData || []).filter(
+        u => !u.salary_department || u.salary_department === 'Quarry'
+      );
+      let slNoG = 16;
+      quarryOverheads.forEach(u => {
+        productionItems.push({
+          slNo: slNoG++,
+          description: `Overhead Salary – ${u.full_name}`,
+          uom: 'Month',
+          rate: u.salary || 0,
+          qty: 1,
+          amount: u.salary || 0,
+          category: 'production',
+          group: 'G'
+        });
+      });
+
       setBillItems(productionItems);
     } catch (err) {
       console.error('Error fetching cost report:', err);
@@ -531,15 +556,20 @@ export function QuarryProductionCostReportModule() {
     fetchCostReport();
   }, [fetchCostReport]);
 
-  // Overall = Group A+B+C (sum normally) + Group D subtotal (original−contractor) + Group E subtotal (original−contractor)
+  // Overall = Group A+B+C + Group D subtotal (VendorBills - WR Cost - GB Contractor) + Group E subtotal (VendorBills - Contractor Diesel) + Group F + Group G
   const groupABC = billItems.filter(i => ['A', 'B', 'C'].includes(i.group)).reduce((sum, i) => sum + i.amount, 0);
   const groupDSubtotal = (billItems.find(i => i.group === 'D' && i.slNo === 9)?.amount || 0)
                        - (billItems.find(i => i.group === 'D' && i.slNo === 10)?.amount || 0)
                        - (billItems.find(i => i.group === 'D' && i.slNo === 11)?.amount || 0);
-  const groupESubtotal = (billItems.find(i => i.group === 'E' && i.slNo === 13)?.amount || 0)
-                       - (billItems.find(i => i.group === 'E' && i.slNo === 12)?.amount || 0);
+  // slNo 12 = Vendor Bills (Diesel), slNo 13 = Contractor Diesel Dispatched
+  const groupESubtotal = (billItems.find(i => i.group === 'E' && i.slNo === 12)?.amount || 0)
+                       - (billItems.find(i => i.group === 'E' && i.slNo === 13)?.amount || 0);
   const groupFSubtotal = billItems.filter(i => i.group === 'F').reduce((sum, i) => sum + i.amount, 0);
-  const totalCostAmount = groupABC + groupDSubtotal + groupESubtotal + groupFSubtotal;
+  const groupGSubtotal = billItems.filter(i => i.group === 'G').reduce((sum, i) => sum + i.amount, 0);
+  // slNo 10 = Original Cost (Explosives Used on Weather Rock) — added separately to grand total
+  const wrExplosiveCost = billItems.find(i => i.group === 'D' && i.slNo === 10)?.amount || 0;
+  const totalCostAmount = groupABC + groupDSubtotal + wrExplosiveCost + groupESubtotal + groupFSubtotal + groupGSubtotal;
+
 
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
@@ -563,7 +593,8 @@ export function QuarryProductionCostReportModule() {
       { id: 'C', label: 'Group C: Crusher works', color: 'FFFEE2E2', fontColor: 'FFB91C1C' },
       { id: 'D', label: 'Group D: Contractors Expense (Explosives)', color: 'FFF3E8FF', fontColor: 'FF6B21A8' },
       { id: 'E', label: 'Group E: Diesel Expense', color: 'FFE0F2FE', fontColor: 'FF0369A1' },
-      { id: 'F', label: 'Group F: Permit Details', color: 'FFF0FDF4', fontColor: 'FF15803D' }
+      { id: 'F', label: 'Group F: Permit Details', color: 'FFF0FDF4', fontColor: 'FF15803D' },
+      { id: 'G', label: 'Group G: Overheads (Salaries)', color: 'FFFFF7ED', fontColor: 'FFC2410C' }
     ];
 
     groups.forEach(g => {
@@ -574,7 +605,7 @@ export function QuarryProductionCostReportModule() {
         gRow.font = { name: 'Arial', size: 10, bold: true, color: { argb: g.fontColor } };
         gRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: g.color } }; });
 
-        items.forEach(item => {
+        items.filter(i => i.slNo !== 10).forEach(item => {
           const iRow = worksheet.addRow([item.slNo, item.description, item.uom, item.rate, item.qty, item.amount]);
           iRow.font = { name: 'Arial', size: 10 };
           iRow.eachCell(cell => {
@@ -607,6 +638,17 @@ export function QuarryProductionCostReportModule() {
         sRow.getCell(2).alignment = { horizontal: 'right' };
         sRow.getCell(6).alignment = { horizontal: 'right' };
         sRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }; });
+
+        if (g.id === 'D') {
+          const wrItem = items.find(i => i.slNo === 10);
+          if (wrItem) {
+            const rRow = worksheet.addRow(['10', `↳ ${wrItem.description}`, '', '', '', wrItem.amount]);
+            worksheet.mergeCells(`B${rRow.number}:E${rRow.number}`);
+            rRow.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF64748B' } };
+            rRow.getCell(2).alignment = { horizontal: 'left' };
+            rRow.getCell(6).alignment = { horizontal: 'right' };
+          }
+        }
         worksheet.addRow([]);
       }
     });
@@ -658,14 +700,15 @@ export function QuarryProductionCostReportModule() {
       { id: 'C', label: 'Group C: Crusher works', color: [254, 226, 226], fontColor: [185, 28, 28] },
       { id: 'D', label: 'Group D: Contractors Expense (Explosives)', color: [243, 232, 255], fontColor: [107, 33, 168] },
       { id: 'E', label: 'Group E: Diesel Expense', color: [224, 242, 254], fontColor: [3, 105, 161] },
-      { id: 'F', label: 'Group F: Permit Details', color: [240, 253, 244], fontColor: [21, 128, 61] }
+      { id: 'F', label: 'Group F: Permit Details', color: [240, 253, 244], fontColor: [21, 128, 61] },
+      { id: 'G', label: 'Group G: Overheads (Salaries)', color: [255, 247, 237], fontColor: [194, 65, 12] }
     ];
 
     groups.forEach(g => {
       const items = billItems.filter(i => i.group === g.id);
       if (items.length > 0) {
         tableRows.push([{ content: g.label, colSpan: 6, styles: { fillColor: g.color, textColor: g.fontColor, fontStyle: 'bold', fontSize: 10 } }]);
-        items.forEach(item => {
+        items.filter(i => i.slNo !== 10).forEach(item => {
           tableRows.push([
             item.slNo,
             item.description,
@@ -692,6 +735,17 @@ export function QuarryProductionCostReportModule() {
           { content: subtotalLabel, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [248, 250, 252] } },
           { content: subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { fontStyle: 'bold', fillColor: [248, 250, 252], halign: 'right' } }
         ]);
+
+        if (g.id === 'D') {
+          const wrItem = items.find(i => i.slNo === 10);
+          if (wrItem) {
+            tableRows.push([
+              { content: '10', styles: { textColor: [100, 116, 139], fontSize: 8 } },
+              { content: `↳ ${wrItem.description}`, colSpan: 4, styles: { fontStyle: 'italic', textColor: [100, 116, 139], fontSize: 8 } },
+              { content: wrItem.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', textColor: [100, 116, 139], fontSize: 8 } }
+            ]);
+          }
+        }
       }
     });
 
@@ -853,7 +907,7 @@ export function QuarryProductionCostReportModule() {
                   <tr className="bg-purple-50 text-purple-900 border-t-2 border-purple-200">
                     <td colSpan={6} className="px-6 py-3 font-black text-xs">Group D: Contractors Expense</td>
                   </tr>
-                  {billItems.filter(i => i.group === 'D').map((item, idx) => (
+                  {billItems.filter(i => i.group === 'D' && i.slNo !== 10).map((item, idx) => (
                     <tr key={`D-${idx}`} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-3 text-slate-400 text-xs">{item.slNo}</td>
                       <td className="px-6 py-3 text-slate-800 text-xs">{item.description}</td>
@@ -867,6 +921,16 @@ export function QuarryProductionCostReportModule() {
                     <td colSpan={5} className="px-6 py-3 text-right text-xs text-purple-700">Additional Explosive Cost (Group D Subtotal):</td>
                     <td className="px-6 py-3 text-right text-xs text-purple-800 font-black">
                       {groupDSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                  {/* Group D-1: Breakdown reference row */}
+                  <tr className="bg-purple-25 border-b border-purple-100">
+                    <td className="px-6 py-2 text-purple-300 text-xs">10</td>
+                    <td colSpan={4} className="px-6 py-2 text-xs text-purple-500 italic">
+                      ↳ Original Cost (Explosives Used on Weather Rock)
+                    </td>
+                    <td className="px-6 py-2 text-right text-xs text-purple-600 font-semibold">
+                      {(billItems.find(i => i.group === 'D' && i.slNo === 10)?.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 
@@ -911,6 +975,31 @@ export function QuarryProductionCostReportModule() {
                       {groupFSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
+
+                  {/* Group G: Overheads */}
+                  {billItems.filter(i => i.group === 'G').length > 0 && (
+                    <>
+                      <tr className="bg-orange-50 text-orange-900 border-t-2 border-orange-200">
+                        <td colSpan={6} className="px-6 py-3 font-black text-xs">Group G: Overheads (Salaries)</td>
+                      </tr>
+                      {billItems.filter(i => i.group === 'G').map((item, idx) => (
+                        <tr key={`G-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-6 py-3 text-slate-400 text-xs">{item.slNo}</td>
+                          <td className="px-6 py-3 text-slate-800 text-xs">{item.description}</td>
+                          <td className="px-6 py-3 text-center text-slate-500 text-xs">{item.uom}</td>
+                          <td className="px-6 py-3 text-right text-slate-600 text-xs">{item.rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="px-6 py-3 text-right text-slate-800 text-xs">{item.qty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="px-6 py-3 text-right font-bold text-slate-900 text-xs">{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-orange-50/80 border-b border-orange-200 font-bold">
+                        <td colSpan={5} className="px-6 py-3 text-right text-xs text-orange-700">Overhead Salaries Subtotal (Group G):</td>
+                        <td className="px-6 py-3 text-right text-xs text-orange-800 font-black">
+                          {groupGSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    </>
+                  )}
 
                   {/* Net Overall */}
                   <tr className="bg-slate-900 text-white font-black">
