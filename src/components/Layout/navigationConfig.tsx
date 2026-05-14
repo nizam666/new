@@ -115,6 +115,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
             { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
             { name: 'Master Contractor Report', icon: ClipboardCheck, href: '#contractor_report' },
             { name: 'Crusher Contractor Report', icon: ClipboardCheck, href: '#crusher-contractor-report' },
+            { name: 'Quarry & Crusher Costing Details', icon: BarChart3, href: '#quarry-crusher-costing' },
         ]
     },
 ];
@@ -160,6 +161,7 @@ export const MANAGER_NAV: MenuItem[] = [
             { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
             { name: 'Master Contractor Report', icon: ClipboardCheck, href: '#contractor_report' },
             { name: 'Crusher Contractor Report', icon: ClipboardCheck, href: '#crusher-contractor-report' },
+            { name: 'Quarry & Crusher Costing Details', icon: BarChart3, href: '#quarry-crusher-costing' },
         ]
     },
 ];
@@ -182,6 +184,7 @@ export const CHAIRMEN_NAV: MenuItem[] = [
             { name: 'Permit Reports', icon: FileText, href: '#permit-report' },
             { name: 'Master Contractor Report', icon: ClipboardCheck, href: '#contractor_report' },
             { name: 'Crusher Contractor Report', icon: ClipboardCheck, href: '#crusher-contractor-report' },
+            { name: 'Quarry & Crusher Costing Details', icon: BarChart3, href: '#quarry-crusher-costing' },
         ]
     },
 ];
