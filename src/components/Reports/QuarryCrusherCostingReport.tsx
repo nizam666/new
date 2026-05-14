@@ -297,11 +297,23 @@ export function QuarryCrusherCostingReport() {
       });
 
       // ── Group E: Government Royalty + GST (item 14 — Quarry Permit) ──────
-      const { data: permitData } = await supabase
+      // Fetch all permits and filter in JS so null payment_date records are included
+      const { data: allPermits, error: permitError } = await supabase
         .from('permits')
-        .select('quantity_in_mt,royalty_base,royalty_gst,dmf_base,dmf_gst,gf_base,gf_gst,mbl,tds,miscellaneous')
-        .gte('payment_date', startDate)
-        .lte('payment_date', endDate);
+        .select('*');
+
+      if (permitError) console.error('Permit data fetch error:', permitError);
+
+      // Filter by payment_date in range, OR by approval_date in range if payment_date is null
+      const permitData = (allPermits || []).filter(p => {
+        const pd = p.payment_date;
+        const ad = p.approval_date;
+        if (pd) return pd >= startDate && pd <= endDate;
+        if (ad) return ad >= startDate && ad <= endDate;
+        return false;
+      });
+
+      console.log('[QuarryCrusherCosting] allPermits:', allPermits?.length, 'filtered:', permitData.length, 'range:', startDate, '→', endDate);
 
       let permitRoyaltyGst = 0;
       let permitMisc = 0;
@@ -319,11 +331,11 @@ export function QuarryCrusherCostingReport() {
         permitMisc += parseFloat(p.miscellaneous) || 0;
       });
       const groupEQty = totalQty;
-      setGroupERow({ slNo: 5, description: 'Government Royalty + GST (Quarry Permit Statutory Fees)', uom: 'MT', qty: groupEQty, amount: permitRoyaltyGst, costPerUnit: groupEQty > 0 ? permitRoyaltyGst / groupEQty : 0 });
+      setGroupERow({ slNo: 5, description: 'Quarry Permit (Statutory Fees + GST) (item 14)', uom: 'MT', qty: groupEQty, amount: permitRoyaltyGst, costPerUnit: groupEQty > 0 ? permitRoyaltyGst / groupEQty : 0 });
 
       // ── Group F: Miscellaneous Permit Charges (item 15) ──────────────────
       const groupFQty = totalQty;
-      setGroupFRow({ slNo: 6, description: 'Miscellaneous Permit Charges', uom: 'MT', qty: groupFQty, amount: permitMisc, costPerUnit: groupFQty > 0 ? permitMisc / groupFQty : 0 });
+      setGroupFRow({ slNo: 6, description: 'Miscellaneous Permit Charges (item 15)', uom: 'MT', qty: groupFQty, amount: permitMisc, costPerUnit: groupFQty > 0 ? permitMisc / groupFQty : 0 });
 
       // ── Group H: Statutory Person Salary (Overhead Salaries) ─────────────
       const { data: overheadData } = await supabase
@@ -883,9 +895,9 @@ export function QuarryCrusherCostingReport() {
                     <td className="px-6 py-3 text-right text-xs text-cyan-700 font-black">₹{fmt(groupDRow?.costPerUnit ?? 0)} / MT</td>
                   </tr>
 
-                  {/* ── Group E: Government Royalty + GST ── */}
+                  {/* ── Group E: Quarry Permit (Statutory Fees + GST) ── */}
                   <tr className="bg-emerald-50 text-emerald-900 border-t-2 border-emerald-200">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group E: Government Royalty + GST (Quarry Permit)</td>
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group E: Quarry Permit (Statutory Fees + GST)</td>
                   </tr>
                   {groupERow && (
                     <tr className="bg-emerald-50/40 hover:bg-emerald-50 transition-colors">
@@ -898,7 +910,7 @@ export function QuarryCrusherCostingReport() {
                     </tr>
                   )}
                   <tr className="bg-emerald-100/60 border-t-2 border-emerald-200 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-emerald-700">Group E Subtotal:</td>
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-emerald-700">Group E Subtotal (Quarry Permit):</td>
                     <td className="px-6 py-3 text-right text-xs text-emerald-800 font-black">{fmt(groupERow?.qty ?? 0)} MT</td>
                     <td className="px-6 py-3 text-right text-xs text-emerald-900 font-black">{fmt(groupERow?.amount ?? 0)}</td>
                     <td className="px-6 py-3 text-right text-xs text-green-700 font-black">₹{fmt(groupERow?.costPerUnit ?? 0)} / MT</td>
