@@ -55,6 +55,7 @@ import { QuarryDeductionReport } from './components/Contractor/QuarryDeductionRe
 import { ContractorMasterReport } from './components/Reports/ContractorMasterReport';
 import { CrusherContractorReport } from './components/Reports/CrusherContractorReport';
 import { QuarryCrusherCostingReport } from './components/Reports/QuarryCrusherCostingReport';
+import { QuarryDetailCostReport } from './components/Reports/QuarryDetailCostReport';
 
 function AppContent() {
   const { session, user, loading } = useAuth();
@@ -428,6 +429,9 @@ function AppContent() {
 
       case 'quarry-crusher-costing':
         return <QuarryCrusherCostingReport />;
+
+      case 'quarry-detail-cost':
+        return <QuarryDetailCostReport />;
 
       case 'operations-history':
         return (
