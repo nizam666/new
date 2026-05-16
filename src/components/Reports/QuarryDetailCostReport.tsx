@@ -264,190 +264,245 @@ export function QuarryDetailCostReport() {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Quarry Detail Cost');
     
-    ws.addRow(['Quarry Detail Cost Report']).font = { bold: true, size: 14 };
-    ws.addRow([`Period: ${fmtDate(startDate)} to ${fmtDate(endDate)}`]);
-    ws.addRow([`Total Production (QC+QS+Sales): ${fmt(totalProductionQty)} MT`]);
+    // ── Header Section ────────────────────────────────────────────────────────
+    ws.addRow(['QUARRY DETAIL COST ANALYSIS REPORT']).font = { bold: true, size: 16, color: { argb: 'FF1E293B' } };
+    ws.addRow([`Period: ${fmtDate(startDate)} to ${fmtDate(endDate)}`]).font = { italic: true, size: 11, color: { argb: 'FF64748B' } };
+    ws.addRow([`Generated on: ${new Date().toLocaleString()}`]).font = { size: 10, color: { argb: 'FF94A3B8' } };
     ws.addRow([]);
 
-    // Explosives Header
-    ws.addRow(['EXPLOSIVES SECTION']).font = { bold: true, color: { argb: 'FF4F46E5' } };
-    const head = ws.addRow(['Item Description', 'Net Usage Qty', 'Original Cost (₹)', 'Production (MT)', 'Cost / Ton (₹)']);
+    // ── Summary Cards Section (Simulation in Excel) ───────────────────────────
+    const summaryRow = ws.addRow(['KEY PERFORMANCE INDICATORS']);
+    summaryRow.font = { bold: true, size: 12, color: { argb: 'FF1E293B' } };
+    ws.addRow(['Total Production:', `${fmt(totalProductionQty)} MT`]).font = { bold: true };
+    
+    const totalExplosiveOriginal = summaries.filter(s => s.description !== 'Diesel Expense').reduce((a, b) => a + b.originalCost, 0);
+    ws.addRow(['Explosives Cost / Ton:', `Rs. ${fmt(totalExplosiveOriginal / (totalProductionQty || 1))}`]).font = { bold: true };
+    
+    const dieselOriginal = summaries.find(s => s.description === 'Diesel Expense')?.originalCost || 0;
+    ws.addRow(['Diesel Cost / Ton:', `Rs. ${fmt(dieselOriginal / (totalProductionQty || 1))}`]).font = { bold: true };
+    ws.addRow([]);
+
+    // ── Explosives Section ────────────────────────────────────────────────────
+    const expLabel = ws.addRow(['EXPLOSIVES SECTION']);
+    expLabel.font = { bold: true, size: 12, color: { argb: 'FF6366F1' } };
+    
+    const head = ws.addRow(['Item Description', 'Net Usage Qty', 'Original Cost (Rs.)', 'Production (MT)', 'Cost / Ton (Rs.)']);
     head.height = 30;
     head.eachCell(c => {
       c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
       c.alignment = { vertical: 'middle', horizontal: 'center' };
+      c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
     });
 
     const explosives = summaries.filter(s => s.description !== 'Diesel Expense');
     explosives.forEach((s, idx) => {
-      const row = ws.addRow([s.description, `${s.usageQty} ${s.uom}`, s.originalCost, s.qty, s.costPerTon]);
+      const row = ws.addRow([s.description, `${fmt(s.usageQty)} ${s.uom}`, s.originalCost, s.qty, s.costPerTon]);
       row.height = 25;
       row.alignment = { vertical: 'middle' };
-      if (idx % 2 === 0) row.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } });
-      row.getCell(3).numFmt = '₹#,##0.00';
+      row.eachCell(c => {
+        if (idx % 2 === 0) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+        c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      });
+      row.getCell(3).numFmt = '"Rs." #,##0.00';
       row.getCell(4).numFmt = '#,##0.00';
-      row.getCell(5).numFmt = '₹#,##0.00';
+      row.getCell(5).numFmt = '"Rs." #,##0.00';
     });
 
     ws.addRow([]); // Gap
 
-    // Diesel Header
-    ws.addRow(['DIESEL SECTION']).font = { bold: true, color: { argb: 'FFD97706' } };
-    const dHead = ws.addRow(['Item Description', 'Net Usage Qty', 'Diesel Used per Ton', 'Original Cost (₹)', 'Cost / Ton (₹)']);
+    // ── Diesel Section ────────────────────────────────────────────────────────
+    const dLabel = ws.addRow(['DIESEL SECTION']);
+    dLabel.font = { bold: true, size: 12, color: { argb: 'FFF59E0B' } };
+    
+    const dHead = ws.addRow(['Item Description', 'Net Usage Qty', 'Diesel per Ton', 'Original Cost (₹)', 'Cost / Ton (₹)']);
     dHead.height = 30;
     dHead.eachCell(c => {
       c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
       c.alignment = { vertical: 'middle', horizontal: 'center' };
+      c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
     });
 
     const diesel = summaries.find(s => s.description === 'Diesel Expense');
     if (diesel) {
       const dieselPerTon = totalProductionQty > 0 ? diesel.usageQty / totalProductionQty : 0;
-      const dRow = ws.addRow([diesel.description, `${diesel.usageQty} ${diesel.uom}`, dieselPerTon, diesel.originalCost, diesel.costPerTon]);
+      const dRow = ws.addRow([diesel.description, `${fmt(diesel.usageQty)} ${diesel.uom}`, dieselPerTon, diesel.originalCost, diesel.costPerTon]);
       dRow.height = 25;
       dRow.alignment = { vertical: 'middle' };
+      dRow.eachCell(c => {
+        c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      });
       dRow.getCell(3).numFmt = '0.000 "Ltrs/MT"';
-      dRow.getCell(4).numFmt = '₹#,##0.00';
-      dRow.getCell(5).numFmt = '₹#,##0.00';
+      dRow.getCell(4).numFmt = '"Rs." #,##0.00';
+      dRow.getCell(5).numFmt = '"Rs." #,##0.00';
     }
 
-    // Totals Row
+    ws.addRow([]); // Gap
+
+    // ── Totals Row ────────────────────────────────────────────────────────────
     const totalOriginal = summaries.reduce((acc, s) => acc + s.originalCost, 0);
     const avgCostPerTon = totalOriginal / (totalProductionQty || 1);
-    const totalRow = ws.addRow(['GRAND TOTAL', '', totalOriginal, totalProductionQty, avgCostPerTon]);
-    totalRow.height = 30;
-    totalRow.font = { bold: true };
+    const totalRow = ws.addRow(['GRAND CONSOLIDATED TOTAL', '', '', totalOriginal, avgCostPerTon]);
+    totalRow.height = 35;
+    totalRow.font = { bold: true, size: 12 };
     totalRow.eachCell(c => {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      c.border = { top: { style: 'medium' } };
+      c.border = { top: { style: 'medium' }, bottom: { style: 'medium' } };
+      c.alignment = { vertical: 'middle' };
     });
+    totalRow.getCell(4).numFmt = '"Rs." #,##0.00';
+    totalRow.getCell(5).numFmt = '"Rs." #,##0.00';
 
+    // Auto-fit columns
     ws.columns.forEach(col => {
-      let maxLen = 0;
-      col.eachCell!({ includeEmpty: true }, (cell) => {
-        const len = cell.value ? cell.value.toString().length : 0;
-        if (len > maxLen) maxLen = len;
-      });
-      col.width = maxLen + 5;
+      col.width = 25;
+      col.alignment = { horizontal: 'left', vertical: 'middle' };
     });
+    ws.getColumn(1).width = 40;
 
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Quarry_Detail_Cost_${startDate}.xlsx`;
+    a.download = `Quarry_Detail_Cost_${startDate}_to_${endDate}.xlsx`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const exportToPDF = () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF('p', 'mm', 'a4');
     
-    // Header Branding
-    doc.setFillColor(30, 41, 59);
-    doc.rect(0, 0, 210, 40, 'F');
+    // ── Header Branding ───────────────────────────────────────────────────────
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, 210, 45, 'F');
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
+    doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    doc.text('QUARRY DETAIL COST REPORT', 14, 20);
+    doc.text('QUARRY DETAIL COST ANALYSIS', 14, 22);
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Period: ${fmtDate(startDate)} to ${fmtDate(endDate)}`, 14, 30);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 140, 30);
+    doc.setTextColor(148, 163, 184); // slate-400
+    doc.text(`Period: ${fmtDate(startDate)} to ${fmtDate(endDate)}`, 14, 32);
+    doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 14, 37);
 
-    // Summary Cards in PDF
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(14, 45, 182, 25, 3, 3, 'F');
-    
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(9);
-    doc.text('TOTAL PRODUCTION', 20, 53);
-    doc.setFontSize(14);
-    doc.text(`${fmt(totalProductionQty)} MT`, 20, 62);
-
+    // ── Summary Cards Section ─────────────────────────────────────────────────
     const totalExplosiveOriginal = summaries.filter(s => s.description !== 'Diesel Expense').reduce((a, b) => a + b.originalCost, 0);
-    doc.setFontSize(9);
-    doc.text('TOTAL EXPLOSIVES / TON', 75, 53);
-    doc.setFontSize(14);
-    doc.text(`₹${fmt(totalExplosiveOriginal / (totalProductionQty || 1))}`, 75, 62);
-
     const dieselOriginal = summaries.find(s => s.description === 'Diesel Expense')?.originalCost || 0;
-    doc.setFontSize(9);
-    doc.text('DIESEL EXPENSE / TON', 140, 53);
-    doc.setFontSize(14);
-    doc.text(`₹${fmt(dieselOriginal / (totalProductionQty || 1))}`, 140, 62);
+    const grandTotal = summaries.reduce((acc, s) => acc + s.originalCost, 0);
 
-    // Explosives Section
-    doc.setFontSize(12);
+    // Cards Container
+    doc.setFillColor(248, 250, 252); // slate-50
+    doc.roundedRect(10, 50, 190, 30, 2, 2, 'F');
+    
+    // Total Production
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(8);
+    doc.text('TOTAL PRODUCTION', 14, 60);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${fmt(totalProductionQty)} MT`, 14, 72);
+
+    // Explosives / Ton
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('EXPLOSIVES COST / MT', 60, 60);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(79, 70, 229); // indigo-600
+    doc.text(`Rs. ${fmt(totalExplosiveOriginal / (totalProductionQty || 1))}`, 60, 72);
+
+    // Diesel / Ton
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('DIESEL COST / MT', 110, 60);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(217, 119, 6); // amber-600
+    doc.text(`Rs. ${fmt(dieselOriginal / (totalProductionQty || 1))}`, 110, 72);
+
+    // Grand Total / Ton
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('CONSOLIDATED / MT', 160, 60);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(5, 150, 105); // emerald-600
+    doc.text(`Rs. ${fmt(grandTotal / (totalProductionQty || 1))}`, 160, 72);
+
+    // ── Explosives Table ──────────────────────────────────────────────────────
     doc.setTextColor(79, 70, 229);
-    doc.text('EXPLOSIVES SECTION', 14, 73);
+    doc.setFontSize(12);
+    doc.text('EXPLOSIVES DETAILED BREAKDOWN', 14, 92);
     
     const explosives = summaries.filter(s => s.description !== 'Diesel Expense');
     autoTable(doc, {
-      startY: 75,
-      head: [['Item Description', 'Usage Qty', 'Original Cost', 'Production', 'Cost / Ton']],
+      startY: 95,
+      head: [['Item Description', 'Net Usage Qty', 'Original Cost', 'Production', 'Cost / Ton']],
       body: explosives.map(s => [
         s.description,
         `${fmt(s.usageQty || 0)} ${s.uom}`,
-        `₹${fmt(s.originalCost)}`,
+        `Rs. ${fmt(s.originalCost)}`,
         `${fmt(s.qty)} MT`,
-        `₹${fmt(s.costPerTon)}`
+        `Rs. ${fmt(s.costPerTon)}`
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [30, 41, 59], fontSize: 10, halign: 'center' },
-      styles: { fontSize: 9, cellPadding: 3 }
+      headStyles: { fillColor: [15, 23, 42], fontSize: 9, halign: 'center' },
+      styles: { fontSize: 8.5, cellPadding: 3.5 },
+      columnStyles: {
+        0: { fontStyle: 'bold' },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+        4: { halign: 'right', fontStyle: 'bold' }
+      }
     });
 
-    // Diesel Section
-    const nextY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFontSize(12);
+    // ── Diesel Table ──────────────────────────────────────────────────────────
+    const nextY = (doc as any).lastAutoTable.finalY + 12;
     doc.setTextColor(217, 119, 6);
-    doc.text('DIESEL SECTION', 14, nextY - 2);
+    doc.setFontSize(12);
+    doc.text('DIESEL CONSUMPTION ANALYSIS', 14, nextY - 3);
     
     const diesel = summaries.find(s => s.description === 'Diesel Expense');
     if (diesel) {
       const dieselPerTon = totalProductionQty > 0 ? diesel.usageQty / totalProductionQty : 0;
       autoTable(doc, {
         startY: nextY,
-        head: [['Item Description', 'Usage Qty', 'Diesel Used per Ton', 'Original Cost', 'Cost / Ton']],
+        head: [['Item Description', 'Usage Qty', 'Consumption Rate', 'Original Cost', 'Costing / Ton']],
         body: [[
           diesel.description,
           `${fmt(diesel.usageQty || 0)} Ltrs`,
           `${dieselPerTon.toFixed(3)} Ltrs/MT`,
-          `₹${fmt(diesel.originalCost)}`,
-          `₹${fmt(diesel.costPerTon)}`
+          `Rs. ${fmt(diesel.originalCost)}`,
+          `Rs. ${fmt(diesel.costPerTon)}`
         ]],
         theme: 'grid',
-        headStyles: { fillColor: [30, 41, 59], fontSize: 10, halign: 'center' },
-        styles: { fontSize: 9, cellPadding: 3 }
+        headStyles: { fillColor: [15, 23, 42], fontSize: 9, halign: 'center' },
+        styles: { fontSize: 8.5, cellPadding: 3.5 },
+        columnStyles: {
+          0: { fontStyle: 'bold' },
+          2: { halign: 'center' },
+          3: { halign: 'right' },
+          4: { halign: 'right', fontStyle: 'bold' }
+        }
       });
     }
 
-    // Grand Total Section
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    autoTable(doc, {
-      startY: finalY,
-      body: [
-        [{ content: 'GRAND TOTAL', colSpan: 2, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } }, 
-         { content: `₹${fmt(summaries.reduce((acc, s) => acc + s.originalCost, 0))}`, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
-         { content: `${fmt(totalProductionQty)} MT`, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
-         { content: `₹${fmt(summaries.reduce((acc, s) => acc + s.originalCost, 0) / (totalProductionQty || 1))}`, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } }
-        ]
-      ],
-      theme: 'plain',
-      styles: { fontSize: 10, cellPadding: 4 }
-    });
-
+    // ── Footer ────────────────────────────────────────────────────────────────
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(10, 282, 200, 282);
       doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(`Page ${i} of ${pageCount}`, 190, 285, { align: 'right' });
+      doc.setTextColor(148, 163, 184);
+      doc.text('Quarry Detail Cost Analysis Report - Confidential', 10, 288);
+      doc.text(`Page ${i} of ${pageCount}`, 200, 288, { align: 'right' });
     }
 
     doc.save(`Quarry_Detail_Cost_${startDate}.pdf`);
