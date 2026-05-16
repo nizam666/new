@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { BarChart3, Download } from 'lucide-react';
+import { BarChart3, Download, Building2, Settings2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
@@ -40,11 +40,12 @@ export function QuarryCrusherCostingReport() {
   const [groupBRow, setGroupBRow] = useState<CostRow | null>(null);
   const [groupBBreakdown, setGroupBBreakdown] = useState<CostRow[]>([]);
   const [groupCRow, setGroupCRow] = useState<CostRow | null>(null);
-  const [groupDRow, setGroupDRow] = useState<CostRow | null>(null);
+  const [crusherExcRow, setCrusherExcRow] = useState<CostRow | null>(null);
   const [groupERow, setGroupERow] = useState<CostRow | null>(null);
   const [groupFRow, setGroupFRow] = useState<CostRow | null>(null);
   const [groupHRows, setGroupHRows] = useState<CostRow[]>([]);
   const [groupIRow, setGroupIRow] = useState<CostRow | null>(null);
+  const [groupJRow, setGroupJRow] = useState<CostRow | null>(null);
   // Crusher section
   const [crusherQty, setCrusherQty] = useState(0);
   const [crusherContractors, setCrusherContractors] = useState<{ name: string; amount: number }[]>([]);
@@ -56,6 +57,12 @@ export function QuarryCrusherCostingReport() {
   const [crusherMiscRow, setCrusherMiscRow] = useState<CostRow | null>(null);
   const [crusherGstRow, setCrusherGstRow] = useState<CostRow | null>(null);
   const [crusherSalesValue, setCrusherSalesValue] = useState(0);
+
+  // Overhead table state
+  const [overheadGroupARows, setOverheadGroupARows] = useState<CostRow[]>([]);
+  const [overheadGroupBRow, setOverheadGroupBRow] = useState<CostRow | null>(null);
+  const [overheadGroupCRow, setOverheadGroupCRow] = useState<CostRow | null>(null);
+  const [overheadGroupDRow, setOverheadGroupDRow] = useState<CostRow | null>(null);
 
   // ── fetch ──────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -282,18 +289,17 @@ export function QuarryCrusherCostingReport() {
         costPerUnit: groupCCpu,
       });
 
-      // ── Group D: Excavator Additional Work in Crusher (item 8) ──────────
+      // ── Excavator Additional Work in Crusher (item 8) ──────────
       const CRUSHER_EXC_RATE = 1650;
       const crusherExcHours = loadingData
         ?.filter(r => ['SBBM Slurry Work','SBBM Stockyard Good Boulders','Aggregates rehandling/ Aggregate Loading','Crusher machine works'].includes(r.material_type))
         .reduce((s, r) => { const run = (r.ending_hours||0)-(r.starting_hours||0); return s+(run>0?run:0); }, 0) ?? 0;
       const crusherExcAmt = crusherExcHours * CRUSHER_EXC_RATE;
-      const groupDQty = totalQty;
-      const groupDCpu = groupDQty > 0 ? crusherExcAmt / groupDQty : 0;
-      setGroupDRow({
-        slNo: 4,
+      let crusherTotalQty = qcQty + scQty; // Q-C + S-C
+      setCrusherExcRow({
+        slNo: 0,
         description: `Excavator Additional Work in Crusher: ${fmt(crusherExcHours)} HRS × ₹${CRUSHER_EXC_RATE}`,
-        uom: 'MT', qty: groupDQty, amount: crusherExcAmt, costPerUnit: groupDCpu,
+        uom: 'MT', qty: crusherTotalQty, amount: crusherExcAmt, costPerUnit: crusherTotalQty > 0 ? crusherExcAmt / crusherTotalQty : 0,
       });
 
       // ── Group E: Government Royalty + GST (item 14 — Quarry Permit) ──────
@@ -373,7 +379,7 @@ export function QuarryCrusherCostingReport() {
       });
       const { data: dispatchData } = await supabase
         .from('inventory_dispatch')
-        .select('item_name, quantity_dispatched, given_price')
+        .select('item_name, quantity_dispatched, given_price, unit')
         .eq('department', 'Quarry Operations')
         .gte('dispatch_date', startDate)
         .lte('dispatch_date', endDate);
@@ -385,7 +391,122 @@ export function QuarryCrusherCostingReport() {
       });
       const dieselNetAmt = dieselVendorBills - dieselDispatchedCost;
       const groupIQty = totalQty;
-      setGroupIRow({ slNo: slNoH, description: 'Diesel Expense (Net: Vendor Bills − Contractor Diesel)', uom: 'MT', qty: groupIQty, amount: dieselNetAmt, costPerUnit: groupIQty > 0 ? dieselNetAmt / groupIQty : 0 });
+      setGroupIRow({ slNo: slNoH++, description: 'Diesel Expense (Net: Vendor Bills − Contractor Diesel)', uom: 'MT', qty: groupIQty, amount: dieselNetAmt, costPerUnit: groupIQty > 0 ? dieselNetAmt / groupIQty : 0 });
+
+      // ── Group J: Additional Explosive Cost (Group D Subtotal from Module) ──
+      const EXPLOSIVE_KW = ['EXPLOSIVE', 'POWERGEL', 'POWER GEL', 'DETONATOR', 'NONEL', ' ED ', 'EDET', ' PG ', 'BLASTING', 'AMMONIUM', 'ANFO'];
+      let explosiveVendorBills = 0;
+      accountsData?.forEach(acc => {
+        if (acc.notes?.includes('[BILL_ENTRY]')) {
+          const combined = `${acc.notes||''} ${acc.reason||''}`.toUpperCase();
+          if (EXPLOSIVE_KW.some(kw => combined.includes(kw))) explosiveVendorBills += parseFloat(acc.amount) || 0;
+        }
+      });
+
+      let pgGivenPrice = 0, edGivenPrice = 0, edetGivenPrice = 0, n3GivenPrice = 0, n4GivenPrice = 0;
+      let totalDispatchedPgBoxes = 0, totalDispatchedEd = 0, totalDispatchedEdet = 0, totalDispatchedN3 = 0, totalDispatchedN4 = 0;
+      dispatchData?.forEach(d => {
+        const name = (d.item_name || '').toUpperCase().trim();
+        const qty = parseFloat(d.quantity_dispatched) || 0;
+        const price = parseFloat(d.given_price) || 0;
+        const unit = (d.unit || '').toLowerCase();
+        const isPG   = name === 'PG' || name.includes('POWERGEL') || name.includes('POWER GEL');
+        const isEDET = name === 'EDET' || name.startsWith('E DET') || name.startsWith('E-DET') || name.includes('ELECTRONIC DET') || name.includes('E DETONATOR');
+        const isED   = !isEDET && (name === 'ED' || name.startsWith('ELEC DET') || name.includes('ELECTRIC DET') || (name.length <= 4 && name.includes('ED')));
+        const isN3   = name.includes('NONEL') && (name.includes('3M') || name.includes('3 M') || name.includes('3MTR') || name.includes('3 MTR'));
+        const isN4   = name.includes('NONEL') && (name.includes('4M') || name.includes('4 M') || name.includes('4MTR') || name.includes('4 MTR'));
+        if (isPG) { pgGivenPrice = (unit === 'nos' ? price * 200 : price); totalDispatchedPgBoxes += (unit === 'nos' ? qty / 200 : qty); }
+        else if (isEDET) { edetGivenPrice = price; totalDispatchedEdet += qty; }
+        else if (isED) { edGivenPrice = price; totalDispatchedEd += qty; }
+        else if (isN3) { n3GivenPrice = price; totalDispatchedN3 += qty; }
+        else if (isN4) { n4GivenPrice = price; totalDispatchedN4 += qty; }
+      });
+
+
+      // ── Group J: Additional Explosive Cost (Group D Subtotal from Module) ──
+
+      let wrExplosivesOriginalCost = 0, wrPg = 0, wrEd = 0, wrEdet = 0, wrN3 = 0, wrN4 = 0;
+      blastingData?.forEach(b => {
+        const pg = (b.pg_unit === 'nos' ? (b.pg_nos || 0) / 200 : (b.pg_nos || 0));
+        wrPg += pg; wrEd += (b.ed_nos || 0); wrEdet += (b.edet_nos || 0); wrN3 += (b.nonel_3m_nos || 0); wrN4 += (b.nonel_4m_nos || 0);
+        wrExplosivesOriginalCost += (pg * getPriceAtDate('PG', b.date)) + ((b.ed_nos||0) * getPriceAtDate('ED', b.date)) + ((b.edet_nos||0) * getPriceAtDate('EDET', b.date)) + ((b.nonel_3m_nos||0) * getPriceAtDate('N3', b.date)) + ((b.nonel_4m_nos||0) * getPriceAtDate('N4', b.date));
+      });
+
+      const gbPg = Math.max(0, totalDispatchedPgBoxes - wrPg), gbEd = Math.max(0, totalDispatchedEd - wrEd), gbEdet = Math.max(0, totalDispatchedEdet - wrEdet), gbN3 = Math.max(0, totalDispatchedN3 - wrN3), gbN4 = Math.max(0, totalDispatchedN4 - wrN4);
+      const gbExplosivesCost = (gbPg * pgGivenPrice) + (gbEd * edGivenPrice) + (gbEdet * edetGivenPrice) + (gbN3 * n3GivenPrice) + (gbN4 * n4GivenPrice);
+      const addExpCost = explosiveVendorBills - wrExplosivesOriginalCost - gbExplosivesCost;
+      setGroupJRow({ slNo: slNoH, description: 'Additional Explosive Cost (Net: Vendor Bills − WR Cost − GB Contractor)', uom: 'MT', qty: totalQty, amount: addExpCost, costPerUnit: totalQty > 0 ? addExpCost / totalQty : 0 });
+
+      // ── Overheads Table Logic ──────────────────────────────────────────
+      // Group A: Staff Salaries (Except Manikandan)
+      const overheadAUsers = (overheadData || []).filter(u => !u.full_name.toLowerCase().includes('manikandan'));
+      const rowsA = overheadAUsers.map((u, i) => ({
+        slNo: i + 1,
+        description: `Staff Salary – ${u.full_name}`,
+        uom: 'Month',
+        qty: 1,
+        amount: u.salary || 0,
+        costPerUnit: totalQty > 0 ? (u.salary || 0) / totalQty : 0
+      }));
+      setOverheadGroupARows(rowsA);
+
+      // Fetch all dispatch for Group B
+      const { data: allDispatchData } = await supabase
+        .from('inventory_dispatch')
+        .select('item_name, quantity_dispatched, given_price, department')
+        .gte('dispatch_date', startDate)
+        .lte('dispatch_date', endDate);
+
+      // Group B: Conveyance/Vehicle (Diesel for Administration)
+      const dieselAdmin = (allDispatchData || []).filter(d => 
+        (d.department === 'Administration') && 
+        (d.item_name || '').toUpperCase().includes('DIESEL')
+      );
+      const dieselAdminAmt = dieselAdmin.reduce((s, d) => s + (parseFloat(d.quantity_dispatched || '0') * parseFloat(d.given_price || '0')), 0);
+      setOverheadGroupBRow({
+        slNo: 1,
+        description: 'Conveyance Vehicle Charges (Diesel - Administration)',
+        uom: 'Ltrs',
+        qty: dieselAdmin.reduce((s, d) => s + (parseFloat(d.quantity_dispatched || '0')), 0),
+        amount: dieselAdminAmt,
+        costPerUnit: totalQty > 0 ? dieselAdminAmt / totalQty : 0
+      });
+
+      // Group C & D: From Accounts
+      const { data: allAccountsData } = await supabase
+        .from('accounts')
+        .select('amount, amount_given, notes, transaction_type')
+        .gte('transaction_date', startDate)
+        .lte('transaction_date', endDate);
+
+      const adminAccounts = (allAccountsData || []).filter(a => 
+        a.transaction_type === 'expense' && 
+        (a.notes || '').includes('Dept: Administration')
+      );
+
+      // Group C: Administration amounts (Excluding Miscellaneous)
+      const adminGeneral = adminAccounts.filter(a => !(a.notes || '').includes('Item: Miscellaneous'));
+      const adminGeneralAmt = adminGeneral.reduce((s, a) => s + (parseFloat(a.amount_given) || parseFloat(a.amount) || 0), 0);
+      setOverheadGroupCRow({
+        slNo: 2,
+        description: 'Cash Booking',
+        uom: '—',
+        qty: 1,
+        amount: adminGeneralAmt,
+        costPerUnit: totalQty > 0 ? adminGeneralAmt / totalQty : 0
+      });
+
+      // Group D: Miscellaneous given from administrative department
+      const adminMisc = adminAccounts.filter(a => (a.notes || '').includes('Item: Miscellaneous'));
+      const adminMiscAmt = adminMisc.reduce((s, a) => s + (parseFloat(a.amount_given) || parseFloat(a.amount) || 0), 0);
+      setOverheadGroupDRow({
+        slNo: 3,
+        description: 'Miscellaneous Expenses (Administration)',
+        uom: '—',
+        qty: 1,
+        amount: adminMiscAmt,
+        costPerUnit: totalQty > 0 ? adminMiscAmt / totalQty : 0
+      });
 
       // ── Crusher Contractors (CON-CRU-*) ────────────────────────────────
       const { data: crusherUsers } = await supabase
@@ -411,7 +532,7 @@ export function QuarryCrusherCostingReport() {
       setCrusherContractors(crusherBillRows);
 
       // ── Crusher Section Calculations ──────────────────────────────────
-      const crusherTotalQty = qcQty + scQty;
+      crusherTotalQty = qcQty + scQty;
       setCrusherQty(crusherTotalQty);
 
       // ── Crusher Group C: EB Power Charges (Calculated Sum Amount) ─────
@@ -586,50 +707,190 @@ export function QuarryCrusherCostingReport() {
   // ── Excel export ───────────────────────────────────────────────────────────
   const exportToExcel = async () => {
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Q&C Costing');
+    const ws = wb.addWorksheet('Quarry & Crusher Costing');
 
-    ws.addRow(['Quarry & Crusher Costing Details Report']).font = { name: 'Arial', size: 14, bold: true };
-    ws.addRow([`Period: ${fmtDate(startDate)} to ${fmtDate(endDate)}`]).font = { name: 'Arial', size: 11, italic: true };
-    ws.addRow([]);
-
-    const header = ws.addRow(['Sl.No.', 'Item Description', 'UOM', 'QTY', 'Amount (₹)', 'Cost / Unit (₹)']);
-    header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    header.eachCell(c => {
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-      c.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-      c.alignment = { vertical: 'middle', horizontal: 'center' };
-    });
-
-    // Group A header
-    const gRow = ws.addRow(['Group A: Quarry – Good Boulder Production']);
-    ws.mergeCells(`A${gRow.number}:F${gRow.number}`);
-    gRow.font = { bold: true, color: { argb: 'FF1D4ED8' } };
-    gRow.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } }; });
-
-    // main consolidated row
-    if (mainRow) {
-      const r = ws.addRow([mainRow.slNo, mainRow.description, mainRow.uom, mainRow.qty, mainRow.amount, mainRow.costPerUnit]);
-      r.font = { bold: true };
-      [4, 5, 6].forEach(col => { r.getCell(col).alignment = { horizontal: 'right' }; });
-    }
-
-    // breakdown sub-rows
-    breakdownRows.forEach(row => {
-      const r = ws.addRow(['', row.description, row.uom, row.qty, row.amount, row.costPerUnit]);
-      r.font = { italic: true, color: { argb: 'FF64748B' } };
-      [4, 5, 6].forEach(col => { r.getCell(col).alignment = { horizontal: 'right' }; });
-    });
-
+    // Column widths
     ws.columns = [
-      { width: 8 }, { width: 55 }, { width: 8 }, { width: 16 }, { width: 18 }, { width: 18 }
+      { width: 8 },  // A: Sl.No
+      { width: 22 }, // B: Section Label
+      { width: 55 }, // C: Description
+      { width: 20 }, // D: Amount
+      { width: 20 }, // E: Production/Qty
+      { width: 20 }, // F: Cost per Unit
     ];
+
+    const gbQty = mainRow?.qty ?? 0;
+
+    // 1. Title
+    ws.mergeCells('A1:F1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = 'KVSS & SBBM 3-STAGE QUARRY & CRUSHER COSTING DETAILS';
+    titleCell.font = { name: 'Arial Black', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 40;
+
+    ws.mergeCells('A2:F2');
+    const subtitleCell = ws.getCell('A2');
+    subtitleCell.value = `Report Period: ${fmtDate(startDate)} to ${fmtDate(endDate)} | Total Production: ${fmt(gbQty)} MT`;
+    subtitleCell.font = { size: 11, italic: true, color: { argb: 'FF475569' } };
+    subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(2).height = 25;
+
+    ws.addRow([]); // Spacer
+
+    // 2. Header Rows
+    const headerRow1 = ws.addRow(['Sl.No.', '', 'Description', `FOR THE MONTH (${fmt(gbQty)}t)`]);
+    ws.mergeCells(`D${headerRow1.number}:F${headerRow1.number}`);
+    
+    const headerRow2 = ws.addRow(['', '', '', 'Amount', 'Production', 'Cost per Unit']);
+    
+    // Header Styling
+    [headerRow1, headerRow2].forEach(row => {
+      row.eachCell(cell => {
+        cell.font = { bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+    });
+
+    // Helper for rows
+    const addDataRow = (sl: string, section: string, desc: string, amt: number | string, qty: number | string, cpu: number | string, isTotal = false, bgColor?: string) => {
+      const row = ws.addRow([sl, section, desc, amt, qty, cpu]);
+      row.eachCell((cell, colNumber) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+        if (bgColor) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: bgColor }
+          };
+        }
+        if (colNumber >= 4) {
+          cell.alignment = { horizontal: 'right' };
+          cell.numFmt = '#,##0.00';
+        }
+        if (isTotal) {
+          cell.font = { bold: true };
+          if (!bgColor) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF1F5F9' } // Slate 100
+            };
+          }
+          if (colNumber === 3) cell.alignment = { horizontal: 'center' };
+        }
+      });
+      return row;
+    };
+
+    // ─── SECTION 1: QUARRY ───
+    const quarryStart = ws.rowCount + 1;
+    const Q_COLOR = 'FFE0F2FE'; // Sky 100
+    addDataRow('1', 'QUARRY', '(a) Good boulder production', mainRow?.amount ?? 0, mainRow?.qty ?? 0, mainRow?.costPerUnit ?? 0, false, Q_COLOR);
+    addDataRow('', '', '(b) Weathered production', groupBRow?.amount ?? 0, groupBRow?.qty ?? 0, groupBRow?.costPerUnit ?? 0, false, Q_COLOR);
+    addDataRow('', '', '(c) Boulders Rehandling', groupCRow?.amount ?? 0, groupCRow?.qty ?? 0, groupCRow?.costPerUnit ?? 0, false, Q_COLOR);
+    addDataRow('', '', '(d) Government Royalty + GST', groupERow?.amount ?? 0, groupERow?.qty ?? 0, groupERow?.costPerUnit ?? 0, false, Q_COLOR);
+    addDataRow('', '', '(e) Miscellaneous Permit Charges', groupFRow?.amount ?? 0, groupFRow?.qty ?? 0, groupFRow?.costPerUnit ?? 0, false, Q_COLOR);
+    
+    const hTotal = groupHRows.reduce((s, r) => s + r.amount, 0);
+    addDataRow('', '', '(f) Statuotory Person Salary', hTotal, gbQty, gbQty > 0 ? hTotal / gbQty : 0, false, Q_COLOR);
+    addDataRow('', '', '(g) Diesel Expense (Net)', groupIRow?.amount ?? 0, groupIRow?.qty ?? 0, groupIRow?.costPerUnit ?? 0, false, Q_COLOR);
+    addDataRow('', '', '(h) Additional Explosive Cost', groupJRow?.amount ?? 0, groupJRow?.qty ?? 0, groupJRow?.costPerUnit ?? 0, false, Q_COLOR);
+    
+    const quarryTotalAmt = (mainRow?.amount ?? 0) + (groupBRow?.amount ?? 0) + (groupCRow?.amount ?? 0) + (groupERow?.amount ?? 0) + (groupFRow?.amount ?? 0) + hTotal + (groupIRow?.amount ?? 0) + (groupJRow?.amount ?? 0);
+    addDataRow('', '', 'TOTAL QUARRY COST', quarryTotalAmt, gbQty, gbQty > 0 ? quarryTotalAmt / gbQty : 0, true, 'FFBAE6FD'); // Sky 200
+    
+    const quarryEnd = ws.rowCount - 1;
+    ws.mergeCells(`A${quarryStart}:A${quarryEnd}`);
+    ws.mergeCells(`B${quarryStart}:B${quarryEnd}`);
+    ws.getCell(`A${quarryStart}`).alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getCell(`B${quarryStart}`).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // ─── SECTION 2: Crusher ───
+    const crusherStart = ws.rowCount + 1;
+    const C_COLOR = 'FFDCFCE7'; // Green 100
+    const cManpower = crusherContractors.reduce((s, c) => s + c.amount, 0);
+    addDataRow('2', 'Crusher', '(a) Crusher Operation & Maintenance - Manpower', cManpower, crusherQty, crusherQty > 0 ? cManpower / crusherQty : 0, false, C_COLOR);
+    
+    const cSpares = crusherSpares.reduce((s, c) => s + c.amount, 0);
+    addDataRow('', '', '(b) Spares & Consummables', cSpares, crusherQty, crusherQty > 0 ? cSpares / crusherQty : 0, false, C_COLOR);
+    addDataRow('', '', '(c) EB Power chares', crusherEBRow?.amount ?? 0, crusherQty, crusherEBRow?.costPerUnit ?? 0, false, C_COLOR);
+    addDataRow('', '', '(d) Control Room', crusherCRRow?.amount ?? 0, crusherQty, crusherCRRow?.costPerUnit ?? 0, false, C_COLOR);
+    addDataRow('', '', '(e) Miscellaneous', crusherMiscRow?.amount ?? 0, crusherQty, crusherMiscRow?.costPerUnit ?? 0, false, C_COLOR);
+    addDataRow('', '', '(f) Excavator Additional Work', crusherExcRow?.amount ?? 0, crusherQty, crusherExcRow?.costPerUnit ?? 0, false, C_COLOR);
+    
+    const crusherTotalAmt = cManpower + cSpares + (crusherEBRow?.amount ?? 0) + (crusherCRRow?.amount ?? 0) + (crusherMiscRow?.amount ?? 0) + (crusherExcRow?.amount ?? 0);
+    addDataRow('', '', 'TOTAL CRUSHER COSTING', crusherTotalAmt, crusherQty, crusherQty > 0 ? crusherTotalAmt / crusherQty : 0, true, 'FFBBF7D0'); // Green 200
+    
+    const crusherEnd = ws.rowCount - 1;
+    ws.mergeCells(`A${crusherStart}:A${crusherEnd}`);
+    ws.mergeCells(`B${crusherStart}:B${crusherEnd}`);
+
+    // ─── SECTION 3: SERVICES ───
+    const servicesStart = ws.rowCount + 1;
+    const S_COLOR = 'FFFEF3C7'; // Amber 100
+    addDataRow('3', 'SERVICES', '(a) JCB Works', crusherJCBRow?.amount ?? 0, crusherQty, crusherJCBRow?.costPerUnit ?? 0, false, S_COLOR);
+    addDataRow('', '', '(b) Weight Bridge', crusherWBRow?.amount ?? 0, crusherQty, crusherWBRow?.costPerUnit ?? 0, false, S_COLOR);
+    addDataRow('', '', '(c) GST (Inclusive)', crusherGstRow?.amount ?? 0, crusherSalesValue, crusherGstRow?.costPerUnit ?? 0, false, S_COLOR);
+    
+    const servicesTotalAmt = (crusherJCBRow?.amount ?? 0) + (crusherWBRow?.amount ?? 0) + (crusherGstRow?.amount ?? 0);
+    addDataRow('', '', 'TOTAL SERVICES COST', servicesTotalAmt, crusherQty, crusherQty > 0 ? servicesTotalAmt / crusherQty : 0, true, 'FFFDE68A'); // Amber 200
+    
+    const servicesEnd = ws.rowCount - 1;
+    ws.mergeCells(`A${servicesStart}:A${servicesEnd}`);
+    ws.mergeCells(`B${servicesStart}:B${servicesEnd}`);
+    ws.getCell(`A${servicesStart}`).alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getCell(`B${servicesStart}`).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // ─── SECTION 4: Over Heads ───
+    const ohStart = ws.rowCount + 1;
+    const OH_COLOR = 'FFF3E8FF'; // Purple 100
+    const ohA = overheadGroupARows.reduce((s, r) => s + r.amount, 0);
+    addDataRow('4', 'Over Heads', '(a) Staff Salaries', ohA, gbQty, gbQty > 0 ? ohA / gbQty : 0, false, OH_COLOR);
+    addDataRow('', '', '(b) Conveyance Vehicle Charges', overheadGroupBRow?.amount ?? 0, gbQty, overheadGroupBRow?.costPerUnit ?? 0, false, OH_COLOR);
+    addDataRow('', '', '(c) Cash Booking', overheadGroupCRow?.amount ?? 0, gbQty, overheadGroupCRow?.costPerUnit ?? 0, false, OH_COLOR);
+    addDataRow('', '', '(d) Miscellaneous', overheadGroupDRow?.amount ?? 0, gbQty, overheadGroupDRow?.costPerUnit ?? 0, false, OH_COLOR);
+    
+    const ohTotalAmt = ohA + (overheadGroupBRow?.amount ?? 0) + (overheadGroupCRow?.amount ?? 0) + (overheadGroupDRow?.amount ?? 0);
+    addDataRow('', '', 'Total costing towards OverHeads', ohTotalAmt, gbQty, gbQty > 0 ? ohTotalAmt / gbQty : 0, true, 'FFE9D5FF'); // Purple 200
+    
+    const ohEnd = ws.rowCount - 1;
+    ws.mergeCells(`A${ohStart}:A${ohEnd}`);
+    ws.mergeCells(`B${ohStart}:B${ohEnd}`);
+    ws.getCell(`A${ohStart}`).alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getCell(`B${ohStart}`).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Final Summaries
+    addDataRow('', '', 'TOTAL CRUSHING (Good Boulder + Weathered rock)', '', crusherQty, '', true, 'FFF1F5F9'); // Slate 100
+    
+    const grandTotal = quarryTotalAmt + crusherTotalAmt + servicesTotalAmt + ohTotalAmt;
+    const finalRow = addDataRow('', '', 'TOTAL CONSOLIDATED COSTING (Quarry, Crusher, Services & Overheads)', grandTotal, gbQty, gbQty > 0 ? grandTotal / gbQty : 0, true, 'FF1E293B');
+    finalRow.getCell(3).font = { color: { argb: 'FFFFFFFF' }, bold: true };
+    finalRow.getCell(4).font = { color: { argb: 'FFBBF7D0' }, bold: true };
+    finalRow.getCell(6).font = { color: { argb: 'FFFDE68A' }, bold: true };
+
+    ws.addRow([]);
+    const genRow = ws.addRow(['', '', 'Report generated on: ' + new Date().toLocaleString()]);
+    genRow.font = { italic: true, size: 9, color: { argb: 'FF64748B' } };
 
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `QC_Costing_${startDate}_to_${endDate}.xlsx`;
+    a.download = `Quarry_Crusher_Costing_${startDate}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -637,64 +898,146 @@ export function QuarryCrusherCostingReport() {
   // ── PDF export ─────────────────────────────────────────────────────────────
   const exportToPDF = () => {
     const doc = new jsPDF('l', 'mm', 'a4');
-    doc.setFontSize(16);
-    doc.setTextColor(15, 23, 42);
-    doc.text('Quarry & Crusher Costing Details Report', 14, 15);
+    const gbQty = mainRow?.qty ?? 0;
+
+    // Header Decoration
+    doc.setDrawColor(30, 41, 59);
+    doc.setLineWidth(1);
+    doc.line(10, 25, 287, 25);
+
+    // Title
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(30, 41, 59);
+    doc.text('KVSS & SBBM 3-STAGE QUARRY & CRUSHER COSTING DETAILS', 149, 15, { align: 'center' });
+    
+    doc.setFont('helvetica', 'italic');
     doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Period: ${fmtDate(startDate)} to ${fmtDate(endDate)}`, 14, 23);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Report Period: ${fmtDate(startDate)} to ${fmtDate(endDate)} | Global Production: ${fmt(gbQty)} MT`, 149, 21, { align: 'center' });
 
     const rows: any[] = [];
 
-    // Group A header
-    rows.push([{
-      content: 'Group A: Quarry – Good Boulder Production',
-      colSpan: 6,
-      styles: { fillColor: [219, 234, 254], textColor: [29, 78, 216], fontStyle: 'bold' }
-    }]);
+    // Calculations
+    const hTotal = groupHRows.reduce((s, r) => s + r.amount, 0);
+    const quarryTotalAmt = (mainRow?.amount ?? 0) + (groupBRow?.amount ?? 0) + (groupCRow?.amount ?? 0) + (groupERow?.amount ?? 0) + (groupFRow?.amount ?? 0) + hTotal + (groupIRow?.amount ?? 0) + (groupJRow?.amount ?? 0);
+    
+    const cManpower = crusherContractors.reduce((s, c) => s + c.amount, 0);
+    const cSpares = crusherSpares.reduce((s, c) => s + c.amount, 0);
+    const crusherTotalAmt = cManpower + cSpares + (crusherEBRow?.amount ?? 0) + (crusherCRRow?.amount ?? 0) + (crusherMiscRow?.amount ?? 0) + (crusherExcRow?.amount ?? 0);
+    const servicesTotalAmt = (crusherJCBRow?.amount ?? 0) + (crusherWBRow?.amount ?? 0) + (crusherGstRow?.amount ?? 0);
+    
+    const ohA = overheadGroupARows.reduce((s, r) => s + r.amount, 0);
+    const ohTotalAmt = ohA + (overheadGroupBRow?.amount ?? 0) + (overheadGroupCRow?.amount ?? 0) + (overheadGroupDRow?.amount ?? 0);
 
-    // main consolidated row
-    if (mainRow) {
-      rows.push([
-        mainRow.slNo,
-        mainRow.description,
-        mainRow.uom,
-        fmt(mainRow.qty),
-        fmt(mainRow.amount),
-        fmt(mainRow.costPerUnit),
-      ]);
-    }
+    // Section 1: Quarry
+    const Q_BG = [224, 242, 254]; // Sky 100
+    const Q_BOLD_BG = [186, 230, 253]; // Sky 200
+    rows.push([
+      { content: '1', rowSpan: 9, styles: { valign: 'middle', halign: 'center', fillColor: Q_BG } },
+      { content: 'QUARRY', rowSpan: 9, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold', fillColor: Q_BG } },
+      { content: '(a) Good boulder production', styles: { fillColor: Q_BG } }, { content: fmt(mainRow?.amount ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(mainRow?.qty ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(mainRow?.costPerUnit ?? 0), styles: { fillColor: Q_BG } }
+    ]);
+    rows.push([{ content: '(b) Weathered production', styles: { fillColor: Q_BG } }, { content: fmt(groupBRow?.amount ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupBRow?.qty ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupBRow?.costPerUnit ?? 0), styles: { fillColor: Q_BG } }]);
+    rows.push([{ content: '(c) Boulders Rehandling', styles: { fillColor: Q_BG } }, { content: fmt(groupCRow?.amount ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupCRow?.qty ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupCRow?.costPerUnit ?? 0), styles: { fillColor: Q_BG } }]);
+    rows.push([{ content: '(d) Government Royalty + GST', styles: { fillColor: Q_BG } }, { content: fmt(groupERow?.amount ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupERow?.qty ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupERow?.costPerUnit ?? 0), styles: { fillColor: Q_BG } }]);
+    rows.push([{ content: '(e) Miscellaneous Permit Charges', styles: { fillColor: Q_BG } }, { content: fmt(groupFRow?.amount ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupFRow?.qty ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupFRow?.costPerUnit ?? 0), styles: { fillColor: Q_BG } }]);
+    rows.push([{ content: '(f) Statuotory Person Salary', styles: { fillColor: Q_BG } }, { content: fmt(hTotal), styles: { fillColor: Q_BG } }, { content: fmt(gbQty), styles: { fillColor: Q_BG } }, { content: fmt(gbQty > 0 ? hTotal / gbQty : 0), styles: { fillColor: Q_BG } }]);
+    rows.push([{ content: '(g) Diesel Expense (Net)', styles: { fillColor: Q_BG } }, { content: fmt(groupIRow?.amount ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupIRow?.qty ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupIRow?.costPerUnit ?? 0), styles: { fillColor: Q_BG } }]);
+    rows.push([{ content: '(h) Additional Explosive Cost', styles: { fillColor: Q_BG } }, { content: fmt(groupJRow?.amount ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupJRow?.qty ?? 0), styles: { fillColor: Q_BG } }, { content: fmt(groupJRow?.costPerUnit ?? 0), styles: { fillColor: Q_BG } }]);
+    rows.push([{ content: 'TOTAL QUARRY COST', styles: { fontStyle: 'bold', halign: 'center', fillColor: Q_BOLD_BG } }, { content: fmt(quarryTotalAmt), styles: { fontStyle: 'bold', fillColor: Q_BOLD_BG } }, { content: fmt(gbQty), styles: { fontStyle: 'bold', fillColor: Q_BOLD_BG } }, { content: fmt(gbQty > 0 ? quarryTotalAmt / gbQty : 0), styles: { fontStyle: 'bold', fillColor: Q_BOLD_BG } }]);
 
-    // breakdown
-    breakdownRows.forEach(row => {
-      rows.push([
-        { content: '', styles: { textColor: [100, 116, 139] } },
-        { content: row.description, styles: { fontStyle: 'italic', textColor: [100, 116, 139], fontSize: 8 } },
-        { content: row.uom, styles: { textColor: [100, 116, 139], fontSize: 8 } },
-        { content: fmt(row.qty), styles: { halign: 'right', textColor: [100, 116, 139], fontSize: 8 } },
-        { content: fmt(row.amount), styles: { halign: 'right', textColor: [100, 116, 139], fontSize: 8 } },
-        { content: fmt(row.costPerUnit), styles: { halign: 'right', textColor: [100, 116, 139], fontSize: 8 } },
-      ]);
-    });
+    // Section 2: Crusher
+    const C_BG = [220, 252, 231]; // Green 100
+    const C_BOLD_BG = [187, 247, 208]; // Green 200
+    rows.push([
+      { content: '2', rowSpan: 7, styles: { valign: 'middle', halign: 'center', fillColor: C_BG } },
+      { content: 'Crusher', rowSpan: 7, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold', fillColor: C_BG } },
+      { content: '(a) Crusher Operation & Maintenance - Manpower', styles: { fillColor: C_BG } }, { content: fmt(cManpower), styles: { fillColor: C_BG } }, { content: fmt(crusherQty), styles: { fillColor: C_BG } }, { content: fmt(crusherQty > 0 ? cManpower / crusherQty : 0), styles: { fillColor: C_BG } }
+    ]);
+    rows.push([{ content: '(b) Spares & Consummables', styles: { fillColor: C_BG } }, { content: fmt(cSpares), styles: { fillColor: C_BG } }, { content: fmt(crusherQty), styles: { fillColor: C_BG } }, { content: fmt(crusherQty > 0 ? cSpares / crusherQty : 0), styles: { fillColor: C_BG } }]);
+    rows.push([{ content: '(c) EB Power chares', styles: { fillColor: C_BG } }, { content: fmt(crusherEBRow?.amount ?? 0), styles: { fillColor: C_BG } }, { content: fmt(crusherQty), styles: { fillColor: C_BG } }, { content: fmt(crusherEBRow?.costPerUnit ?? 0), styles: { fillColor: C_BG } }]);
+    rows.push([{ content: '(d) Control Room', styles: { fillColor: C_BG } }, { content: fmt(crusherCRRow?.amount ?? 0), styles: { fillColor: C_BG } }, { content: fmt(crusherQty), styles: { fillColor: C_BG } }, { content: fmt(crusherCRRow?.costPerUnit ?? 0), styles: { fillColor: C_BG } }]);
+    rows.push([{ content: '(e) Miscellaneous', styles: { fillColor: C_BG } }, { content: fmt(crusherMiscRow?.amount ?? 0), styles: { fillColor: C_BG } }, { content: fmt(crusherQty), styles: { fillColor: C_BG } }, { content: fmt(crusherMiscRow?.costPerUnit ?? 0), styles: { fillColor: C_BG } }]);
+    rows.push([{ content: '(f) Excavator Additional Work', styles: { fillColor: C_BG } }, { content: fmt(crusherExcRow?.amount ?? 0), styles: { fillColor: C_BG } }, { content: fmt(crusherQty), styles: { fillColor: C_BG } }, { content: fmt(crusherExcRow?.costPerUnit ?? 0), styles: { fillColor: C_BG } }]);
+    rows.push([{ content: 'TOTAL CRUSHER COSTING', styles: { fontStyle: 'bold', halign: 'center', fillColor: C_BOLD_BG } }, { content: fmt(crusherTotalAmt), styles: { fontStyle: 'bold', fillColor: C_BOLD_BG } }, { content: fmt(crusherQty), styles: { fontStyle: 'bold', fillColor: C_BOLD_BG } }, { content: fmt(crusherQty > 0 ? crusherTotalAmt / crusherQty : 0), styles: { fontStyle: 'bold', fillColor: C_BOLD_BG } }]);
+
+    // Section 3: Services
+    const S_BG = [254, 243, 199]; // Amber 100
+    const S_BOLD_BG = [253, 230, 138]; // Amber 200
+    rows.push([
+      { content: '3', rowSpan: 4, styles: { valign: 'middle', halign: 'center', fillColor: S_BG } },
+      { content: 'SERVICES', rowSpan: 4, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold', fillColor: S_BG } },
+      { content: '(a) JCB Works', styles: { fillColor: S_BG } }, { content: fmt(crusherJCBRow?.amount ?? 0), styles: { fillColor: S_BG } }, { content: fmt(crusherQty), styles: { fillColor: S_BG } }, { content: fmt(crusherJCBRow?.costPerUnit ?? 0), styles: { fillColor: S_BG } }
+    ]);
+    rows.push([{ content: '(b) Weight Bridge', styles: { fillColor: S_BG } }, { content: fmt(crusherWBRow?.amount ?? 0), styles: { fillColor: S_BG } }, { content: fmt(crusherQty), styles: { fillColor: S_BG } }, { content: fmt(crusherWBRow?.costPerUnit ?? 0), styles: { fillColor: S_BG } }]);
+    rows.push([{ content: '(c) GST (Inclusive)', styles: { fillColor: S_BG } }, { content: fmt(crusherGstRow?.amount ?? 0), styles: { fillColor: S_BG } }, { content: fmt(crusherSalesValue), styles: { fillColor: S_BG } }, { content: fmt(crusherGstRow?.costPerUnit ?? 0), styles: { fillColor: S_BG } }]);
+    rows.push([{ content: 'TOTAL SERVICES COST', styles: { fontStyle: 'bold', halign: 'center', fillColor: S_BOLD_BG } }, { content: fmt(servicesTotalAmt), styles: { fontStyle: 'bold', fillColor: S_BOLD_BG } }, { content: fmt(crusherQty), styles: { fontStyle: 'bold', fillColor: S_BOLD_BG } }, { content: fmt(crusherQty > 0 ? servicesTotalAmt / crusherQty : 0), styles: { fontStyle: 'bold', fillColor: S_BOLD_BG } }]);
+
+    // Section 3: Over Heads
+    const OH_BG = [243, 232, 255]; // Purple 100
+    const OH_BOLD_BG = [233, 213, 255]; // Purple 200
+    rows.push([
+      { content: '4', rowSpan: 5, styles: { valign: 'middle', halign: 'center', fillColor: OH_BG } },
+      { content: 'Over Heads', rowSpan: 5, styles: { valign: 'middle', halign: 'center', fontStyle: 'bold', fillColor: OH_BG } },
+      { content: '(a) Staff Salaries', styles: { fillColor: OH_BG } }, { content: fmt(ohA), styles: { fillColor: OH_BG } }, { content: fmt(gbQty), styles: { fillColor: OH_BG } }, { content: fmt(gbQty > 0 ? ohA / gbQty : 0), styles: { fillColor: OH_BG } }
+    ]);
+    rows.push([{ content: '(b) Conveyance Vehicle Charges', styles: { fillColor: OH_BG } }, { content: fmt(overheadGroupBRow?.amount ?? 0), styles: { fillColor: OH_BG } }, { content: fmt(gbQty), styles: { fillColor: OH_BG } }, { content: fmt(overheadGroupBRow?.costPerUnit ?? 0), styles: { fillColor: OH_BG } }]);
+    rows.push([{ content: '(c) Cash Booking', styles: { fillColor: OH_BG } }, { content: fmt(overheadGroupCRow?.amount ?? 0), styles: { fillColor: OH_BG } }, { content: fmt(gbQty), styles: { fillColor: OH_BG } }, { content: fmt(overheadGroupCRow?.costPerUnit ?? 0), styles: { fillColor: OH_BG } }]);
+    rows.push([{ content: '(d) Miscellaneous', styles: { fillColor: OH_BG } }, { content: fmt(overheadGroupDRow?.amount ?? 0), styles: { fillColor: OH_BG } }, { content: fmt(gbQty), styles: { fillColor: OH_BG } }, { content: fmt(overheadGroupDRow?.costPerUnit ?? 0), styles: { fillColor: OH_BG } }]);
+    rows.push([{ content: 'Total costing towards OverHeads', styles: { fontStyle: 'bold', halign: 'center', fillColor: OH_BOLD_BG } }, { content: fmt(ohTotalAmt), styles: { fontStyle: 'bold', fillColor: OH_BOLD_BG } }, { content: fmt(gbQty), styles: { fontStyle: 'bold', fillColor: OH_BOLD_BG } }, { content: fmt(gbQty > 0 ? ohTotalAmt / gbQty : 0), styles: { fontStyle: 'bold', fillColor: OH_BOLD_BG } }]);
+
+    // Final summaries
+    const grandTotal = quarryTotalAmt + crusherTotalAmt + servicesTotalAmt + ohTotalAmt;
+    const FINAL_BG = [241, 245, 249]; // Slate 100
+    const FINAL_BOLD_BG = [203, 213, 225]; // Slate 300
+    rows.push([
+      { content: '', colSpan: 2 },
+      { content: 'TOTAL CRUSHING (Good Boulder + Weathered rock)', styles: { fontStyle: 'bold', halign: 'center', fillColor: FINAL_BG } },
+      { content: '', styles: { fillColor: FINAL_BG } },
+      { content: fmt(crusherQty), styles: { fontStyle: 'bold', fillColor: FINAL_BG } },
+      { content: '', styles: { fillColor: FINAL_BG } }
+    ]);
+    rows.push([
+      { content: '', colSpan: 2 },
+      { content: 'TOTAL COSTING (Quarry, Crusher & Services) Including Taxes', styles: { fontStyle: 'bold', halign: 'center', fillColor: FINAL_BOLD_BG } },
+      { content: fmt(grandTotal), styles: { fontStyle: 'bold', fillColor: FINAL_BOLD_BG } },
+      { content: fmt(gbQty), styles: { fontStyle: 'bold', fillColor: FINAL_BOLD_BG } },
+      { content: fmt(gbQty > 0 ? grandTotal / gbQty : 0), styles: { fontStyle: 'bold', fillColor: FINAL_BOLD_BG } }
+    ]);
 
     autoTable(doc, {
-      head: [['Sl.No.', 'Item Description', 'UOM', 'QTY', 'Amount (₹)', 'Cost/Unit (₹)']],
+      head: [['Sl.', 'Section', 'Description of Operational Costs', 'Amount (₹)', 'Production (MT)', 'Cost/Unit']],
       body: rows,
-      startY: 30,
+      startY: 28,
       theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [30, 41, 59], halign: 'center' },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 15 },
-        1: { cellWidth: 'auto' },
-        2: { halign: 'center', cellWidth: 18 },
-        3: { halign: 'right', cellWidth: 30 },
-        4: { halign: 'right', cellWidth: 38 },
-        5: { halign: 'right', cellWidth: 38 },
+      styles: { fontSize: 8.5, cellPadding: 2.5, font: 'helvetica' },
+      headStyles: { 
+        fillColor: [30, 41, 59], 
+        halign: 'center', 
+        fontStyle: 'bold',
+        textColor: [255, 255, 255],
+        fontSize: 9
       },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { halign: 'center', cellWidth: 25, fontStyle: 'bold' },
+        2: { cellWidth: 'auto' },
+        3: { halign: 'right', cellWidth: 35 },
+        4: { halign: 'right', cellWidth: 30 },
+        5: { halign: 'right', cellWidth: 30, fontStyle: 'bold' }
+      },
+      didDrawPage: (data) => {
+        // Footer
+        const str = `Page ${data.pageNumber}`;
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+        doc.text(`Generated on ${new Date().toLocaleString()} | KVSS & SBBM System`, doc.internal.pageSize.width - 85, doc.internal.pageSize.height - 10);
+      }
     });
 
-    doc.save(`QC_Costing_${startDate}_to_${endDate}.pdf`);
+    doc.save(`Quarry_Crusher_Costing_${startDate}.pdf`);
   };
 
   // ── render ─────────────────────────────────────────────────────────────────
@@ -803,6 +1146,7 @@ export function QuarryCrusherCostingReport() {
                       <td className="px-6 py-2 text-right text-slate-500 text-xs">{fmt(row.costPerUnit)}</td>
                     </tr>
                   ))}
+                  
 
                   {/* ── Group A subtotal ── */}
                   <tr className="bg-blue-100/60 border-t-2 border-blue-200 font-bold">
@@ -816,7 +1160,7 @@ export function QuarryCrusherCostingReport() {
                       {fmt(mainRow?.amount ?? 0)}
                     </td>
                     <td className="px-6 py-3 text-right text-xs text-indigo-700 font-black">
-                      ₹{fmt(mainRow?.costPerUnit ?? 0)} / MT
+                      ₹{fmt((mainRow?.amount ?? 0) / (mainRow?.qty || 1))} / MT
                     </td>
                   </tr>
 
@@ -874,34 +1218,14 @@ export function QuarryCrusherCostingReport() {
                     <td className="px-6 py-3 text-right text-xs text-rose-700 font-black">₹{fmt(groupCRow?.costPerUnit ?? 0)} / MT</td>
                   </tr>
 
-                  {/* ── Group D: Crusher Excavator Additional Work ── */}
-                  <tr className="bg-sky-50 text-sky-900 border-t-2 border-sky-200">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group D: Excavator Additional Work in Crusher</td>
-                  </tr>
-                  {groupDRow && (
-                    <tr className="bg-sky-50/40 hover:bg-sky-50 transition-colors">
-                      <td className="px-6 py-3 text-slate-500 text-xs font-bold">{groupDRow.slNo}</td>
-                      <td className="px-6 py-3 text-slate-900 text-xs font-black">{groupDRow.description}</td>
-                      <td className="px-6 py-3 text-center text-slate-600 text-xs">{groupDRow.uom}</td>
-                      <td className="px-6 py-3 text-right text-sky-800 text-xs font-black">{fmt(groupDRow.qty)}</td>
-                      <td className="px-6 py-3 text-right text-sky-900 text-xs font-black">{fmt(groupDRow.amount)}</td>
-                      <td className="px-6 py-3 text-right text-cyan-700 text-xs font-black">{fmt(groupDRow.costPerUnit)}</td>
-                    </tr>
-                  )}
-                  <tr className="bg-sky-100/60 border-t-2 border-sky-200 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-sky-700">Group D Subtotal:</td>
-                    <td className="px-6 py-3 text-right text-xs text-sky-800 font-black">{fmt(groupDRow?.qty ?? 0)} MT</td>
-                    <td className="px-6 py-3 text-right text-xs text-sky-900 font-black">{fmt(groupDRow?.amount ?? 0)}</td>
-                    <td className="px-6 py-3 text-right text-xs text-cyan-700 font-black">₹{fmt(groupDRow?.costPerUnit ?? 0)} / MT</td>
-                  </tr>
 
-                  {/* ── Group E: Quarry Permit (Statutory Fees + GST) ── */}
+                  {/* ── Group D: Quarry Permit (Statutory Fees + GST) ── */}
                   <tr className="bg-emerald-50 text-emerald-900 border-t-2 border-emerald-200">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group E: Quarry Permit (Statutory Fees + GST)</td>
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group D: Quarry Permit (Statutory Fees + GST)</td>
                   </tr>
                   {groupERow && (
                     <tr className="bg-emerald-50/40 hover:bg-emerald-50 transition-colors">
-                      <td className="px-6 py-3 text-slate-500 text-xs font-bold">{groupERow.slNo}</td>
+                      <td className="px-6 py-3 text-slate-500 text-xs font-bold">4</td>
                       <td className="px-6 py-3 text-slate-900 text-xs font-black">{groupERow.description}</td>
                       <td className="px-6 py-3 text-center text-slate-600 text-xs">{groupERow.uom}</td>
                       <td className="px-6 py-3 text-right text-emerald-800 text-xs font-black">{fmt(groupERow.qty)}</td>
@@ -910,19 +1234,19 @@ export function QuarryCrusherCostingReport() {
                     </tr>
                   )}
                   <tr className="bg-emerald-100/60 border-t-2 border-emerald-200 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-emerald-700">Group E Subtotal (Quarry Permit):</td>
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-emerald-700">Group D Subtotal (Quarry Permit):</td>
                     <td className="px-6 py-3 text-right text-xs text-emerald-800 font-black">{fmt(groupERow?.qty ?? 0)} MT</td>
                     <td className="px-6 py-3 text-right text-xs text-emerald-900 font-black">{fmt(groupERow?.amount ?? 0)}</td>
                     <td className="px-6 py-3 text-right text-xs text-green-700 font-black">₹{fmt(groupERow?.costPerUnit ?? 0)} / MT</td>
                   </tr>
 
-                  {/* ── Group F: Miscellaneous Permit Charges ── */}
+                  {/* ── Group E: Miscellaneous Permit Charges ── */}
                   <tr className="bg-yellow-50 text-yellow-900 border-t-2 border-yellow-200">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group F: Miscellaneous Permit Charges</td>
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group E: Miscellaneous Permit Charges</td>
                   </tr>
                   {groupFRow && (
                     <tr className="bg-yellow-50/40 hover:bg-yellow-50 transition-colors">
-                      <td className="px-6 py-3 text-slate-500 text-xs font-bold">{groupFRow.slNo}</td>
+                      <td className="px-6 py-3 text-slate-500 text-xs font-bold">5</td>
                       <td className="px-6 py-3 text-slate-900 text-xs font-black">{groupFRow.description}</td>
                       <td className="px-6 py-3 text-center text-slate-600 text-xs">{groupFRow.uom}</td>
                       <td className="px-6 py-3 text-right text-yellow-800 text-xs font-black">{fmt(groupFRow.qty)}</td>
@@ -931,21 +1255,21 @@ export function QuarryCrusherCostingReport() {
                     </tr>
                   )}
                   <tr className="bg-yellow-100/60 border-t-2 border-yellow-200 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-yellow-700">Group F Subtotal:</td>
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-yellow-700">Group E Subtotal:</td>
                     <td className="px-6 py-3 text-right text-xs text-yellow-800 font-black">{fmt(groupFRow?.qty ?? 0)} MT</td>
                     <td className="px-6 py-3 text-right text-xs text-yellow-900 font-black">{fmt(groupFRow?.amount ?? 0)}</td>
                     <td className="px-6 py-3 text-right text-xs text-amber-700 font-black">₹{fmt(groupFRow?.costPerUnit ?? 0)} / MT</td>
                   </tr>
 
-                  {/* ── Group H: Statutory Person Salary (Overhead Salaries) ── */}
+                  {/* ── Group F: Statutory Person Salary (Overhead Salaries) ── */}
                   {groupHRows.length > 0 && (
                     <>
                       <tr className="bg-violet-50 text-violet-900 border-t-2 border-violet-200">
-                        <td colSpan={6} className="px-6 py-3 font-black text-xs">Group H: Statutory Person Salary (Overhead)</td>
+                        <td colSpan={6} className="px-6 py-3 font-black text-xs">Group F: Statutory Person Salary (Overhead)</td>
                       </tr>
                       {groupHRows.map((row, i) => (
                         <tr key={`h-${i}`} className="hover:bg-violet-50/40 transition-colors">
-                          <td className="px-6 py-3 text-slate-400 text-xs">{row.slNo}</td>
+                          <td className="px-6 py-3 text-slate-400 text-xs">6</td>
                           <td className="px-6 py-3 text-slate-800 text-xs">{row.description}</td>
                           <td className="px-6 py-3 text-center text-slate-500 text-xs">{row.uom}</td>
                           <td className="px-6 py-3 text-right text-violet-700 text-xs font-bold">{fmt(row.qty)}</td>
@@ -954,7 +1278,7 @@ export function QuarryCrusherCostingReport() {
                         </tr>
                       ))}
                       <tr className="bg-violet-100/60 border-t-2 border-violet-200 font-bold">
-                        <td colSpan={3} className="px-6 py-3 text-right text-xs text-violet-700">Group H Subtotal:</td>
+                        <td colSpan={3} className="px-6 py-3 text-right text-xs text-violet-700">Group F Subtotal:</td>
                         <td className="px-6 py-3 text-right text-xs text-violet-800 font-black">{fmt(groupHRows[0]?.qty ?? 0)} MT</td>
                         <td className="px-6 py-3 text-right text-xs text-violet-900 font-black">{fmt(groupHRows.reduce((s, r) => s + r.amount, 0))}</td>
                         <td className="px-6 py-3 text-right text-xs text-purple-700 font-black">₹{fmt(groupHRows[0]?.qty > 0 ? groupHRows.reduce((s, r) => s + r.amount, 0) / groupHRows[0].qty : 0)} / MT</td>
@@ -962,13 +1286,13 @@ export function QuarryCrusherCostingReport() {
                     </>
                   )}
 
-                  {/* ── Group I: Diesel Expense (Net) ── */}
+                  {/* ── Group G: Diesel Expense (Net) ── */}
                   <tr className="bg-slate-100 text-slate-800 border-t-2 border-slate-300">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group I: Diesel Expense (Net = Vendor Bills − Contractor Diesel)</td>
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group G: Diesel Expense (Net = Vendor Bills − Contractor Diesel)</td>
                   </tr>
                   {groupIRow && (
                     <tr className="bg-slate-50/60 hover:bg-slate-100 transition-colors">
-                      <td className="px-6 py-3 text-slate-500 text-xs font-bold">{groupIRow.slNo}</td>
+                      <td className="px-6 py-3 text-slate-500 text-xs font-bold">7</td>
                       <td className="px-6 py-3 text-slate-900 text-xs font-black">{groupIRow.description}</td>
                       <td className="px-6 py-3 text-center text-slate-600 text-xs">{groupIRow.uom}</td>
                       <td className="px-6 py-3 text-right text-slate-700 text-xs font-black">{fmt(groupIRow.qty)}</td>
@@ -977,11 +1301,33 @@ export function QuarryCrusherCostingReport() {
                     </tr>
                   )}
                   <tr className="bg-slate-200/60 border-t-2 border-slate-300 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-slate-600">Group I Subtotal:</td>
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-slate-600">Group G Subtotal:</td>
                     <td className="px-6 py-3 text-right text-xs text-slate-700 font-black">{fmt(groupIRow?.qty ?? 0)} MT</td>
                     <td className="px-6 py-3 text-right text-xs text-slate-900 font-black">{fmt(groupIRow?.amount ?? 0)}</td>
                     <td className="px-6 py-3 text-right text-xs text-slate-600 font-black">₹{fmt(groupIRow?.costPerUnit ?? 0)} / MT</td>
                   </tr>
+                  {/* ── Group H: Additional Explosive Cost ── */}
+                  <tr className="bg-blue-50 text-blue-900 border-t-2 border-blue-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group H: Additional Explosive Cost (Net: Vendor Bills − WR Cost − GB Contractor)</td>
+                  </tr>
+                  {groupJRow && (
+                    <tr className="hover:bg-blue-50/50 transition-colors">
+                      <td className="px-6 py-3 text-slate-500 text-xs font-bold">8</td>
+                      <td className="px-6 py-3 text-slate-900 text-xs font-black">{groupJRow.description}</td>
+                      <td className="px-6 py-3 text-center text-slate-600 text-xs">{groupJRow.uom}</td>
+                      <td className="px-6 py-3 text-right text-slate-700 text-xs font-black">{fmt(groupJRow.qty)}</td>
+                      <td className="px-6 py-3 text-right text-slate-900 text-xs font-black">{fmt(groupJRow.amount)}</td>
+                      <td className="px-6 py-3 text-right text-indigo-700 text-xs font-black">{fmt(groupJRow.costPerUnit)}</td>
+                    </tr>
+                  )}
+                  <tr className="bg-blue-100/60 border-t-2 border-blue-200 font-bold">
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-blue-700">Group H Subtotal:</td>
+                    <td className="px-6 py-3 text-right text-xs text-blue-800 font-black">{fmt(groupJRow?.qty ?? 0)} MT</td>
+                    <td className="px-6 py-3 text-right text-xs text-blue-900 font-black">{fmt(groupJRow?.amount ?? 0)}</td>
+                    <td className="px-6 py-3 text-right text-xs text-indigo-700 font-black">₹{fmt(groupJRow?.costPerUnit ?? 0)} / MT</td>
+                  </tr>
+
+
 
                   {/* ── GRAND TOTAL: Total Quarry Cost ── */}
                   {(() => {
@@ -990,11 +1336,11 @@ export function QuarryCrusherCostingReport() {
                       (mainRow?.amount ?? 0) +
                       (groupBRow?.amount ?? 0) +
                       (groupCRow?.amount ?? 0) +
-                      (groupDRow?.amount ?? 0) +
                       (groupERow?.amount ?? 0) +
                       (groupFRow?.amount ?? 0) +
                       groupHRows.reduce((s, r) => s + r.amount, 0) +
-                      (groupIRow?.amount ?? 0);
+                      (groupIRow?.amount ?? 0) +
+                      (groupJRow?.amount ?? 0);
                     const cpu = gbQty > 0 ? totalAmt / gbQty : 0;
                     return (
                       <tr className="bg-slate-900 text-white">
@@ -1019,11 +1365,11 @@ export function QuarryCrusherCostingReport() {
             (mainRow.amount) +
             (groupBRow?.amount ?? 0) +
             (groupCRow?.amount ?? 0) +
-            (groupDRow?.amount ?? 0) +
             (groupERow?.amount ?? 0) +
             (groupFRow?.amount ?? 0) +
             groupHRows.reduce((s, r) => s + r.amount, 0) +
-            (groupIRow?.amount ?? 0);
+            (groupIRow?.amount ?? 0) +
+            (groupJRow?.amount ?? 0);
           const cpu = gbQty > 0 ? totalAmt / gbQty : 0;
           return (
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1035,7 +1381,7 @@ export function QuarryCrusherCostingReport() {
               <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 flex flex-col gap-1">
                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Total Quarry Cost</span>
                 <span className="text-2xl font-black text-white">₹{fmt(totalAmt)}</span>
-                <span className="text-xs text-slate-400">Sum of all groups A through I</span>
+                <span className="text-xs text-slate-400">Sum of all groups A through H</span>
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-5 flex flex-col gap-1">
                 <span className="text-[10px] font-black uppercase tracking-widest text-yellow-600">Cost Per MT (Total / GB Qty)</span>
@@ -1079,20 +1425,15 @@ export function QuarryCrusherCostingReport() {
               const totalCrusherManpower = crusherContractors.reduce((s, c) => s + c.amount, 0);
               const totalCrusherSpares = crusherSpares.reduce((s, c) => s + c.amount, 0);
               const totalCrusherEB = crusherEBRow?.amount ?? 0;
-              const totalCrusherJCB = crusherJCBRow?.amount ?? 0;
-              const totalCrusherWB = crusherWBRow?.amount ?? 0;
               const totalCrusherCR = crusherCRRow?.amount ?? 0;
               const totalCrusherMisc = crusherMiscRow?.amount ?? 0;
-              const totalCrusherGst = crusherGstRow?.amount ?? 0;
-              const totalCrusherAll = totalCrusherManpower + totalCrusherSpares + totalCrusherEB + totalCrusherJCB + totalCrusherWB + totalCrusherCR + totalCrusherMisc + totalCrusherGst;
+              const totalCrusherExc = crusherExcRow?.amount ?? 0;
+              const totalCrusherAll = totalCrusherManpower + totalCrusherSpares + totalCrusherEB + totalCrusherCR + totalCrusherMisc + totalCrusherExc;
               const crusherManpowerCpu = gbQty > 0 ? totalCrusherManpower / gbQty : 0;
               const crusherSparesCpu = gbQty > 0 ? totalCrusherSpares / gbQty : 0;
               const crusherEBCpu = gbQty > 0 ? totalCrusherEB / gbQty : 0;
-              const crusherJCBCpu = gbQty > 0 ? totalCrusherJCB / gbQty : 0;
-              const crusherWBCpu = gbQty > 0 ? totalCrusherWB / gbQty : 0;
               const crusherCRCpu = gbQty > 0 ? totalCrusherCR / gbQty : 0;
               const crusherMiscCpu = gbQty > 0 ? totalCrusherMisc / gbQty : 0;
-              const crusherGstCpu = gbQty > 0 ? totalCrusherGst / gbQty : 0;
               const crusherTotalCpu = gbQty > 0 ? totalCrusherAll / gbQty : 0;
               return (
                 <>
@@ -1169,50 +1510,13 @@ export function QuarryCrusherCostingReport() {
                     <td className="px-6 py-3 text-right text-xs text-indigo-700 font-black">₹{fmt(crusherEBCpu)} / MT</td>
                   </tr>
 
-                  {/* Crusher Group D: JCB Works */}
-                  <tr className="bg-amber-50 text-amber-900 border-t-2 border-amber-200">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group D: JCB Works</td>
-                  </tr>
-                  <tr className="hover:bg-amber-50/30 transition-colors">
-                    <td className="px-6 py-3 text-slate-400 text-xs">1</td>
-                    <td className="px-6 py-3 text-slate-900 text-xs font-black">JCB Service Payments (Consolidated)</td>
-                    <td className="px-6 py-3 text-center text-slate-500 text-xs">—</td>
-                    <td className="px-6 py-3 text-right text-amber-700 text-xs font-bold">{fmt(gbQty)}</td>
-                    <td className="px-6 py-3 text-right text-amber-900 text-xs font-bold">{fmt(totalCrusherJCB)}</td>
-                    <td className="px-6 py-3 text-right text-amber-700 text-xs font-bold">{fmt(crusherJCBCpu)}</td>
-                  </tr>
-                  <tr className="bg-amber-100/60 border-t-2 border-amber-200 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-amber-700">Group D Subtotal:</td>
-                    <td className="px-6 py-3 text-right text-xs text-amber-800 font-black">{fmt(gbQty)} MT</td>
-                    <td className="px-6 py-3 text-right text-xs text-amber-900 font-black">{fmt(totalCrusherJCB)}</td>
-                    <td className="px-6 py-3 text-right text-xs text-amber-700 font-black">₹{fmt(crusherJCBCpu)} / MT</td>
-                  </tr>
 
-                  {/* Crusher Group E: Weight Bridge */}
-                  <tr className="bg-slate-50 text-slate-900 border-t-2 border-slate-200">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group E: Weight Bridge</td>
-                  </tr>
-                  <tr className="hover:bg-slate-50/30 transition-colors">
-                    <td className="px-6 py-3 text-slate-400 text-xs">1</td>
-                    <td className="px-6 py-3 text-slate-900 text-xs font-black">Weight Bridge Service Payments</td>
-                    <td className="px-6 py-3 text-center text-slate-500 text-xs">—</td>
-                    <td className="px-6 py-3 text-right text-slate-700 text-xs font-bold">{fmt(gbQty)}</td>
-                    <td className="px-6 py-3 text-right text-slate-900 text-xs font-bold">{fmt(totalCrusherWB)}</td>
-                    <td className="px-6 py-3 text-right text-slate-700 text-xs font-bold">{fmt(crusherWBCpu)}</td>
-                  </tr>
-                  <tr className="bg-slate-100/60 border-t-2 border-slate-200 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-slate-700">Group E Subtotal:</td>
-                    <td className="px-6 py-3 text-right text-xs text-slate-800 font-black">{fmt(gbQty)} MT</td>
-                    <td className="px-6 py-3 text-right text-xs text-slate-900 font-black">{fmt(totalCrusherWB)}</td>
-                    <td className="px-6 py-3 text-right text-xs text-slate-700 font-black">₹{fmt(crusherWBCpu)} / MT</td>
-                  </tr>
-
-                  {/* Crusher Group F: Control Room */}
+                  {/* Crusher Group D: Control Room */}
                   <tr className="bg-emerald-50 text-emerald-900 border-t-2 border-emerald-200">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group F: Control Room</td>
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group D: Control Room</td>
                   </tr>
                   <tr className="hover:bg-emerald-50/30 transition-colors">
-                    <td className="px-6 py-3 text-slate-400 text-xs">1</td>
+                    <td className="px-6 py-3 text-slate-400 text-xs">4</td>
                     <td className="px-6 py-3 text-slate-900 text-xs font-black">Control Room Service Payments</td>
                     <td className="px-6 py-3 text-center text-slate-500 text-xs">—</td>
                     <td className="px-6 py-3 text-right text-emerald-700 text-xs font-bold">{fmt(gbQty)}</td>
@@ -1220,18 +1524,18 @@ export function QuarryCrusherCostingReport() {
                     <td className="px-6 py-3 text-right text-emerald-700 text-xs font-bold">{fmt(crusherCRCpu)}</td>
                   </tr>
                   <tr className="bg-emerald-100/60 border-t-2 border-emerald-200 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-emerald-700">Group F Subtotal:</td>
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-emerald-700">Group D Subtotal:</td>
                     <td className="px-6 py-3 text-right text-xs text-emerald-800 font-black">{fmt(gbQty)} MT</td>
                     <td className="px-6 py-3 text-right text-xs text-emerald-900 font-black">{fmt(totalCrusherCR)}</td>
                     <td className="px-6 py-3 text-right text-xs text-emerald-700 font-black">₹{fmt(crusherCRCpu)} / MT</td>
                   </tr>
 
-                  {/* Crusher Group G: Miscellaneous */}
+                  {/* Crusher Group E: Miscellaneous */}
                   <tr className="bg-slate-50 text-slate-900 border-t-2 border-slate-200">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group G: Miscellaneous</td>
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group E: Miscellaneous</td>
                   </tr>
                   <tr className="hover:bg-slate-50/30 transition-colors">
-                    <td className="px-6 py-3 text-slate-400 text-xs">1</td>
+                    <td className="px-6 py-3 text-slate-400 text-xs">5</td>
                     <td className="px-6 py-3 text-slate-900 text-xs font-black">Crusher Miscellaneous Expenses</td>
                     <td className="px-6 py-3 text-center text-slate-500 text-xs">—</td>
                     <td className="px-6 py-3 text-right text-slate-700 text-xs font-bold">{fmt(gbQty)}</td>
@@ -1239,29 +1543,31 @@ export function QuarryCrusherCostingReport() {
                     <td className="px-6 py-3 text-right text-slate-700 text-xs font-bold">{fmt(crusherMiscCpu)}</td>
                   </tr>
                   <tr className="bg-slate-100/60 border-t-2 border-slate-200 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-slate-700">Group G Subtotal:</td>
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-slate-700">Group E Subtotal:</td>
                     <td className="px-6 py-3 text-right text-xs text-slate-800 font-black">{fmt(gbQty)} MT</td>
                     <td className="px-6 py-3 text-right text-xs text-slate-900 font-black">{fmt(totalCrusherMisc)}</td>
                     <td className="px-6 py-3 text-right text-xs text-slate-700 font-black">₹{fmt(crusherMiscCpu)} / MT</td>
                   </tr>
 
-                  {/* Crusher Group H: GST */}
-                  <tr className="bg-rose-50 text-rose-900 border-t-2 border-rose-200">
-                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group H: GST</td>
+                  {/* Crusher Group F: Excavator Additional Work */}
+                  <tr className="bg-sky-50 text-sky-900 border-t-2 border-sky-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group F: Excavator Additional Work in Crusher</td>
                   </tr>
-                  <tr className="hover:bg-rose-50/30 transition-colors">
-                    <td className="px-6 py-3 text-slate-400 text-xs">1</td>
-                    <td className="px-6 py-3 text-slate-900 text-xs font-black">Total GST (5% of Products Sale)</td>
-                    <td className="px-6 py-3 text-center text-slate-500 text-xs">Value</td>
-                    <td className="px-6 py-3 text-right text-rose-700 text-xs font-bold">{fmt(crusherSalesValue)}</td>
-                    <td className="px-6 py-3 text-right text-rose-900 text-xs font-bold">{fmt(totalCrusherGst)}</td>
-                    <td className="px-6 py-3 text-right text-rose-700 text-xs font-bold">{fmt(crusherGstCpu)}</td>
-                  </tr>
-                  <tr className="bg-rose-100/60 border-t-2 border-rose-200 font-bold">
-                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-rose-700">Group H Subtotal:</td>
-                    <td className="px-6 py-3 text-right text-xs text-rose-800 font-black">₹{fmt(crusherSalesValue)}</td>
-                    <td className="px-6 py-3 text-right text-xs text-rose-900 font-black">{fmt(totalCrusherGst)}</td>
-                    <td className="px-6 py-3 text-right text-xs text-rose-700 font-black">₹{fmt(crusherGstCpu)} / MT</td>
+                  {crusherExcRow && (
+                    <tr className="hover:bg-sky-50/50 transition-colors">
+                      <td className="px-6 py-3 text-slate-400 text-xs">6</td>
+                      <td className="px-6 py-3 text-slate-900 text-xs font-black">{crusherExcRow.description}</td>
+                      <td className="px-6 py-3 text-center text-slate-500 text-xs">MT</td>
+                      <td className="px-6 py-3 text-right text-slate-700 text-xs font-bold">{fmt(crusherExcRow.qty)}</td>
+                      <td className="px-6 py-3 text-right text-slate-900 text-xs font-bold">{fmt(crusherExcRow.amount)}</td>
+                      <td className="px-6 py-3 text-right text-sky-700 text-xs font-bold">₹{fmt(crusherExcRow.costPerUnit)}</td>
+                    </tr>
+                  )}
+                  <tr className="bg-sky-100/60 border-t-2 border-sky-200 font-bold">
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-sky-700">Group F Subtotal:</td>
+                    <td className="px-6 py-3 text-right text-xs text-sky-800 font-black">{fmt(gbQty)} MT</td>
+                    <td className="px-6 py-3 text-right text-xs text-sky-900 font-black">{fmt(crusherExcRow?.amount ?? 0)}</td>
+                    <td className="px-6 py-3 text-right text-xs text-sky-700 font-black">₹{fmt(crusherExcRow?.costPerUnit ?? 0)} / MT</td>
                   </tr>
 
                   {/* Crusher Grand Total */}
@@ -1286,11 +1592,9 @@ export function QuarryCrusherCostingReport() {
           const totalCrusherAmt = crusherContractors.reduce((s, c) => s + c.amount, 0) + 
                                   crusherSpares.reduce((s, c) => s + c.amount, 0) +
                                   (crusherEBRow?.amount ?? 0) +
-                                  (crusherJCBRow?.amount ?? 0) +
-                                  (crusherWBRow?.amount ?? 0) +
                                   (crusherCRRow?.amount ?? 0) +
                                   (crusherMiscRow?.amount ?? 0) +
-                                  (crusherGstRow?.amount ?? 0);
+                                  (crusherExcRow?.amount ?? 0);
           const cpu = gbQty > 0 ? totalCrusherAmt / gbQty : 0;
           return (
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1313,6 +1617,232 @@ export function QuarryCrusherCostingReport() {
           );
         })()
       )}
+    </div>
+
+    {/* ══════ SERVICES COST TABLE ══════ */}
+    <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 p-4 md:p-8 mt-6">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-12 h-12 bg-amber-700 rounded-2xl flex items-center justify-center shadow-lg">
+          <Settings2 className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Services Details</h3>
+          <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest">Equipment and compliance service analysis</p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-sm bg-white">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-amber-900 text-white border-b border-amber-800">
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Sl.No</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Item Description</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center">UOM</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">QTY</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">Amount (₹)</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">Cost / Unit (₹)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-semibold text-slate-800">
+            {loading ? (
+              <tr><td colSpan={6} className="px-6 py-10 text-center font-bold text-slate-400">Loading service data…</td></tr>
+            ) : (() => {
+              const gbQty = crusherQty;
+              const totalAmt = (crusherJCBRow?.amount ?? 0) + (crusherWBRow?.amount ?? 0) + (crusherGstRow?.amount ?? 0);
+              const totalCpu = gbQty > 0 ? totalAmt / gbQty : 0;
+
+              return (
+                <>
+                  {/* Group A: JCB Works */}
+                  <tr className="bg-amber-50 text-amber-900 border-t-2 border-amber-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group A: JCB Works</td>
+                  </tr>
+                  <tr className="hover:bg-amber-50/30 transition-colors">
+                    <td className="px-6 py-3 text-slate-400 text-xs">1</td>
+                    <td className="px-6 py-3 text-slate-900 text-xs font-black">JCB Service Payments (Consolidated)</td>
+                    <td className="px-6 py-3 text-center text-slate-500 text-xs">—</td>
+                    <td className="px-6 py-3 text-right text-amber-700 text-xs font-bold">{fmt(gbQty)}</td>
+                    <td className="px-6 py-3 text-right text-amber-900 text-xs font-bold">{fmt(crusherJCBRow?.amount ?? 0)}</td>
+                    <td className="px-6 py-3 text-right text-amber-700 text-xs font-bold">{fmt(crusherJCBRow?.costPerUnit ?? 0)}</td>
+                  </tr>
+                  <tr className="bg-amber-100/60 border-t-2 border-amber-200 font-bold">
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-amber-700">Group A Subtotal:</td>
+                    <td className="px-6 py-3 text-right text-xs text-amber-800 font-black">{fmt(gbQty)} MT</td>
+                    <td className="px-6 py-3 text-right text-xs text-amber-900 font-black">{fmt(crusherJCBRow?.amount ?? 0)}</td>
+                    <td className="px-6 py-3 text-right text-xs text-amber-700 font-black">₹{fmt(crusherJCBRow?.costPerUnit ?? 0)} / MT</td>
+                  </tr>
+
+                  {/* Group B: Weight Bridge */}
+                  <tr className="bg-indigo-50 text-indigo-900 border-t-2 border-indigo-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group B: Weight Bridge</td>
+                  </tr>
+                  <tr className="hover:bg-indigo-50/30 transition-colors">
+                    <td className="px-6 py-3 text-slate-400 text-xs">1</td>
+                    <td className="px-6 py-3 text-slate-900 text-xs font-black">Weight Bridge Operations (Consolidated)</td>
+                    <td className="px-6 py-3 text-center text-slate-500 text-xs">—</td>
+                    <td className="px-6 py-3 text-right text-indigo-700 text-xs font-bold">{fmt(gbQty)}</td>
+                    <td className="px-6 py-3 text-right text-indigo-900 text-xs font-bold">{fmt(crusherWBRow?.amount ?? 0)}</td>
+                    <td className="px-6 py-3 text-right text-indigo-700 text-xs font-bold">{fmt(crusherWBRow?.costPerUnit ?? 0)}</td>
+                  </tr>
+                  <tr className="bg-indigo-100/60 border-t-2 border-indigo-200 font-bold">
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-indigo-700">Group B Subtotal:</td>
+                    <td className="px-6 py-3 text-right text-xs text-indigo-800 font-black">{fmt(gbQty)} MT</td>
+                    <td className="px-6 py-3 text-right text-xs text-indigo-900 font-black">{fmt(crusherWBRow?.amount ?? 0)}</td>
+                    <td className="px-6 py-3 text-right text-xs text-indigo-700 font-black">₹{fmt(crusherWBRow?.costPerUnit ?? 0)} / MT</td>
+                  </tr>
+
+                  {/* Group C: GST */}
+                  <tr className="bg-rose-50 text-rose-900 border-t-2 border-rose-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group C: GST</td>
+                  </tr>
+                  <tr className="hover:bg-rose-50/30 transition-colors">
+                    <td className="px-6 py-3 text-slate-400 text-xs">1</td>
+                    <td className="px-6 py-3 text-slate-900 text-xs font-black">Total GST (5% of Products Sale)</td>
+                    <td className="px-6 py-3 text-center text-slate-500 text-xs">Value</td>
+                    <td className="px-6 py-3 text-right text-rose-700 text-xs font-bold">{fmt(crusherSalesValue)}</td>
+                    <td className="px-6 py-3 text-right text-rose-900 text-xs font-bold">{fmt(crusherGstRow?.amount ?? 0)}</td>
+                    <td className="px-6 py-3 text-right text-rose-700 text-xs font-bold">{fmt(crusherGstRow?.costPerUnit ?? 0)}</td>
+                  </tr>
+                  <tr className="bg-rose-100/60 border-t-2 border-rose-200 font-bold">
+                    <td colSpan={3} className="px-6 py-3 text-right text-xs text-rose-700">Group C Subtotal:</td>
+                    <td className="px-6 py-3 text-right text-xs text-rose-800 font-black">₹{fmt(crusherSalesValue)}</td>
+                    <td className="px-6 py-3 text-right text-xs text-rose-900 font-black">{fmt(crusherGstRow?.amount ?? 0)}</td>
+                    <td className="px-6 py-3 text-right text-xs text-rose-700 font-black">₹{fmt(crusherGstRow?.costPerUnit ?? 0)} / MT</td>
+                  </tr>
+
+                  {/* Services Grand Total */}
+                  <tr className="bg-amber-900 text-white">
+                    <td colSpan={2} className="px-6 py-5 font-black text-sm tracking-wide">Total Services Cost</td>
+                    <td className="px-6 py-5 text-center text-amber-300 text-xs font-bold">MT</td>
+                    <td className="px-6 py-5 text-right font-black text-sm">{fmt(gbQty)} MT</td>
+                    <td className="px-6 py-5 text-right font-black text-sm text-emerald-300">₹{fmt(totalAmt)}</td>
+                    <td className="px-6 py-5 text-right font-black text-sm text-yellow-300">₹{fmt(totalCpu)} / MT</td>
+                  </tr>
+                </>
+              );
+            })()}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* ══════ OVERHEADS COST TABLE ══════ */}
+    <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 p-4 md:p-8 mt-6">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-12 h-12 bg-indigo-700 rounded-2xl flex items-center justify-center shadow-lg">
+          <Building2 className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Over heads Details</h3>
+          <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest">Administrative and personnel overhead analysis</p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-sm bg-white">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-indigo-900 text-white border-b border-indigo-800">
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Sl.No</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Item Description</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center">UOM</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">QTY</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">Amount (₹)</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">Cost / Unit (₹)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-semibold text-slate-800">
+            {loading ? (
+              <tr><td colSpan={6} className="px-6 py-10 text-center font-bold text-slate-400">Loading overhead data…</td></tr>
+            ) : (() => {
+              const gbQty = mainRow?.qty ?? 0;
+              const totalA = overheadGroupARows.reduce((s, r) => s + r.amount, 0);
+              const totalB = overheadGroupBRow?.amount ?? 0;
+              const totalC = overheadGroupCRow?.amount ?? 0;
+              const totalD = overheadGroupDRow?.amount ?? 0;
+              const totalAll = totalA + totalB + totalC + totalD;
+              const totalCpu = gbQty > 0 ? totalAll / gbQty : 0;
+
+              return (
+                <>
+                  {/* Group A: Staff Salaries */}
+                  <tr className="bg-indigo-50 text-indigo-900 border-t-2 border-indigo-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group A: Staff Salaries (Excluding Manikandan)</td>
+                  </tr>
+                  {overheadGroupARows.map((row, i) => (
+                    <tr key={i} className="hover:bg-indigo-50/30 transition-colors">
+                      <td className="px-6 py-3 text-slate-400 text-xs">{row.slNo}</td>
+                      <td className="px-6 py-3 text-slate-900 text-xs font-black">{row.description}</td>
+                      <td className="px-6 py-3 text-center text-slate-500 text-xs">{row.uom}</td>
+                      <td className="px-6 py-3 text-right text-slate-600 text-xs font-bold">{fmt(row.qty)}</td>
+                      <td className="px-6 py-3 text-right text-indigo-900 text-xs font-bold">{fmt(row.amount)}</td>
+                      <td className="px-6 py-3 text-right text-indigo-600 text-xs font-bold">{fmt(row.costPerUnit)}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-indigo-100/60 border-t-2 border-indigo-200 font-bold text-indigo-900">
+                    <td colSpan={4} className="px-6 py-3 text-right text-xs">Group A Subtotal:</td>
+                    <td className="px-6 py-3 text-right text-xs font-black">{fmt(totalA)}</td>
+                    <td className="px-6 py-3 text-right text-xs font-black">₹{fmt(gbQty > 0 ? totalA / gbQty : 0)} / MT</td>
+                  </tr>
+
+                  {/* Group B: Conveyance */}
+                  <tr className="bg-slate-50 text-slate-900 border-t-2 border-slate-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group B: Conveyance Vehicle Charges (Diesel - Admin)</td>
+                  </tr>
+                  {overheadGroupBRow && (
+                    <tr className="hover:bg-slate-50/30 transition-colors">
+                      <td className="px-6 py-3 text-slate-400 text-xs">1</td>
+                      <td className="px-6 py-3 text-slate-900 text-xs font-black">{overheadGroupBRow.description}</td>
+                      <td className="px-6 py-3 text-center text-slate-500 text-xs">{overheadGroupBRow.uom}</td>
+                      <td className="px-6 py-3 text-right text-slate-600 text-xs font-bold">{fmt(overheadGroupBRow.qty)}</td>
+                      <td className="px-6 py-3 text-right text-slate-900 text-xs font-bold">{fmt(overheadGroupBRow.amount)}</td>
+                      <td className="px-6 py-3 text-right text-slate-600 text-xs font-bold">{fmt(overheadGroupBRow.costPerUnit)}</td>
+                    </tr>
+                  )}
+
+                  {/* Group C: Admin Amounts */}
+                  <tr className="bg-slate-50 text-slate-900 border-t-2 border-slate-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group C: Cash Booking</td>
+                  </tr>
+                  {overheadGroupCRow && (
+                    <tr className="hover:bg-slate-50/30 transition-colors">
+                      <td className="px-6 py-3 text-slate-400 text-xs">1</td>
+                      <td className="px-6 py-3 text-slate-900 text-xs font-black">{overheadGroupCRow.description}</td>
+                      <td className="px-6 py-3 text-center text-slate-500 text-xs">{overheadGroupCRow.uom}</td>
+                      <td className="px-6 py-3 text-right text-slate-600 text-xs font-bold">{fmt(overheadGroupCRow.qty)}</td>
+                      <td className="px-6 py-3 text-right text-slate-900 text-xs font-bold">{fmt(overheadGroupCRow.amount)}</td>
+                      <td className="px-6 py-3 text-right text-slate-600 text-xs font-bold">{fmt(overheadGroupCRow.costPerUnit)}</td>
+                    </tr>
+                  )}
+
+                  {/* Group D: Miscellaneous */}
+                  <tr className="bg-slate-50 text-slate-900 border-t-2 border-slate-200">
+                    <td colSpan={6} className="px-6 py-3 font-black text-xs">Group D: Miscellaneous (Administration)</td>
+                  </tr>
+                  {overheadGroupDRow && (
+                    <tr className="hover:bg-slate-50/30 transition-colors">
+                      <td className="px-6 py-3 text-slate-400 text-xs">1</td>
+                      <td className="px-6 py-3 text-slate-900 text-xs font-black">{overheadGroupDRow.description}</td>
+                      <td className="px-6 py-3 text-center text-slate-500 text-xs">{overheadGroupDRow.uom}</td>
+                      <td className="px-6 py-3 text-right text-slate-600 text-xs font-bold">{fmt(overheadGroupDRow.qty)}</td>
+                      <td className="px-6 py-3 text-right text-slate-900 text-xs font-bold">{fmt(overheadGroupDRow.amount)}</td>
+                      <td className="px-6 py-3 text-right text-slate-600 text-xs font-bold">{fmt(overheadGroupDRow.costPerUnit)}</td>
+                    </tr>
+                  )}
+
+                  {/* Overheads Grand Total */}
+                  <tr className="bg-indigo-900 text-white">
+                    <td colSpan={2} className="px-6 py-5 font-black text-sm tracking-wide">Total Overheads Cost</td>
+                    <td className="px-6 py-5 text-center text-indigo-300 text-xs font-bold">—</td>
+                    <td className="px-6 py-5 text-right font-black text-sm">—</td>
+                    <td className="px-6 py-5 text-right font-black text-sm text-emerald-300">₹{fmt(totalAll)}</td>
+                    <td className="px-6 py-5 text-right font-black text-sm text-yellow-300">₹{fmt(totalCpu)} / MT</td>
+                  </tr>
+                </>
+              );
+            })()}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 );
