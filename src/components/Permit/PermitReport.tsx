@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { FileDown, Table } from 'lucide-react';
+import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 
 interface PermitReportData {
     id: string;
@@ -140,8 +140,8 @@ export function PermitReport({ companyName }: { companyName?: string }) {
         doc.save(`Permit_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
-    const exportExcel = () => {
-        const worksheet = XLSX.utils.json_to_sheet(permits.map((permit, index) => ({
+    const exportExcel = async () => {
+        const rows = permits.map((permit, index) => ({
             "S.No": index + 1,
             "Payment Date": permit.payment_date,
             "Permit Date": permit.approval_date,
@@ -161,11 +161,42 @@ export function PermitReport({ companyName }: { companyName?: string }) {
             "App No": permit.application_no,
             "Serials": `${permit.permit_serial_start || ''} - ${permit.permit_serial_end || ''}`,
             "Postal Date": permit.postal_received_date
-        })));
+        }));
 
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Permits");
-        XLSX.writeFile(workbook, `Permit_Report.xlsx`);
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Permits');
+        worksheet.columns = Object.keys(rows[0] || {
+            "S.No": '',
+            "Payment Date": '',
+            "Permit Date": '',
+            "Quantity (MT)": '',
+            "Royalty Base": '',
+            "DMF Base": '',
+            "GF Base": '',
+            "MBL": '',
+            "TDS": '',
+            "Royalty GST": '',
+            "DMF GST": '',
+            "GF GST": '',
+            "Misc": '',
+            "Total without Misc": '',
+            "GST Total": '',
+            "Grand Total": '',
+            "App No": '',
+            "Serials": '',
+            "Postal Date": ''
+        }).map((header) => ({ header, key: header, width: Math.max(12, header.length + 2) }));
+        worksheet.addRows(rows);
+        worksheet.getRow(1).font = { bold: true };
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'Permit_Report.xlsx';
+        anchor.click();
+        window.URL.revokeObjectURL(url);
     };
 
     if (loading) return <div>Loading report...</div>;

@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchQuarryBalances } from '../../utils/quarryStock';
 import { Truck, Save, Calendar, ChevronDown, Clock, FileUp, Download, AlertCircle } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const vehicleTypes = [
   'Truck',
@@ -47,6 +47,110 @@ const getToLocationOptions = (fromLocation: string) => {
     default:
       return [];
   }
+};
+
+type SpreadsheetRow = Record<string, unknown>;
+
+const getPlainCellValue = (value: unknown): unknown => {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value;
+
+  if (typeof value === 'object') {
+    const objectValue = value as {
+      result?: unknown;
+      text?: string;
+      richText?: Array<{ text?: string }>;
+    };
+
+    if ('result' in objectValue) return getPlainCellValue(objectValue.result);
+    if (typeof objectValue.text === 'string') return objectValue.text;
+    if (Array.isArray(objectValue.richText)) {
+      return objectValue.richText.map((part) => part.text || '').join('');
+    }
+  }
+
+  return value;
+};
+
+const parseCsvRows = (text: string): SpreadsheetRow[] => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index];
+    const nextChar = text[index + 1];
+
+    if (char === '"' && inQuotes && nextChar === '"') {
+      cell += '"';
+      index++;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') index++;
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  rows.push(row);
+
+  const headers = (rows.shift() || []).map((header) => header.trim());
+  return rows
+    .filter((cells) => cells.some((value) => value.trim() !== ''))
+    .map((cells) => {
+      const parsed: SpreadsheetRow = {};
+      headers.forEach((header, index) => {
+        if (header) parsed[header] = cells[index] ?? '';
+      });
+      return parsed;
+    });
+};
+
+const parseSpreadsheetRows = async (file: File): Promise<SpreadsheetRow[]> => {
+  if (file.name.toLowerCase().endsWith('.csv')) {
+    return parseCsvRows(await file.text());
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await file.arrayBuffer());
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) return [];
+
+  const headerRow = worksheet.getRow(1);
+  const headers: string[] = [];
+  headerRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
+    headers[columnNumber - 1] = String(getPlainCellValue(cell.value) || '').trim();
+  });
+
+  const rows: SpreadsheetRow[] = [];
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) return;
+
+    const parsed: SpreadsheetRow = {};
+    let hasValue = false;
+    headers.forEach((header, index) => {
+      if (!header) return;
+      const value = getPlainCellValue(row.getCell(index + 1).value);
+      parsed[header] = value;
+      if (value !== null && value !== undefined && String(value).trim() !== '') {
+        hasValue = true;
+      }
+    });
+
+    if (hasValue) rows.push(parsed);
+  });
+
+  return rows;
 };
 
 export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
@@ -424,133 +528,119 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
     setLoading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        try {
-          const bstr = evt.target?.result;
-          const wb = XLSX.read(bstr, { type: 'binary' });
-          const wsname = wb.SheetNames[0];
-          const ws = wb.Sheets[wsname];
-          const data = XLSX.utils.sheet_to_json(ws);
+      const data = await parseSpreadsheetRows(file);
 
-          if (!data || data.length === 0) {
-            throw new Error('Excel file is empty.');
-          }
+      if (!data || data.length === 0) {
+        throw new Error('Excel file is empty.');
+      }
 
-          // 1. Fetch current max trip ref to start sequence
-          const { data: latestRecords } = await supabase
-            .from('transport_records')
-            .select('trip_ref')
-            .eq('contractor_id', user.id)
-            .order('trip_ref', { ascending: false })
-            .limit(100);
+      // 1. Fetch current max trip ref to start sequence
+      const { data: latestRecords } = await supabase
+        .from('transport_records')
+        .select('trip_ref')
+        .eq('contractor_id', user.id)
+        .order('trip_ref', { ascending: false })
+        .limit(100);
 
-          let nextId = 1;
-          if (latestRecords && latestRecords.length > 0) {
-            const numbers = latestRecords
-              .map(r => parseInt(r.trip_ref?.replace('TRP-', '') || '0', 10))
-              .filter(n => !isNaN(n));
-            if (numbers.length > 0) nextId = Math.max(...numbers) + 1;
-          }
+      let nextId = 1;
+      if (latestRecords && latestRecords.length > 0) {
+        const numbers = latestRecords
+          .map(r => parseInt(r.trip_ref?.replace('TRP-', '') || '0', 10))
+          .filter(n => !isNaN(n));
+        if (numbers.length > 0) nextId = Math.max(...numbers) + 1;
+      }
 
-          const recordsToInsert: any[] = [];
+      const recordsToInsert: any[] = [];
 
-          data.forEach((row: any) => {
-            const getVal = (keys: string[]) => {
-              const foundKey = Object.keys(row).find(k => 
-                keys.some(tk => k.toLowerCase().trim() === tk.toLowerCase())
-              );
-              return foundKey ? row[foundKey] : null;
-            };
+      data.forEach((row) => {
+        const getVal = (keys: string[]) => {
+          const foundKey = Object.keys(row).find(k =>
+            keys.some(tk => k.toLowerCase().trim() === tk.toLowerCase())
+          );
+          return foundKey ? row[foundKey] : null;
+        };
 
-            const partyName = (getVal(['Party Name']) || '').toString().trim();
-            
-            // STRICT FILTER: Accept KVSS Q TO C and KVSS Q TO S
-            if (partyName !== 'KVSS Q TO C' && partyName !== 'KVSS Q TO S') {
-              return; // Skip other parties
-            }
+        const partyName = (getVal(['Party Name']) || '').toString().trim();
 
-            // ── Robust Date Parsing ──────────────────────────────────────────
-            let date = new Date().toISOString().split('T')[0];
-            const rawDateVal = getVal(['Gross Date', 'Gross Date Time', 'Date', 'Trip Date', 'Entry Date']);
-            
-            if (rawDateVal) {
-              if (rawDateVal instanceof Date) {
-                // Native JS Date
-                date = rawDateVal.toISOString().split('T')[0];
-              } else if (typeof rawDateVal === 'number') {
-                // Excel Serial Date (e.g., 45402)
-                const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-                const convertedDate = new Date(excelEpoch.getTime() + rawDateVal * 86400000);
-                date = convertedDate.toISOString().split('T')[0];
-              } else {
-                // String format
-                const part = rawDateVal.toString().trim().split(' ')[0];
-                if (part.includes('/')) {
-                  const [d, m, y] = part.split('/');
-                  if (d && m && y) {
-                    const year = y.length === 2 ? `20${y}` : y;
-                    date = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-                  }
-                } else if (part.includes('-')) {
-                  date = part;
-                }
-              }
-            }
-            // ─────────────────────────────────────────────────────────────────
-
-            // Sequential ID
-            const currentTripRef = `TRP-${(nextId++).toString().padStart(3, '0')}`;
-            const excelSNo = getVal(['S.No', 's.no', 'SNo', 'Sr.no', 'Sr No', 'Serial', 'SrNo', 'Sl.No', 'Sl No', 'S.No.', 'Sr.No.']);
-
-            // Map fields and scale weights (KG to Tons)
-            recordsToInsert.push({
-              contractor_id: user.id,
-              date: date,
-              vehicle_number: (getVal(['Vehicle No', 'Vehicle Number']) || '').toString().toUpperCase().replace(/\s/g, ''),
-              vehicle_type: 'Truck',
-              from_location: 'Quarry',
-              to_location: partyName === 'KVSS Q TO C' ? 'Crusher' : 'Stockyard',
-              material_transported: 'Good Boulders',
-              gross_weight: (parseFloat(getVal(['Load Weight', 'Gross Weight']) || '0')) / 1000,
-              empty_vehicle_weight: (parseFloat(getVal(['Empty Weight']) || '0')) / 1000,
-              quantity: (parseFloat(getVal(['Net Weight', 'Quantity']) || '0')) / 1000,
-              party_name: partyName,
-              trip_ref: currentTripRef,
-              status: 'pending',
-              number_of_trips: 1,
-              notes: `Excel S.No: ${excelSNo || 'N/A'} | System Ref: ${currentTripRef}`
-            });
-          });
-
-          if (recordsToInsert.length === 0) {
-            alert('No valid records found for "KVSS Q TO C" or "KVSS Q TO S" in this file.');
-            setLoading(false);
-            return;
-          }
-
-          const { error: insertError } = await supabase
-            .from('transport_records')
-            .insert(recordsToInsert);
-
-          if (insertError) throw insertError;
-
-          alert(`Successfully uploaded ${recordsToInsert.length} records!`);
-          setRefreshKey(prev => prev + 1); // Trigger summary refresh
-          fetchNextTripRef();
-        } catch (err: any) {
-          console.error('Bulk upload processing error:', err);
-          alert('Error processing Excel data: ' + err.message);
-        } finally {
-          setLoading(false);
-          // Clear input
-          e.target.value = '';
+        // STRICT FILTER: Accept KVSS Q TO C and KVSS Q TO S
+        if (partyName !== 'KVSS Q TO C' && partyName !== 'KVSS Q TO S') {
+          return; // Skip other parties
         }
-      };
-      reader.readAsBinaryString(file);
+
+        // ── Robust Date Parsing ──────────────────────────────────────────
+        let date = new Date().toISOString().split('T')[0];
+        const rawDateVal = getVal(['Gross Date', 'Gross Date Time', 'Date', 'Trip Date', 'Entry Date']);
+
+        if (rawDateVal) {
+          if (rawDateVal instanceof Date) {
+            // Native JS Date
+            date = rawDateVal.toISOString().split('T')[0];
+          } else if (typeof rawDateVal === 'number') {
+            // Excel Serial Date (e.g., 45402)
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+            const convertedDate = new Date(excelEpoch.getTime() + rawDateVal * 86400000);
+            date = convertedDate.toISOString().split('T')[0];
+          } else {
+            // String format
+            const part = rawDateVal.toString().trim().split(' ')[0];
+            if (part.includes('/')) {
+              const [d, m, y] = part.split('/');
+              if (d && m && y) {
+                const year = y.length === 2 ? `20${y}` : y;
+                date = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+              }
+            } else if (part.includes('-')) {
+              date = part;
+            }
+          }
+        }
+        // ─────────────────────────────────────────────────────────────────
+
+        // Sequential ID
+        const currentTripRef = `TRP-${(nextId++).toString().padStart(3, '0')}`;
+        const excelSNo = getVal(['S.No', 's.no', 'SNo', 'Sr.no', 'Sr No', 'Serial', 'SrNo', 'Sl.No', 'Sl No', 'S.No.', 'Sr.No.']);
+
+        // Map fields and scale weights (KG to Tons)
+        recordsToInsert.push({
+          contractor_id: user.id,
+          date: date,
+          vehicle_number: (getVal(['Vehicle No', 'Vehicle Number']) || '').toString().toUpperCase().replace(/\s/g, ''),
+          vehicle_type: 'Truck',
+          from_location: 'Quarry',
+          to_location: partyName === 'KVSS Q TO C' ? 'Crusher' : 'Stockyard',
+          material_transported: 'Good Boulders',
+          gross_weight: (parseFloat(String(getVal(['Load Weight', 'Gross Weight']) || '0'))) / 1000,
+          empty_vehicle_weight: (parseFloat(String(getVal(['Empty Weight']) || '0'))) / 1000,
+          quantity: (parseFloat(String(getVal(['Net Weight', 'Quantity']) || '0'))) / 1000,
+          party_name: partyName,
+          trip_ref: currentTripRef,
+          status: 'pending',
+          number_of_trips: 1,
+          notes: `Excel S.No: ${excelSNo || 'N/A'} | System Ref: ${currentTripRef}`
+        });
+      });
+
+      if (recordsToInsert.length === 0) {
+        alert('No valid records found for "KVSS Q TO C" or "KVSS Q TO S" in this file.');
+        setLoading(false);
+        return;
+      }
+
+      const { error: insertError } = await supabase
+        .from('transport_records')
+        .insert(recordsToInsert);
+
+      if (insertError) throw insertError;
+
+      alert(`Successfully uploaded ${recordsToInsert.length} records!`);
+      setRefreshKey(prev => prev + 1); // Trigger summary refresh
+      fetchNextTripRef();
     } catch (err: any) {
-      alert('File reading error: ' + err.message);
+      console.error('Bulk upload processing error:', err);
+      alert('Error processing Excel data: ' + (err.message || 'unknown error'));
+    } finally {
       setLoading(false);
+      e.target.value = '';
     }
   };
 
@@ -672,7 +762,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
               <span>Select Excel File</span>
               <input
                 type="file"
-                accept=".xlsx, .xls, .csv"
+                accept=".xlsx,.csv"
                 onChange={handleBulkExcelUpload}
                 disabled={loading}
                 className="hidden"

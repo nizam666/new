@@ -31,6 +31,23 @@ interface MediaStats {
   thisMonth: number;
 }
 
+function MediaLoadFallback({ mediaUrl, message }: { mediaUrl: string; message: string }) {
+  return (
+    <div className="p-4 text-center text-slate-600">
+      <p className="text-sm">{message}</p>
+      <a
+        href={mediaUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(event) => event.stopPropagation()}
+        className="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block"
+      >
+        Try opening in new tab →
+      </a>
+    </div>
+  );
+}
+
 export function MediaDetails() {
   const { user } = useAuth();
   const [records, setRecords] = useState<MediaRecord[]>([]);
@@ -43,6 +60,7 @@ export function MediaDetails() {
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<MediaRecord | null>(null);
   const [filter, setFilter] = useState<'all' | 'photo' | 'video'>('all');
+  const [failedMediaIds, setFailedMediaIds] = useState<Set<string>>(() => new Set());
 
   const loadRecords = useCallback(async () => {
     if (!user) return;
@@ -58,6 +76,7 @@ export function MediaDetails() {
       if (error) throw error;
 
       setRecords(data || []);
+      setFailedMediaIds(new Set());
 
       const totalPhotos = data?.filter(r => r.media_type === 'photo').length || 0;
       const totalVideos = data?.filter(r => r.media_type === 'video').length || 0;
@@ -86,6 +105,14 @@ export function MediaDetails() {
   useEffect(() => {
     loadRecords();
   }, [loadRecords]);
+
+  const markMediaFailed = (recordId: string) => {
+    setFailedMediaIds((current) => {
+      const next = new Set(current);
+      next.add(recordId);
+      return next;
+    });
+  };
 
   const filteredRecords = records.filter(record => {
     if (filter === 'all') return true;
@@ -209,126 +236,111 @@ export function MediaDetails() {
           </div>
         ) : (
           <div className="divide-y divide-slate-200">
-            {filteredRecords.map((record) => (
-              <div
-                key={record.id}
-                onClick={() => setSelectedRecord(selectedRecord?.id === record.id ? null : record)}
-                className="p-6 hover:bg-slate-50 cursor-pointer transition-colors"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-lg ${record.media_type === 'photo' ? 'bg-pink-100' : 'bg-purple-100'} flex items-center justify-center flex-shrink-0`}>
-                      {record.media_type === 'photo' ? (
-                        <Camera className="w-6 h-6 text-pink-600" />
-                      ) : (
-                        <Video className="w-6 h-6 text-purple-600" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-slate-900">{record.title}</h4>
-                      <div className="flex items-center gap-2 text-sm text-slate-600 mt-0.5">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(record.date_taken).toLocaleDateString('en-US', {
-                          weekday: 'short',
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
+            {filteredRecords.map((record) => {
+              const mediaFailed = failedMediaIds.has(record.id);
+
+              return (
+                <div
+                  key={record.id}
+                  onClick={() => setSelectedRecord(selectedRecord?.id === record.id ? null : record)}
+                  className="p-6 hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-lg ${record.media_type === 'photo' ? 'bg-pink-100' : 'bg-purple-100'} flex items-center justify-center flex-shrink-0`}>
+                        {record.media_type === 'photo' ? (
+                          <Camera className="w-6 h-6 text-pink-600" />
+                        ) : (
+                          <Video className="w-6 h-6 text-purple-600" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900">{record.title}</h4>
+                        <div className="flex items-center gap-2 text-sm text-slate-600 mt-0.5">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(record.date_taken).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </div>
                       </div>
                     </div>
+                    {getCategoryBadge(record.record_type)}
                   </div>
-                  {getCategoryBadge(record.record_type)}
-                </div>
 
-                <div className="flex items-center gap-4 text-sm text-slate-600">
-                  {record.location && (
+                  <div className="flex items-center gap-4 text-sm text-slate-600">
+                    {record.location && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        {record.location}
+                      </div>
+                    )}
                     <div className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
-                      {record.location}
+                      {record.media_type === 'photo' ? (
+                        <Camera className="w-4 h-4" />
+                      ) : (
+                        <Video className="w-4 h-4" />
+                      )}
+                      {record.media_type}
+                    </div>
+                  </div>
+
+                  {selectedRecord?.id === record.id && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 space-y-3">
+                      {record.description && (
+                        <div>
+                          <p className="text-sm text-slate-600 mb-3">{record.description}</p>
+                        </div>
+                      )}
+
+                      {record.media_type === 'photo' ? (
+                        <div className="rounded-lg overflow-hidden border border-slate-200">
+                          {mediaFailed ? (
+                            <MediaLoadFallback mediaUrl={record.media_url} message="Image failed to load" />
+                          ) : (
+                            <img
+                              src={record.media_url}
+                              alt={record.title}
+                              className="w-full h-auto object-contain max-h-96"
+                              onError={() => markMediaFailed(record.id)}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="rounded-lg overflow-hidden border border-slate-200">
+                          {mediaFailed ? (
+                            <MediaLoadFallback mediaUrl={record.media_url} message="Video failed to load" />
+                          ) : (
+                            <video
+                              src={record.media_url}
+                              controls
+                              className="w-full h-auto max-h-96"
+                              onError={() => markMediaFailed(record.id)}
+                            >
+                              Your browser does not support the video tag.
+                            </video>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="bg-slate-100 rounded-lg p-3">
+                        <a
+                          href={record.media_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                          className="text-sm text-blue-600 hover:text-blue-700 break-all"
+                        >
+                          Open in new tab →
+                        </a>
+                      </div>
                     </div>
                   )}
-                  <div className="flex items-center gap-1">
-                    {record.media_type === 'photo' ? (
-                      <Camera className="w-4 h-4" />
-                    ) : (
-                      <Video className="w-4 h-4" />
-                    )}
-                    {record.media_type}
-                  </div>
                 </div>
-
-                {selectedRecord?.id === record.id && (
-                  <div className="mt-4 pt-4 border-t border-slate-200 space-y-3">
-                    {record.description && (
-                      <div>
-                        <p className="text-sm text-slate-600 mb-3">{record.description}</p>
-                      </div>
-                    )}
-
-                    {record.media_type === 'photo' ? (
-                      <div className="rounded-lg overflow-hidden border border-slate-200">
-                        <img
-                          src={record.media_url}
-                          alt={record.title}
-                          className="w-full h-auto object-contain max-h-96"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent) {
-                              parent.innerHTML = `
-                                <div class="p-4 text-center text-slate-600">
-                                  <p class="text-sm">Image failed to load</p>
-                                  <a href="${record.media_url}" target="_blank" rel="noopener noreferrer" class="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block">
-                                    Try opening in new tab →
-                                  </a>
-                                </div>
-                              `;
-                            }
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="rounded-lg overflow-hidden border border-slate-200">
-                        <video
-                          src={record.media_url}
-                          controls
-                          className="w-full h-auto max-h-96"
-                          onError={(e) => {
-                            const target = e.target as HTMLVideoElement;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent) {
-                              parent.innerHTML = `
-                                <div class="p-4 text-center text-slate-600">
-                                  <p class="text-sm">Video failed to load</p>
-                                  <a href="${record.media_url}" target="_blank" rel="noopener noreferrer" class="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block">
-                                    Try opening in new tab →
-                                  </a>
-                                </div>
-                              `;
-                            }
-                          }}
-                        >
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
-                    )}
-
-                    <div className="bg-slate-100 rounded-lg p-3">
-                      <a
-                        href={record.media_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-blue-600 hover:text-blue-700 break-all"
-                      >
-                        Open in new tab →
-                      </a>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

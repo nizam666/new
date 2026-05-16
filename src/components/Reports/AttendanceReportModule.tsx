@@ -47,6 +47,7 @@ export function AttendanceReportModule() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [selectedPhotoUrls, setSelectedPhotoUrls] = useState<{ checkIn?: string; checkOut?: string }>({});
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -90,6 +91,41 @@ export function AttendanceReportModule() {
     runCleanup();
     fetchRecords();
   }, [fetchRecords, runCleanup]);
+
+  const resolveAttendancePhoto = useCallback(async (photoPath: string | null) => {
+    if (!photoPath) return undefined;
+    if (/^(https?:|data:)/i.test(photoPath)) return photoPath;
+
+    const normalizedPath = photoPath.replace(/^attendance-photos\//, '');
+    const { data, error } = await supabase.storage
+      .from('attendance-photos')
+      .createSignedUrl(normalizedPath, 600);
+
+    if (error) {
+      console.error('Error creating signed attendance photo URL:', error);
+      return undefined;
+    }
+
+    return data?.signedUrl;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSelectedPhotoUrls({});
+
+    if (!selectedRecord) return;
+
+    Promise.all([
+      resolveAttendancePhoto(selectedRecord.check_in_photo),
+      resolveAttendancePhoto(selectedRecord.check_out_photo)
+    ]).then(([checkIn, checkOut]) => {
+      if (!cancelled) setSelectedPhotoUrls({ checkIn, checkOut });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRecord, resolveAttendancePhoto]);
 
   const workAreaTabs: { key: WorkAreaFilter; label: string; color: string }[] = [
     { key: 'all', label: 'All', color: 'slate' },
@@ -365,7 +401,11 @@ export function AttendanceReportModule() {
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Check-in Photo</p>
                     <div className="aspect-square rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shadow-inner">
                       {selectedRecord.check_in_photo ? (
-                        <img src={selectedRecord.check_in_photo} alt="Punch In" className="w-full h-full object-cover" />
+                        selectedPhotoUrls.checkIn ? (
+                          <img src={selectedPhotoUrls.checkIn} alt="Punch In" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-300">Loading Photo...</div>
+                        )
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-slate-300">No Photo</div>
                       )}
@@ -375,7 +415,11 @@ export function AttendanceReportModule() {
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Check-out Photo</p>
                     <div className="aspect-square rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shadow-inner">
                       {selectedRecord.check_out_photo ? (
-                        <img src={selectedRecord.check_out_photo} alt="Punch Out" className="w-full h-full object-cover" />
+                        selectedPhotoUrls.checkOut ? (
+                          <img src={selectedPhotoUrls.checkOut} alt="Punch Out" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-300">Loading Photo...</div>
+                        )
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-slate-300">No Photo</div>
                       )}

@@ -1,11 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient('https://exuiwldxpsezihvcoety.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4dWl3bGR4cHNlemlodmNvZXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwNDk3NDYsImV4cCI6MjA3NTYyNTc0Nn0.qh9fmfTIrCrWtfS8lzqhW7Gv1X2rhfgwOiAV-CdYu2s');
+import { getScratchAuth, supabase } from './supabaseEnv.js';
 
 async function fixUserAndAndDelete() {
+  if (process.env.ALLOW_DESTRUCTIVE_SCRATCH !== '1') {
+    throw new Error('Set ALLOW_DESTRUCTIVE_SCRATCH=1 to run destructive scratch scripts.');
+  }
+
+  const { email, password } = getScratchAuth();
   const { data: auth, error: authError } = await supabase.auth.signInWithPassword({
-    email: 'director@quarryerp.com',
-    password: 'Director@123'
+    email,
+    password
   });
 
   if (authError) {
@@ -22,7 +25,7 @@ async function fixUserAndAndDelete() {
     .from('users')
     .upsert({
       id: userId,
-      email: 'director@quarryerp.com',
+      email,
       role: 'director',
       full_name: 'System Director',
       updated_at: new Date().toISOString()

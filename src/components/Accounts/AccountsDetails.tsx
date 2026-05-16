@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { 
   FileText,
   Search, 
@@ -82,7 +82,7 @@ export function AccountsDetails() {
     return { company, remarks, payedBy, projectItem };
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     const dataToExport = filteredAccounts.map(account => {
       const { company, remarks, payedBy } = parseNotes(account.notes);
       const isAdvance = (() => {
@@ -111,24 +111,31 @@ export function AccountsDetails() {
       };
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Financial Ledger');
-    
-    // Auto-size columns
-    const wscols = [
-      {wch: 12}, // Date
-      {wch: 12}, // Transaction
-      {wch: 40}, // Details
-      {wch: 10}, // Company
-      {wch: 25}, // Pay Towards
-      {wch: 15}, // Amount
-      {wch: 30}, // Payed From
-      {wch: 40}  // Remarks
-    ];
-    worksheet['!cols'] = wscols;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Financial Ledger');
 
-    XLSX.writeFile(workbook, `Financial_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
+    worksheet.columns = [
+      { header: 'Date', key: 'Date', width: 12 },
+      { header: 'Transaction', key: 'Transaction', width: 12 },
+      { header: 'Type', key: 'Type', width: 12 },
+      { header: 'Details', key: 'Details', width: 40 },
+      { header: 'Company', key: 'Company', width: 12 },
+      { header: 'Pay Towards', key: 'Pay Towards', width: 25 },
+      { header: 'Amount', key: 'Amount', width: 15 },
+      { header: 'Payed From', key: 'Payed From', width: 30 },
+      { header: 'Remarks', key: 'Remarks', width: 40 }
+    ];
+    worksheet.addRows(dataToExport);
+    worksheet.getRow(1).font = { bold: true };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `Financial_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
   };
 
   const filteredAccounts = accounts

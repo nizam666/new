@@ -24,6 +24,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [requestReason, setRequestReason] = useState('');
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [pendingRequestPhotoPath, setPendingRequestPhotoPath] = useState<string | null>(null);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -100,6 +101,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
         setEmployeeId('');
         setStatus('idle');
         setCapturedPhoto(null);
+        setPendingRequestPhotoPath(null);
         startCamera();
       }, 5000);
       return () => clearTimeout(timer);
@@ -190,16 +192,8 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       console.error('Storage Upload Error Detail:', uploadError);
       throw new Error(`Storage Upload Error: ${formatErrorMessage(uploadError)}`);
     }
-    
-    const { data: publicData } = supabase.storage
-      .from('attendance-photos')
-      .getPublicUrl(fileName);
-
-    if (!publicData?.publicUrl) {
-      throw new Error('Unable to generate public URL for attendance photo.');
-    }
       
-    return publicData.publicUrl;
+    return fileName;
   };
 
   const handleAttendance = async (action: ActionType) => {
@@ -244,7 +238,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       stopCamera();
 
       // 3. Upload photo
-      const photoUrl = await uploadPhoto(photoBlob, employeeId.trim().toUpperCase(), action);
+      const photoPath = await uploadPhoto(photoBlob, employeeId.trim().toUpperCase(), action);
 
       const today = new Date().toLocaleDateString('en-CA'); // Local date in YYYY-MM-DD format
       const now = new Date().toISOString();
@@ -295,7 +289,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
              .from('selfie_attendance')
              .update({
                check_in: now,
-               check_in_photo: photoUrl,
+               check_in_photo: photoPath,
                location_in: currentLocation,
                updated_at: now
              })
@@ -339,6 +333,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
 
         if (completedRecord) {
            console.log("Found completed shift today, but no approval. Showing modal.");
+           setPendingRequestPhotoPath(photoPath);
            setShowPermissionModal(true);
            setStatus('idle');
            return;
@@ -353,7 +348,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
             employee_id: employeeId.trim().toUpperCase(),
             date: today,
             check_in: now,
-            check_in_photo: photoUrl,
+            check_in_photo: photoPath,
             work_area: workArea,
             location_in: currentLocation,
             punch_status: 'approved'
@@ -376,7 +371,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           .from('selfie_attendance')
           .update({
              check_out: now,
-             check_out_photo: photoUrl,
+             check_out_photo: photoPath,
              location_out: currentLocation,
              updated_at: now
           })
@@ -390,7 +385,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
             .from('selfie_attendance')
             .update({
                 check_out: now,
-                check_out_photo: photoUrl,
+                check_out_photo: photoPath,
                 location_out: currentLocation,
                 updated_at: now
              })
@@ -447,7 +442,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
           punch_status: 'pending',
           request_reason: requestReason.trim(),
           check_in: null, // Critical: Only authorized to check in later
-          check_in_photo: capturedPhoto, 
+          check_in_photo: pendingRequestPhotoPath,
           work_area: workArea
         })
         .select()
@@ -497,6 +492,7 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       setStatus('success');
       setStatusMessage("Your request for an extra punch has been submitted to the Director. Please wait for approval.");
       setRequestReason('');
+      setPendingRequestPhotoPath(null);
       
     } catch (err: any) {
       console.error("Error requesting permission:", err);

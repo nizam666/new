@@ -88,11 +88,6 @@ function AppContent() {
     );
   }
 
-  // Allow unauthenticated access to the selfie attendance terminal
-  if (currentHash === 'selfie') {
-    return <SelfServiceAttendance />;
-  }
-
   if (!session || !user) {
     return <LoginForm />;
   }
@@ -102,6 +97,9 @@ function AppContent() {
     console.log('Rendering content for hash:', hash);
 
     switch (hash) {
+      case 'selfie':
+        return <SelfServiceAttendance />;
+
       case 'dashboard':
         if (user.role === 'director') {
           return <DirectorDashboard />;
