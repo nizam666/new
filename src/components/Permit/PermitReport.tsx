@@ -73,73 +73,220 @@ export function PermitReport({ companyName }: { companyName?: string }) {
     const exportPDF = () => {
         const doc = new jsPDF('landscape');
 
-        // Header Details - Similar to Excel Image
+        const isKvss = companyName === 'kvss' || !companyName;
+
+        // 1. Title
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(14);
-        doc.text('Quarry Permit Data', 14, 15);
+        doc.text("Quarry Permit Data", 14, 15);
 
-        doc.setFontSize(10);
-        // Company Details Box (Simplified for now)
-        doc.rect(14, 20, 270, 20); // Main Box
-        doc.text(`Company: ${companyName || 'All Companies'}`, 16, 26);
-        doc.text('SF No: 20/1A', 70, 26); // Hardcoded sample
-        doc.text('Area: 0.78.13 Hectares', 120, 26); // Hardcoded sample
+        // 2. Metadata Block Container (Light Gray Fill, Border)
+        doc.setFillColor(242, 242, 242);
+        doc.rect(14, 18, 269, 28, 'F');
+        doc.setDrawColor(210, 210, 210);
+        doc.rect(14, 18, 269, 28, 'D');
+        
+        // Column 1 - Company Details
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.text("COMPANY DETAILS:", 18, 23);
+        doc.setFont("helvetica", "normal");
+        doc.text(isKvss ? "K V S Subrahmaniyam\nHalekundani Vepannapali Road\nKrishnagiri" : "Sri Baba Blue Metals", 18, 27);
+        doc.text(`Place: ${isKvss ? "Halekundani" : "-"} | Land: ${isKvss ? "Patta" : "-"}`, 18, 41);
 
+        // Column 2 - Quarry Land References
+        doc.setFont("helvetica", "bold");
+        doc.text("QUARRY LAND REF:", 110, 23);
+        doc.setFont("helvetica", "normal");
+        doc.text(`SF No: ${isKvss ? "20/1A (Part)" : "-"}`, 110, 27);
+        doc.text(`Area: ${isKvss ? "0.78.13 Hectares" : "-"}`, 110, 31);
+        doc.text(`Ref: ${isKvss ? "2260/2023 Mines Dated 27.09.2024" : "-"}`, 110, 35);
+
+        // Column 3 - Permitted Quantities
+        doc.setFont("helvetica", "bold");
+        doc.text("PERMITTED QUANTITIES:", 190, 23);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Total Period: 27/09/2024 to 26/09/2029`, 190, 27);
+        doc.text(`Total Allowed: 68690 cu.m / 1,88,897 MT`, 190, 31);
+        doc.text(`Year 1 Period: 27/09/2024 to 26/09/2025`, 190, 35);
+        doc.text(`Year 1 Allowed: 13738 cu.m / 37,779 MT`, 190, 39);
+
+        // 3. Setup Table Structure
         const tableColumn = [
-            "S.No", "Payment Date", "Permit Date", "Ton",
-            "Royalty (Base)", "DMF (Base)", "GF (Base)", "MBL", "TDS",
-            "Royalty GST", "DMF GST", "GF GST", "Misc",
-            "Total without Misc", "GST Total", "Grand Total",
-            "Ref / Serials"
+            "S.No", "Pay Date", "Permit Date", "Ton",
+            "Royalty", "MBL Tax", "GF 10%", "Total Rs", "TDS 2%",
+            "DMF 10%", "GST 18%", "GST Paid", "GST Bal",
+            "Total Amt", "Total Paid", "Bal Pay",
+            "Reference / Serials & Running Balances"
         ];
 
-        const tableRows = permits.map((permit, index) => {
+        const runningAllowedTotal = isKvss ? 37779 : 100000;
+        let lastBalance = runningAllowedTotal;
+
+        // Sort permits chronologically (ascending) for accurate running balance
+        const sortedPermits = [...permits].sort((a, b) => {
+            const dateA = a.payment_date || a.approval_date || '';
+            const dateB = b.payment_date || b.approval_date || '';
+            return dateA.localeCompare(dateB);
+        });
+
+        let totalQty = 0;
+        let totalRoyalty = 0;
+        let totalMbl = 0;
+        let totalGf = 0;
+        let totalTds = 0;
+        let totalDmf = 0;
+        let totalGstSeigniorage = 0;
+        let totalGstDmf = 0;
+        let totalGstGf = 0;
+        let totalGstPayment = 0;
+        let totalAmount = 0;
+        let totalPaid = 0;
+        let totalBalance = 0;
+
+        const tableRows = sortedPermits.map((permit, index) => {
             const qty = parseFloat(permit.quantity_in_mt) || 0;
             const royaltyBase = parseFloat(permit.royalty_base) || (qty * 33);
-            const royaltyGst = parseFloat(permit.royalty_gst) || (royaltyBase * 0.18);
-            const dmfBase = parseFloat(permit.dmf_base) || (royaltyBase * 0.10);
-            const dmfGst = parseFloat(permit.dmf_gst) || (dmfBase * 0.18);
-            const gfBase = parseFloat(permit.gf_base) || (royaltyBase * 0.10);
-            const gfGst = parseFloat(permit.gf_gst) || (gfBase * 0.18);
             const mbl = parseFloat(permit.mbl) || 0;
-            const tds = parseFloat(permit.tds) || 0;
-            const misc = parseFloat(permit.miscellaneous) || 0;
+            const gfBase = parseFloat(permit.gf_base) || (royaltyBase * 0.10);
+            
+            const totalAmountInRs = royaltyBase + mbl + gfBase;
+            const tds = parseFloat(permit.tds) || (royaltyBase * 0.02);
+            const dmfBase = parseFloat(permit.dmf_base) || (royaltyBase * 0.10);
+            
+            const royaltyGst = parseFloat(permit.royalty_gst) || (royaltyBase * 0.18);
+            const dmfGst = parseFloat(permit.dmf_gst) || (dmfBase * 0.18);
+            const gfGst = parseFloat(permit.gf_gst) || (gfBase * 0.18);
+            
+            const gstTotal = royaltyGst + dmfGst + gfGst;
+            const hasGstPaid = !!(permit.gst_reference || permit.gst_payment_date);
+            const gstPayment = hasGstPaid ? gstTotal : 0;
+            const gstBalance = gstTotal - gstPayment;
+            
+            const rowTotalAmount = totalAmountInRs + tds + dmfBase + gstTotal;
+            const rowTotalPaid = totalAmountInRs + tds + dmfBase + gstPayment;
+            const balancePayment = rowTotalAmount - rowTotalPaid;
+            
+            const currentTotalQty = lastBalance;
+            const balanceQty = currentTotalQty - qty;
+            lastBalance = balanceQty;
 
-            const totalWithoutMisc = (royaltyBase + dmfBase + gfBase + mbl + tds).toFixed(2);
-            const gstTotal = (royaltyGst + dmfGst + gfGst).toFixed(2);
-            const grandTotal = permit.total_cost || (parseFloat(totalWithoutMisc) + misc + parseFloat(gstTotal)).toFixed(2);
+            const singleTon = parseFloat(permit.single_permit_ton) || 25;
+            const totalPermitsCount = Math.round(qty / singleTon);
 
-            const details = `App: ${permit.application_no || '-'}\nSrl: ${permit.permit_serial_start || ''}-${permit.permit_serial_end || ''}`;
+            // Accumulate totals
+            totalQty += qty;
+            totalRoyalty += royaltyBase;
+            totalMbl += mbl;
+            totalGf += gfBase;
+            totalTds += tds;
+            totalDmf += dmfBase;
+            totalGstSeigniorage += royaltyGst;
+            totalGstDmf += dmfGst;
+            totalGstGf += gfGst;
+            totalGstPayment += gstPayment;
+            totalAmount += rowTotalAmount;
+            totalPaid += rowTotalPaid;
+            totalBalance += balancePayment;
+
+            // Compact Reference / details block
+            const refs = [
+                permit.application_no ? `App: ${permit.application_no}` : '',
+                permit.bsr_code ? `TDS Ref: ${permit.bsr_code}` : '',
+                permit.dmf_reference ? `DMF Ref: ${permit.dmf_reference}` : '',
+                permit.gst_reference ? `GST Ref: ${permit.gst_reference}` : '',
+                permit.challan_no ? `Bulk No: ${permit.challan_no}` : '',
+                `Serials: ${permit.permit_serial_start || ''} to ${permit.permit_serial_end || ''}`,
+                `Permits: ${totalPermitsCount} x ${singleTon}t`,
+                `Run Bal: ${balanceQty.toLocaleString()} MT`
+            ].filter(Boolean).join('\n');
 
             return [
                 index + 1,
                 permit.payment_date || '-',
                 permit.approval_date || '-',
                 qty.toLocaleString(),
-                royaltyBase.toFixed(2),
-                dmfBase.toFixed(2),
-                gfBase.toFixed(2),
-                mbl.toFixed(2),
-                tds.toFixed(2),
-                royaltyGst.toFixed(2),
-                dmfGst.toFixed(2),
-                gfGst.toFixed(2),
-                misc.toFixed(2),
-                totalWithoutMisc,
-                gstTotal,
-                grandTotal,
-                details
+                `₹${royaltyBase.toFixed(2)}`,
+                `₹${mbl.toFixed(2)}`,
+                `₹${gfBase.toFixed(2)}`,
+                `₹${totalAmountInRs.toFixed(2)}`,
+                `₹${tds.toFixed(2)}`,
+                `₹${dmfBase.toFixed(2)}`,
+                `₹${gstTotal.toFixed(2)}`,
+                `₹${gstPayment.toFixed(2)}`,
+                `₹${gstBalance.toFixed(2)}`,
+                `₹${rowTotalAmount.toFixed(2)}`,
+                `₹${rowTotalPaid.toFixed(2)}`,
+                `₹${balancePayment.toFixed(2)}`,
+                refs
             ];
         });
 
+        // Construct dynamic Totals row at the very top (index 0) of body
+        const totalRow = [
+            "Total",
+            "",
+            "",
+            totalQty.toLocaleString(),
+            `₹${totalRoyalty.toFixed(2)}`,
+            `₹${totalMbl.toFixed(2)}`,
+            `₹${totalGf.toFixed(2)}`,
+            `₹${(totalRoyalty + totalMbl + totalGf).toFixed(2)}`,
+            `₹${totalTds.toFixed(2)}`,
+            `₹${totalDmf.toFixed(2)}`,
+            `₹${(totalGstSeigniorage + totalGstDmf + totalGstGf).toFixed(2)}`,
+            `₹${totalGstPayment.toFixed(2)}`,
+            `₹${(totalGstSeigniorage + totalGstDmf + totalGstGf - totalGstPayment).toFixed(2)}`,
+            `₹${totalAmount.toFixed(2)}`,
+            `₹${totalPaid.toFixed(2)}`,
+            `₹${totalBalance.toFixed(2)}`,
+            ""
+        ];
+
+        const finalTableRows = [totalRow, ...tableRows];
+
+        // Draw AutoTable
         autoTable(doc, {
             head: [tableColumn],
-            body: tableRows,
-            startY: 45,
-            styles: { fontSize: 7, cellPadding: 1 },
-            headStyles: { fillColor: [255, 255, 0], textColor: [0, 0, 0] }, // Yellow header
+            body: finalTableRows,
+            startY: 50,
+            styles: { fontSize: 6, cellPadding: 1.2, overflow: 'linebreak' },
+            headStyles: { fillColor: [255, 255, 0], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
+            columnStyles: {
+                0: { cellWidth: 7, halign: 'center' },  // S.no
+                1: { cellWidth: 14, halign: 'center' }, // Pay Date
+                2: { cellWidth: 14, halign: 'center' }, // Permit Date
+                3: { cellWidth: 11, halign: 'right' },  // Ton
+                4: { cellWidth: 13, halign: 'right' },  // Royalty
+                5: { cellWidth: 13, halign: 'right' },  // MBL
+                6: { cellWidth: 13, halign: 'right' },  // GF
+                7: { cellWidth: 15, halign: 'right' },  // Total Rs
+                8: { cellWidth: 11, halign: 'right' },  // TDS
+                9: { cellWidth: 11, halign: 'right' },  // DMF
+                10: { cellWidth: 13, halign: 'right' }, // GST Total
+                11: { cellWidth: 13, halign: 'right' }, // GST Paid
+                12: { cellWidth: 13, halign: 'right' }, // GST Bal
+                13: { cellWidth: 15, halign: 'right' }, // Total Amt
+                14: { cellWidth: 15, halign: 'right' }, // Total Paid
+                15: { cellWidth: 15, halign: 'right' }, // Bal Pay
+                16: { cellWidth: 'auto', fontSize: 5 }   // Reference details
+            },
+            didParseCell: (data) => {
+                // Total row styles
+                if (data.row.index === 0) {
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.fillColor = [230, 240, 250]; // soft light blue
+                    data.cell.styles.textColor = [0, 0, 0];
+                }
+                
+                // Highlight yellow visual structure matching the excel cells
+                if (data.row.index > 0 && [3, 8, 9, 10, 11, 12, 13, 14, 15].includes(data.column.index)) {
+                    data.cell.styles.fillColor = [255, 255, 224];
+                }
+            }
         });
 
-        doc.save(`Permit_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.save(`Permit_Report_${companyName || 'All'}_${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
     const exportExcel = async () => {
