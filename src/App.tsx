@@ -23,6 +23,7 @@ import { ApprovalsModule } from './components/Manager/ApprovalsModule';
 import { PermitForm } from './components/Permit/PermitForm';
 import { PermitReport } from './components/Permit/PermitReport';
 import { AccountsModule } from './components/Accounts/AccountsModule';
+import { GstSalesModule } from './components/Sales/GstSalesModule';
 import { DispatchForm } from './components/Resources/DispatchForm';
 import { InventoryDispatchReport } from './components/Resources/InventoryDispatchReport';
 import { StorageForm } from './components/Resources/StorageForm';
@@ -147,6 +148,9 @@ function AppContent() {
       case 'sales':
       case 'material-investors':
         return <SalesModule />;
+
+      case 'gst-sales':
+        return <GstSalesModule />;
 
       case 'approvals':
         // For directors, approvals are now integrated in the dashboard

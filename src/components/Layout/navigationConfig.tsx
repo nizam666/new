@@ -90,6 +90,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
         icon: ShoppingCart,
         children: [
             { name: 'Sales', icon: ShoppingCart, href: '#sales' },
+            { name: 'GST- Sale', icon: FileText, href: '#gst-sales' },
             { name: 'Customers', icon: Users, href: '#customers' },
             { name: 'Material Investors', icon: TrendingUp, href: '#material-investors' },
         ]
@@ -143,6 +144,7 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'EB Calculator', icon: Calculator, href: '#eb-calculator', roles: ['crusher_manager', 'manager'] },
     { name: 'Crusher Maintenance', icon: Wrench, href: '#crusher-maintenance', roles: ['crusher_manager', 'manager'] },
     { name: 'Sales', icon: ShoppingCart, href: '#sales', roles: ['sales', 'manager'] },
+    { name: 'GST- Sale', icon: FileText, href: '#gst-sales', roles: ['sales', 'manager'] },
     { name: 'Customers', icon: Users, href: '#customers', roles: ['sales', 'manager'] },
     { name: 'Approvals', icon: ClipboardCheck, href: '#approvals', roles: ['manager'] },
     {
@@ -169,6 +171,7 @@ export const MANAGER_NAV: MenuItem[] = [
 export const CHAIRMEN_NAV: MenuItem[] = [
     { name: 'Dashboard', icon: Home, href: '#dashboard' },
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
+    { name: 'GST- Sale', icon: FileText, href: '#gst-sales' },
     {
         name: 'Reports',
         icon: BarChart3,
