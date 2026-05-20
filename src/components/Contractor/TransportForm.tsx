@@ -534,7 +534,31 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         throw new Error('Excel file is empty.');
       }
 
-      // 1. Fetch current max trip ref to start sequence
+      // 1. Fetch existing records to prevent duplicates based on Excel S.No
+      const { data: existingRecords, error: fetchError } = await supabase
+        .from('transport_records')
+        .select('notes')
+        .eq('contractor_id', user.id);
+
+      if (fetchError) throw fetchError;
+
+      const existingSNoSet = new Set<string>();
+      if (existingRecords) {
+        existingRecords.forEach((r) => {
+          if (r.notes && r.notes.includes('Excel S.No:')) {
+            const parts = r.notes.split('|');
+            const snoPart = parts.find((p: string) => p.includes('Excel S.No:'));
+            if (snoPart) {
+              const val = snoPart.replace('Excel S.No:', '').trim();
+              if (val && val !== 'N/A') {
+                existingSNoSet.add(val);
+              }
+            }
+          }
+        });
+      }
+
+      // 2. Fetch current max trip ref to start sequence
       const { data: latestRecords } = await supabase
         .from('transport_records')
         .select('trip_ref')
@@ -551,6 +575,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       }
 
       const recordsToInsert: any[] = [];
+      const seenSNoInBatch = new Set<string>();
+      let duplicateCount = 0;
 
       data.forEach((row) => {
         const getVal = (keys: string[]) => {
@@ -565,6 +591,18 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         // STRICT FILTER: Accept KVSS Q TO C and KVSS Q TO S
         if (partyName !== 'KVSS Q TO C' && partyName !== 'KVSS Q TO S') {
           return; // Skip other parties
+        }
+
+        // Check if Sr No/S.No already exists to prevent duplicates
+        const excelSNoRaw = getVal(['S.No', 's.no', 'SNo', 'Sr.no', 'Sr No', 'Serial', 'SrNo', 'Sl.No', 'Sl No', 'S.No.', 'Sr.No.']);
+        const excelSNo = excelSNoRaw ? excelSNoRaw.toString().trim() : '';
+
+        if (excelSNo && excelSNo !== 'N/A') {
+          if (existingSNoSet.has(excelSNo) || seenSNoInBatch.has(excelSNo)) {
+            duplicateCount++;
+            return; // Skip duplicate record
+          }
+          seenSNoInBatch.add(excelSNo);
         }
 
         // ── Robust Date Parsing ──────────────────────────────────────────
@@ -598,7 +636,6 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         // Sequential ID
         const currentTripRef = `TRP-${(nextId++).toString().padStart(3, '0')}`;
-        const excelSNo = getVal(['S.No', 's.no', 'SNo', 'Sr.no', 'Sr No', 'Serial', 'SrNo', 'Sl.No', 'Sl No', 'S.No.', 'Sr.No.']);
 
         // Map fields and scale weights (KG to Tons)
         recordsToInsert.push({
@@ -621,7 +658,11 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       });
 
       if (recordsToInsert.length === 0) {
-        alert('No valid records found for "KVSS Q TO C" or "KVSS Q TO S" in this file.');
+        if (duplicateCount > 0) {
+          alert(`No new records to upload. All ${duplicateCount} records in this file have already been imported.`);
+        } else {
+          alert('No valid records found for "KVSS Q TO C" or "KVSS Q TO S" in this file.');
+        }
         setLoading(false);
         return;
       }
@@ -632,7 +673,11 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
       if (insertError) throw insertError;
 
-      alert(`Successfully uploaded ${recordsToInsert.length} records!`);
+      const successMsg = duplicateCount > 0
+        ? `Successfully uploaded ${recordsToInsert.length} records! (Skipped ${duplicateCount} duplicate records already imported)`
+        : `Successfully uploaded ${recordsToInsert.length} records!`;
+
+      alert(successMsg);
       setRefreshKey(prev => prev + 1); // Trigger summary refresh
       fetchNextTripRef();
     } catch (err: any) {
