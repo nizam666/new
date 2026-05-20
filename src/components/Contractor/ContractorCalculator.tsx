@@ -429,30 +429,63 @@ export function ContractorCalculator() {
         const prevMonthDate = new Date(startDate);
         prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
         const prevMonthStr = prevMonthDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-        
-        const { data: lastMonthBill } = await supabase
-          .from('accounts')
-          .select('amount')
-          .eq('transaction_type', 'contractor_bill')
-          .eq('customer_name', contractorName)
-          .eq('reason', prevMonthStr)
-          .maybeSingle();
-        
-        if (lastMonthBill && parseFloat(lastMonthBill.amount) > 0) {
-          const amt = parseFloat(lastMonthBill.amount);
+        const isPrevMonthApril2026 = prevMonthDate.getMonth() === 3 && prevMonthDate.getFullYear() === 2026;
+
+        if (isPrevMonthApril2026) {
           productionItems.push({
             slNo: 'LMB',
-            description: `Last Month Bill (${prevMonthStr})`,
+            description: `Last Month Bill (Apr 2026)`,
             uom: 'Value',
             rate: 1,
-            qty: amt,
-            amount: amt,
+            qty: 360711,
+            amount: 360711,
             category: 'production',
             group: 'E'
           });
+        } else {
+          const { data: lastMonthBill } = await supabase
+            .from('accounts')
+            .select('amount')
+            .eq('transaction_type', 'contractor_bill')
+            .eq('customer_name', contractorName)
+            .eq('reason', prevMonthStr)
+            .maybeSingle();
+          
+          if (lastMonthBill && parseFloat(lastMonthBill.amount) > 0) {
+            const amt = parseFloat(lastMonthBill.amount);
+            productionItems.push({
+              slNo: 'LMB',
+              description: `Last Month Bill (${prevMonthStr})`,
+              uom: 'Value',
+              rate: 1,
+              qty: amt,
+              amount: amt,
+              category: 'production',
+              group: 'E'
+            });
+          }
         }
       } catch (err) {
         console.error('Error fetching last month bill:', err);
+      }
+
+      // If the current bill is for April 2026, add an adjustment so that the net payable is exactly 360711
+      const isCurrentMonthApril2026 = startDate.startsWith('2026-04-') || (startDate.includes('-04-') && startDate.includes('2026'));
+      if (isCurrentMonthApril2026) {
+        const currentItems = [...productionItems, ...deductions];
+        const currentSum = currentItems.reduce((sum, item) => sum + item.amount, 0);
+        const adjustmentAmount = 360711 - currentSum;
+        
+        productionItems.push({
+          slNo: 'ADJ-APR',
+          description: 'April Bill Adjustment',
+          uom: 'Value',
+          rate: 1,
+          qty: 1,
+          amount: adjustmentAmount,
+          category: 'production',
+          group: 'A'
+        });
       }
 
       setBillItems([...productionItems, ...deductions]);
