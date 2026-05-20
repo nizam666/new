@@ -17,7 +17,6 @@ import {
   Activity,
   Layers
 } from 'lucide-react';
-import { SelfServiceAttendance } from '../Attendance/SelfServiceAttendance';
 
 interface DashboardStats {
   totalDrillingRecords: number;
@@ -349,14 +348,6 @@ export function DirectorDashboard() {
         ))}
       </div>
 
-      {/* Selfie Attendance Terminal */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4 md:p-8 animate-in slide-in-from-bottom-4 duration-700">
-        <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-indigo-500" />
-          Selfie Attendance Terminal
-        </h2>
-        <SelfServiceAttendance workArea="general" />
-      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* Approvals Section - Takes up 2 columns */}

@@ -34,7 +34,6 @@ export interface MenuItem {
 
 export const DIRECTOR_NAV: MenuItem[] = [
     { name: 'Dashboard', icon: Home, href: '#dashboard' },
-    { name: 'Selfie Attendance', icon: Camera, href: '#quarry-attendance' },
     {
         name: 'Quarry Work',
         icon: Factory,
@@ -131,7 +130,6 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Contractor Calculator', icon: Calculator, href: '#quarry-contractor-calculator', roles: ['contractor', 'manager'] },
     { name: 'Quarry Production Report', icon: FileText, href: '#quarry-production-report', roles: ['contractor', 'manager'] },
     { name: 'Quarry Deduction Report', icon: FileText, href: '#quarry-deduction-report', roles: ['contractor', 'manager'] },
-    { name: 'Selfie Attendance', icon: Camera, href: '#attendance' },
     { name: 'Attendance', icon: Clock, href: '#attendance', roles: ['contractor', 'crusher_manager', 'manager', 'sales', 'worker', 'security', 'driver'] },
     { name: 'Photos/Videos', icon: Camera, href: '#media', roles: ['contractor', 'manager'] },
     { name: 'Inventory', icon: Package, href: '#inventory', roles: ['contractor', 'crusher_manager', 'manager'] },
@@ -170,7 +168,6 @@ export const MANAGER_NAV: MenuItem[] = [
 
 export const CHAIRMEN_NAV: MenuItem[] = [
     { name: 'Dashboard', icon: Home, href: '#dashboard' },
-    { name: 'Selfie Attendance', icon: Camera, href: '#attendance' },
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
     {
         name: 'Reports',

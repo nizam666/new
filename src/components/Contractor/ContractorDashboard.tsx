@@ -13,7 +13,6 @@ import {
   Users
 } from 'lucide-react';
 import { AttendanceForm } from './AttendanceForm';
-import { SelfServiceAttendance } from '../Attendance/SelfServiceAttendance';
 
 interface Stats {
   todayRecords: number;
@@ -173,14 +172,6 @@ export function ContractorDashboard() {
         })}
       </div>
 
-      {/* Selfie Attendance Terminal */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-indigo-500" />
-          Selfie Attendance Terminal
-        </h2>
-        <SelfServiceAttendance workArea="quarry" />
-      </div>
 
       {/* Quick Team Attendance Section */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 opacity-70">
