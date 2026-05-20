@@ -90,11 +90,11 @@ export const DIRECTOR_NAV: MenuItem[] = [
         icon: ShoppingCart,
         children: [
             { name: 'Sales', icon: ShoppingCart, href: '#sales' },
-            { name: 'GST- Sale', icon: FileText, href: '#gst-sales' },
             { name: 'Customers', icon: Users, href: '#customers' },
             { name: 'Material Investors', icon: TrendingUp, href: '#material-investors' },
         ]
     },
+    { name: 'GST- Sale', icon: FileText, href: '#gst-sales' },
     { name: 'Permits', icon: FileText, href: '#new-permit' },
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
 
