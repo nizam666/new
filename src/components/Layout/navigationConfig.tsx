@@ -34,6 +34,7 @@ export interface MenuItem {
 
 export const DIRECTOR_NAV: MenuItem[] = [
     { name: 'Dashboard', icon: Home, href: '#dashboard' },
+    { name: 'Self-Service Attendance', icon: Clock, href: '#attendance' },
     {
         name: 'Quarry Work',
         icon: Factory,
@@ -123,6 +124,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
 
 export const MANAGER_NAV: MenuItem[] = [
     { name: 'Dashboard', icon: BarChart3, href: '#dashboard', roles: ['contractor', 'crusher_manager', 'manager', 'sales'] },
+    { name: 'Self-Service Attendance', icon: Clock, href: '#attendance', roles: ['contractor', 'crusher_manager', 'manager', 'sales', 'worker', 'security', 'driver'] },
     { name: 'Drilling', icon: Drill, href: '#drilling', roles: ['contractor', 'manager'] },
     { name: 'Blasting', icon: Factory, href: '#blasting', roles: ['contractor', 'manager'] },
     { name: 'Breaking/Loading', icon: ClipboardCheck, href: '#loading', roles: ['contractor', 'manager'] },
@@ -131,7 +133,6 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Contractor Calculator', icon: Calculator, href: '#quarry-contractor-calculator', roles: ['contractor', 'manager'] },
     { name: 'Quarry Production Report', icon: FileText, href: '#quarry-production-report', roles: ['contractor', 'manager'] },
     { name: 'Quarry Deduction Report', icon: FileText, href: '#quarry-deduction-report', roles: ['contractor', 'manager'] },
-    { name: 'Attendance', icon: Clock, href: '#attendance', roles: ['contractor', 'crusher_manager', 'manager', 'sales', 'worker', 'security', 'driver'] },
     { name: 'Photos/Videos', icon: Camera, href: '#media', roles: ['contractor', 'manager'] },
     { name: 'Inventory', icon: Package, href: '#inventory', roles: ['contractor', 'crusher_manager', 'manager'] },
     { name: 'Returnable Assets', icon: RotateCcw, href: '#returnable-assets', roles: ['crusher_manager', 'manager'] },
@@ -170,6 +171,7 @@ export const MANAGER_NAV: MenuItem[] = [
 
 export const CHAIRMEN_NAV: MenuItem[] = [
     { name: 'Dashboard', icon: Home, href: '#dashboard' },
+    { name: 'Self-Service Attendance', icon: Clock, href: '#attendance' },
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
     { name: 'GST- Sale', icon: FileText, href: '#gst-sales' },
     {
