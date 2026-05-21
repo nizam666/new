@@ -272,14 +272,15 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
   // ── Per-line calculations ───────────────────────────────────────────────────
   const calcItem = (item: LineItem) => {
     const qty = parseFloat(item.quantity) || 0;
-    const price = parseFloat(item.price) || 0;
+    const price = parseFloat(item.price) || 0;           // GST-inclusive price per MT
     const discountRs = parseFloat(item.discountRs) || 0;
-    const grossAmount = qty * price;
-    const taxableAmount = Math.max(0, grossAmount - discountRs);
-    const cgst = taxableAmount * 0.025;
-    const sgst = taxableAmount * 0.025;
-    const lineTotal = taxableAmount + cgst + sgst;
-    return { qty, price, grossAmount, discountRs, taxableAmount, cgst, sgst, lineTotal };
+    const grossInclusive = qty * price;                   // Total inclusive of GST, before discount
+    const afterDiscount = Math.max(0, grossInclusive - discountRs); // Inclusive total after discount
+    const taxableAmount = afterDiscount / 1.05;           // Back-calculate base (excl. GST)
+    const cgst = taxableAmount * 0.025;                   // CGST @ 2.5%
+    const sgst = taxableAmount * 0.025;                   // SGST @ 2.5%
+    const lineTotal = afterDiscount;                      // = taxableAmount * 1.05
+    return { qty, price, grossInclusive, discountRs, taxableAmount, cgst, sgst, lineTotal };
   };
 
   // ── Invoice totals ──────────────────────────────────────────────────────────
@@ -549,7 +550,7 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
                 <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Item</th>
                 <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24">HSN</th>
                 <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-28">Qty (MTON)</th>
-                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-32">Price / MT (₹)</th>
+                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-32">Price / MT <span className="text-indigo-400 normal-case">(Incl. GST)</span></th>
                 <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-52">
                   Discount (₹ / %)
                 </th>
