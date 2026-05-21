@@ -654,11 +654,16 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
                       </div>
                     </td>
 
-                    {/* Tax badge */}
+                    {/* Tax amount */}
                     <td className="px-4 py-3.5 text-center">
                       <span className="inline-block px-2 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-lg border border-indigo-100">
                         5%
                       </span>
+                      {(c.cgst + c.sgst) > 0 && (
+                        <p className="text-[10px] font-black text-indigo-700 mt-1">
+                          ₹{(c.cgst + c.sgst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      )}
                     </td>
 
                     {/* Amount */}
