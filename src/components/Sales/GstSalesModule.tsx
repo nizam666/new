@@ -46,6 +46,8 @@ interface PriceMaster {
   sales_price: number;
   hsn: string;
   gst_rate: number;
+  is_tax_inclusive?: boolean;
+  inclusive_price?: number;
 }
 
 interface LineItem {
@@ -172,12 +174,24 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
           .order('name'),
         supabase
           .from('material_investors')
-          .select('id, product_type, sales_price, hsn, gst_rate')
+          .select('id, product_type, sales_price, hsn, gst_rate, is_tax_inclusive')
           .eq('status', 'active')
           .order('product_type'),
       ]);
       if (customerData) setCustomers(customerData);
-      if (priceData) setPriceMaster(priceData);
+      if (priceData) {
+        const mapped = (priceData as any[]).map((item) => {
+          const salesPrice = parseFloat(item.sales_price) || 0;
+          const gstRate = parseFloat(item.gst_rate) || 5;
+          const isInclusive = !!item.is_tax_inclusive;
+          const incPrice = isInclusive ? salesPrice : salesPrice * (1 + gstRate / 100);
+          return {
+            ...item,
+            inclusive_price: Number(incPrice.toFixed(2)),
+          };
+        });
+        setPriceMaster(mapped);
+      }
     };
     fetchData();
   }, []);
@@ -264,7 +278,7 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
     updateItem(itemId, {
       material,
       hsn: pm?.hsn || '',
-      price: pm ? String(pm.sales_price) : '',
+      price: pm ? String(pm.inclusive_price) : '',
       taxRate: pm?.gst_rate || 5,
     });
   };
@@ -933,7 +947,7 @@ function MaterialDropdown({
                 >
                   <span className="truncate">{p.product_type}</span>
                   <span className="shrink-0 text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-                    ₹{p.sales_price}
+                    ₹{p.inclusive_price}
                   </span>
                 </div>
               ))
