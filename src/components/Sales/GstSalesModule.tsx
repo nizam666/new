@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   Calendar, Search, Download, FileText, CheckCircle, TrendingUp,
   Calculator, ShieldAlert, Award, Plus, Trash2, Building2, ChevronDown,
-  Receipt, LayoutList, RefreshCw
+  Receipt, LayoutList, RefreshCw, Printer, Pencil
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import ExcelJS from 'exceljs';
@@ -17,19 +18,727 @@ const COMPANIES = {
     id: 'kvs',
     name: 'K V S SUBRAHMANYAM',
     prefix: 'KVS',
-    gstin: 'GSTIN_PLACEHOLDER_KVS', // ← Update with actual GSTIN
-    address: 'Krishnagiri, Tamil Nadu',
+    gstin: '33BZMPS0103A1Z0',
+    address: '20/1A, Halekundani Village, Krishnagiri Tk and Dt, Krishnagiri, Tamil Nadu, 635121',
+    mobile: '9241086865',
+    email: 'kvssubrahmanyam80@gmail.com',
+    pan: 'BZMPS0103A',
+    bank_name: 'K V S SUBRAHMANYAM',
+    bank_acc: '05490200000626',
+    bank_ifsc: 'BARB0KRIDHA',
+    bank_branch: 'Bank of Baroda ,KRISHNAGIRI, T.N.',
   },
   sbbm: {
     id: 'sbbm',
     name: 'SRI BABA BLUE METALS PRIVATE LIMITED',
     prefix: 'SBBM',
-    gstin: 'GSTIN_PLACEHOLDER_SBBM', // ← Update with actual GSTIN
-    address: 'Krishnagiri, Tamil Nadu',
+    gstin: '33AAKCS1538C1ZO',
+    address: 'Halekundani Village , Krishnagiri Dt, Tamil Nadu, 635121',
+    mobile: '',
+    email: 'sribababluemetals@gmail.com',
+    pan: 'AAKCS1538C',
+    bank_name: 'Sri Baba Blue Metals Pvt Ltd',
+    bank_acc: '69910200000060',
+    bank_ifsc: 'BARB0KRIDHA',
+    bank_branch: 'Bank of Baroda, KRISHNAGIRI, T.N.',
+    upi_id: 'paytm.s1jp618@pty',
   },
 } as const;
 
 type CompanyId = keyof typeof COMPANIES;
+
+// ─── Indian Numbering System Word Converter ───────────────────────────────────
+function numberToWords(num: number): string {
+  const a = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+  ];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  function g(n: number): string {
+    if (n < 20) return a[n];
+    const digit = n % 10;
+    return b[Math.floor(n / 10)] + (digit ? ' ' + a[digit] : '');
+  }
+
+  function h(n: number): string {
+    if (n < 100) return g(n);
+    const remainder = n % 100;
+    return a[Math.floor(n / 100)] + ' Hundred' + (remainder ? ' and ' + g(remainder) : '');
+  }
+
+  function c(n: number): string {
+    if (n === 0) return 'Zero';
+    let word = '';
+    
+    // Crore (1,00,00,000)
+    if (Math.floor(n / 10000000) > 0) {
+      word += c(Math.floor(n / 10000000)) + ' Crore ';
+      n %= 10000000;
+    }
+    
+    // Lakh (1,00,000)
+    if (Math.floor(n / 100000) > 0) {
+      word += h(Math.floor(n / 100000)) + ' Lakh ';
+      n %= 100000;
+    }
+    
+    // Thousand (1,000)
+    if (Math.floor(n / 1000) > 0) {
+      word += h(Math.floor(n / 1000)) + ' Thousand ';
+      n %= 1000;
+    }
+    
+    // Hundreds
+    if (n > 0) {
+      word += h(n);
+    }
+    
+    return word.trim();
+  }
+
+  // Handle decimals as Paise
+  const parts = num.toFixed(2).split('.');
+  const whole = parseInt(parts[0]);
+  const decimal = parseInt(parts[1] || '0');
+
+  let result = c(whole) + ' Rupees';
+  if (decimal > 0) {
+    result += ' and ' + c(decimal) + ' Paise';
+  }
+  return result + ' Only';
+}
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    return format(parseISO(dateStr), 'dd-MM-yyyy');
+  } catch (e) {
+    console.error('Error formatting date:', e);
+    return dateStr;
+  }
+};
+
+// ─── Dynamic GST Invoice PDF Printing ─────────────────────────────────────────
+const printGstInvoice = async (inv: Invoice) => {
+  const toastId = toast.info('Preparing invoice for print...', { autoClose: false });
+  try {
+    // 1. Resolve Company Details from notes or prefix
+    let companyId: CompanyId = 'sbbm';
+    let securityPaperNo = '';
+    let bulkPermitNo = '';
+    let customerGstin = '';
+
+    try {
+      if (inv.notes) {
+        const parsedNotes = JSON.parse(inv.notes);
+        if (parsedNotes.company_id) {
+          companyId = parsedNotes.company_id;
+        }
+        securityPaperNo = parsedNotes.security_paper_no || '';
+        bulkPermitNo = parsedNotes.bulk_permit_no || '';
+        customerGstin = parsedNotes.customer_gstin || '';
+      }
+    } catch (e) {
+      if (inv.invoice_number.startsWith('KVS')) {
+        companyId = 'kvs';
+      }
+    }
+
+    const company = COMPANIES[companyId];
+
+    // 2. Fetch Customer Details for Billing address, PAN and Mobile
+    let billingAddress = '';
+    let customerMobile = '';
+    let customerPan = '';
+
+    if (inv.customer_id) {
+      const { data: custData } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', inv.customer_id)
+        .single();
+      
+      if (custData) {
+        billingAddress = custData.billing_address || custData.address || '';
+        customerMobile = custData.phone || '';
+        customerGstin = custData.gst_number || customerGstin || '';
+        if (customerGstin && customerGstin.length >= 12) {
+          customerPan = customerGstin.substring(2, 12);
+        }
+      }
+    }
+
+    // Parse items
+    let parsedItems: any[] = [];
+    try {
+      parsedItems = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items;
+    } catch (e) {
+      console.error('Error parsing items:', e);
+    }
+
+    // Calculate totals
+    const totalQty = parsedItems.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
+
+    // Open print window
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow pop-ups to print invoice');
+      toast.dismiss(toastId);
+      return;
+    }
+
+    // UPI Details
+    const showQrCode = companyId === 'sbbm' && 'upi_id' in company && company.upi_id;
+    const qrCodeUrl = showQrCode 
+      ? `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`upi://pay?pa=${(company as any).upi_id}&pn=${encodeURIComponent(company.name)}&am=${inv.total_amount}&cu=INR`)}`
+      : '';
+
+    // Generate Signature SVG
+    const signatureSvg = `
+      <svg width="120" height="50" viewBox="0 0 120 50">
+        <path d="M 15 35 C 30 15, 35 10, 42 28 C 50 35, 65 35, 75 25 C 80 18, 92 10, 95 28 C 98 33, 108 30, 115 25" fill="none" stroke="#1e40af" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
+
+    // Number to words
+    const amountInWords = numberToWords(inv.total_amount);
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>GST Invoice - ${inv.invoice_number}</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 10mm 15mm;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+              color: #000000;
+              margin: 0;
+              padding: 0;
+              font-size: 11px;
+              line-height: 1.35;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .container {
+              width: 100%;
+              max-width: 210mm;
+              margin: 0 auto;
+            }
+            .header-top {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 2px;
+            }
+            .tax-invoice-label {
+              font-size: 14px;
+              font-weight: 800;
+              letter-spacing: 0.05em;
+              color: #000;
+            }
+            .recipient-badge {
+              border: 1.5px solid #000000;
+              border-radius: 4px;
+              padding: 3px 8px;
+              font-size: 9px;
+              color: #000000;
+              font-weight: 800;
+              letter-spacing: 0.02em;
+            }
+            .company-name {
+              font-size: 26px;
+              font-weight: 900;
+              color: #000;
+              margin: 6px 0 2px 0;
+              letter-spacing: -0.01em;
+            }
+            .company-address {
+              font-size: 11px;
+              color: #000;
+              margin: 2px 0 4px 0;
+              font-weight: 500;
+            }
+            .company-contacts {
+              font-size: 11px;
+              color: #000;
+              margin: 4px 0 8px 0;
+              font-weight: 500;
+            }
+            .company-contacts span {
+              margin-right: 15px;
+            }
+            .thick-line {
+              border-top: 4px solid #000;
+              margin: 4px 0 8px 0;
+            }
+            .invoice-banner {
+              background-color: #f1f5f9;
+              padding: 10px 14px;
+              border-radius: 4px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 12px;
+              font-weight: 800;
+              margin-bottom: 12px;
+              border: 1px solid #cbd5e1;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1.2fr 1.2fr 1fr;
+              gap: 20px;
+              margin-bottom: 15px;
+            }
+            .info-col-title {
+              font-size: 11px;
+              font-weight: 900;
+              color: #000;
+              margin-bottom: 6px;
+              letter-spacing: 0.02em;
+              border-bottom: 1px dashed #cbd5e1;
+              padding-bottom: 2px;
+            }
+            .info-col-content {
+              font-size: 11px;
+              line-height: 1.4;
+              color: #000;
+            }
+            .info-col-content strong {
+              font-size: 11px;
+              display: block;
+              margin-bottom: 3px;
+              color: #000;
+            }
+            .permit-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 5px;
+              font-size: 11px;
+            }
+            .permit-label {
+              font-weight: 800;
+              color: #000;
+              text-transform: uppercase;
+            }
+            .permit-value {
+              font-weight: 700;
+              text-align: right;
+            }
+            .items-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 15px;
+              margin-bottom: 12px;
+            }
+            .items-table thead {
+              border-top: 2.5px solid #000;
+              border-bottom: 2.5px solid #000;
+            }
+            .items-table th {
+              padding: 10px 4px;
+              font-size: 11px;
+              font-weight: 900;
+              text-transform: uppercase;
+              color: #000;
+            }
+            .items-table tbody td {
+              padding: 12px 4px;
+              font-size: 11px;
+              font-weight: 700;
+              vertical-align: middle;
+              color: #000;
+            }
+            .items-table .text-left { text-align: left; }
+            .items-table .text-center { text-align: center; }
+            .items-table .text-right { text-align: right; }
+            
+            .subtotal-row {
+              border-top: 2.5px solid #000;
+              border-bottom: 2.5px solid #000;
+              font-weight: 900;
+            }
+            .subtotal-row td {
+              padding: 10px 4px !important;
+              font-size: 11px !important;
+              text-transform: uppercase;
+            }
+            .bottom-section {
+              display: grid;
+              grid-template-columns: 1.3fr 1fr;
+              gap: 30px;
+              margin-top: 15px;
+            }
+            .bank-title {
+              font-size: 11px;
+              font-weight: 900;
+              color: #000;
+              margin-bottom: 6px;
+              text-transform: uppercase;
+            }
+            .bank-row {
+              display: flex;
+              margin-bottom: 4px;
+              font-size: 10.5px;
+            }
+            .bank-label {
+              width: 90px;
+              font-weight: 700;
+              color: #475569;
+            }
+            .bank-val {
+              font-weight: 800;
+              color: #000;
+            }
+            
+            .qr-section {
+              margin-top: 15px;
+              display: flex;
+              align-items: flex-start;
+              gap: 15px;
+            }
+            .qr-code-img {
+              width: 90px;
+              height: 90px;
+              border: 1.5px solid #000;
+              padding: 4px;
+              border-radius: 4px;
+              background: white;
+            }
+            .qr-details {
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              height: 98px;
+            }
+            .qr-title {
+              font-size: 10px;
+              font-weight: 900;
+              color: #000;
+              margin-bottom: 4px;
+              text-transform: uppercase;
+            }
+            .qr-upi-id {
+              font-size: 10.5px;
+              font-weight: 800;
+              color: #000;
+              margin-bottom: 8px;
+            }
+            .qr-logos {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              margin-top: 2px;
+            }
+            .qr-logo-badge {
+              font-size: 8px;
+              font-weight: 900;
+              padding: 2px 5px;
+              border-radius: 3px;
+              text-transform: uppercase;
+            }
+            .phonepe { background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+            .gpay { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+            .paytm { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+            .upi { background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1; font-style: italic; }
+
+            .breakdown-table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+            .breakdown-table td {
+              padding: 6px 0;
+              font-size: 11px;
+              font-weight: 700;
+              color: #000;
+            }
+            .breakdown-table .val {
+              text-align: right;
+              font-weight: 800;
+            }
+            .breakdown-divider {
+              border-top: 1px solid #94a3b8;
+            }
+            .breakdown-total {
+              font-size: 12.5px !important;
+              font-weight: 950 !important;
+            }
+            
+            .words-section {
+              text-align: right;
+              margin-top: 20px;
+              font-size: 11px;
+            }
+            .words-label {
+              font-weight: 800;
+              color: #475569;
+              margin-bottom: 3px;
+            }
+            .words-value {
+              font-weight: 900;
+              color: #000;
+            }
+            
+            .signatory-section {
+              display: flex;
+              flex-direction: column;
+              align-items: flex-end;
+              margin-top: 35px;
+              padding-right: 10px;
+            }
+            .signatory-title {
+              font-size: 10px;
+              font-weight: 900;
+              color: #000;
+              text-transform: uppercase;
+              text-align: right;
+              line-height: 1.4;
+            }
+            .signatory-space {
+              height: 50px;
+              display: flex;
+              align-items: center;
+              justify-content: flex-end;
+            }
+            
+            @media print {
+              body {
+                margin: 0;
+                padding: 0;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body onload="window.print();">
+          <div class="container">
+            <!-- Header Top Labels -->
+            <div class="header-top">
+              <div class="tax-invoice-label">TAX INVOICE</div>
+              <div class="recipient-badge">ORIGINAL FOR RECIPIENT</div>
+            </div>
+            
+            <!-- Company Info Header -->
+            <div class="company-name">${company.name}</div>
+            <div class="company-address">${company.address}</div>
+            <div class="company-contacts">
+              ${company.mobile ? `<span><strong>Mobile:</strong> ${company.mobile}</span>` : ''}
+              <span><strong>GSTIN:</strong> ${company.gstin}</span>
+              <span><strong>PAN Number:</strong> ${company.pan}</span>
+              <span><strong>Email:</strong> ${company.email}</span>
+            </div>
+            
+            <div class="thick-line"></div>
+            
+            <!-- Invoice Info Banner -->
+            <div class="invoice-banner">
+              <div>Invoice No.: ${inv.invoice_number.split('-').pop()}</div>
+              <div>Invoice Date: ${formatDate(inv.invoice_date)}</div>
+            </div>
+            
+            <!-- Billing / Info Grid -->
+            <div class="info-grid">
+              <!-- Column 1: Bill To -->
+              <div>
+                <div class="info-col-title">BILL TO</div>
+                <div class="info-col-content">
+                  <strong>${inv.customer_name.toUpperCase()}</strong>
+                  ${billingAddress ? billingAddress.replace(/\n/g, '<br/>') : 'Address not specified'}<br/>
+                  ${customerMobile ? `Mobile: ${customerMobile}<br/>` : ''}
+                  ${customerGstin ? `GSTIN: ${customerGstin}<br/>` : ''}
+                  ${customerPan ? `PAN Number: ${customerPan}<br/>` : ''}
+                  Place of Supply: Tamil Nadu
+                </div>
+              </div>
+              
+              <!-- Column 2: Ship To -->
+              <div>
+                <div class="info-col-title">SHIP TO</div>
+                <div class="info-col-content">
+                  <strong>${inv.customer_name.toUpperCase()}</strong>
+                  ${billingAddress ? billingAddress.replace(/\n/g, '<br/>') : 'Address not specified'}<br/>
+                  ${customerMobile ? `Mobile: ${customerMobile}<br/>` : ''}
+                  ${customerGstin ? `GSTIN: ${customerGstin}<br/>` : ''}
+                  Place of Supply: Tamil Nadu
+                </div>
+              </div>
+              
+              <!-- Column 3: Permit Details -->
+              <div>
+                <div class="info-col-title">DETAILS</div>
+                <div class="info-col-content" style="padding-top: 2px;">
+                  <div class="permit-row">
+                    <span class="permit-label">Security Paper no</span>
+                    <span class="permit-value">${securityPaperNo || '-'}</span>
+                  </div>
+                  ${bulkPermitNo ? `
+                  <div class="permit-row">
+                    <span class="permit-label">BULK PERMIT NO</span>
+                    <span class="permit-value">${bulkPermitNo}</span>
+                  </div>
+                  ` : ''}
+                  <div class="permit-row">
+                    <span class="permit-label">VEHICLE NO</span>
+                    <span class="permit-value">${inv.vehicle_no || '-'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Items Table -->
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th class="text-left" style="width: 45%;">ITEMS</th>
+                  <th class="text-center" style="width: 12%;">HSN</th>
+                  <th class="text-center" style="width: 12%;">QTY.</th>
+                  <th class="text-center" style="width: 10%;">RATE</th>
+                  <th class="text-center" style="width: 11%;">TAX</th>
+                  <th class="text-right" style="width: 10%;">AMOUNT</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${parsedItems.map((item) => {
+                  const qty = parseFloat(item.quantity) || 0;
+                  const inclRate = parseFloat(item.price || item.rate) || 0;
+                  const discount = parseFloat(item.discount_rs || item.discount || 0);
+                  const baseTaxable = (qty * inclRate - discount) / 1.05;
+                  const calculatedRate = baseTaxable / qty;
+                  const taxVal = baseTaxable * 0.05;
+                  const lineTotal = qty * inclRate - discount;
+                  
+                  return `
+                    <tr>
+                      <td class="text-left">${item.material || item.material_name}</td>
+                      <td class="text-center">${item.hsn || '-'}</td>
+                      <td class="text-center">${qty} MTON</td>
+                      <td class="text-center">${calculatedRate.toFixed(2)}</td>
+                      <td class="text-center">
+                        ${taxVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <div style="font-size: 8px; color: #475569; font-weight: normal; margin-top: 1px;">(5%)</div>
+                      </td>
+                      <td class="text-right">${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+                    </tr>
+                  `;
+                }).join('')}
+                
+                <!-- Subtotal Row -->
+                <tr class="subtotal-row">
+                  <td class="text-left">SUBTOTAL</td>
+                  <td></td>
+                  <td class="text-center">${totalQty}</td>
+                  <td></td>
+                  <td class="text-center">₹ ${inv.tax_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td class="text-right">₹ ${inv.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <!-- Bottom Section (Bank Details + QR & Breakdown) -->
+            <div class="bottom-section">
+              <!-- Bank details and QR code -->
+              <div>
+                <div class="bank-title">BANK DETAILS</div>
+                <div class="bank-row">
+                  <div class="bank-label">Name:</div>
+                  <div class="bank-val">${company.bank_name}</div>
+                </div>
+                <div class="bank-row">
+                  <div class="bank-label">IFSC Code:</div>
+                  <div class="bank-val">${company.bank_ifsc}</div>
+                </div>
+                <div class="bank-row">
+                  <div class="bank-label">Account No:</div>
+                  <div class="bank-val">${company.bank_acc}</div>
+                </div>
+                <div class="bank-row">
+                  <div class="bank-label">Bank:</div>
+                  <div class="bank-val">${company.bank_branch}</div>
+                </div>
+                
+                ${showQrCode ? `
+                <!-- QR Code section -->
+                <div class="qr-section">
+                  <img class="qr-code-img" src="${qrCodeUrl}" alt="Payment QR Code"/>
+                  <div class="qr-details">
+                    <div class="qr-title">PAYMENT QR CODE</div>
+                    <div class="qr-upi-id">UPI ID: ${(company as any).upi_id}</div>
+                    <div class="qr-logos">
+                      <span class="qr-logo-badge phonepe">PhonePe</span>
+                      <span class="qr-logo-badge gpay">GPay</span>
+                      <span class="qr-logo-badge paytm">Paytm</span>
+                      <span class="qr-logo-badge upi">UPI</span>
+                    </div>
+                  </div>
+                </div>
+                ` : ''}
+              </div>
+              
+              <!-- Financial breakdown -->
+              <div>
+                <table class="breakdown-table">
+                  <tr>
+                    <td>Taxable Amount</td>
+                    <td class="val">₹ ${inv.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                  <tr>
+                    <td>CGST @2.5%</td>
+                    <td class="val">₹ ${(inv.tax_amount / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                  <tr>
+                    <td>SGST @2.5%</td>
+                    <td class="val">₹ ${(inv.tax_amount / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                  <tr class="breakdown-divider">
+                    <td class="breakdown-total" style="padding-top: 8px;">Total Amount</td>
+                    <td class="val breakdown-total" style="padding-top: 8px;">₹ ${inv.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+                  </tr>
+                  <tr class="breakdown-divider">
+                    <td style="padding-top: 6px; color: #475569;">Received Amount</td>
+                    <td class="val" style="padding-top: 6px; color: #000;">₹ ${(inv.amount_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Amount in words -->
+            <div class="words-section">
+              <div class="words-label">Total Amount (in words)</div>
+              <div class="words-value">${amountInWords}</div>
+            </div>
+            
+            <!-- Authorised Signatory Block -->
+            <div class="signatory-section">
+              <div class="signatory-title">
+                ${companyId === 'kvs' ? 'For KVS SUBRAHMANYAM' : ''}
+              </div>
+              <div class="signatory-space">
+                ${signatureSvg}
+              </div>
+              <div class="signatory-title">
+                ${companyId === 'kvs' ? 'AUTHORISED SIGNATORY.' : `
+                  AUTHORISED SIGNATORY FOR<br/>
+                  SRI BABA BLUE METALS PRIVATE LIMITED
+                `}
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    toast.dismiss(toastId);
+  } catch (err: any) {
+    console.error('Error preparing print:', err);
+    toast.error('Failed to prepare invoice print');
+    toast.dismiss(toastId);
+  }
+};
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface Customer {
@@ -65,6 +774,7 @@ interface Invoice {
   id: string;
   invoice_number: string;
   customer_name: string;
+  customer_id?: string;
   delivery_location: string;
   vehicle_no: string;
   invoice_date: string;
@@ -89,15 +799,29 @@ interface Invoice {
 // ─── Main Export ──────────────────────────────────────────────────────────────
 export function GstSalesModule() {
   const [activeTab, setActiveTab] = useState<'create' | 'report'>('create');
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+
+  const handleEdit = (inv: Invoice) => {
+    setEditingInvoice(inv);
+    setActiveTab('create');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingInvoice(null);
+    setActiveTab('report');
+  };
 
   return (
     <div className="space-y-6">
       {/* Tab Bar */}
       <div className="flex gap-1.5 bg-slate-100 p-1.5 rounded-2xl w-fit shadow-inner">
         <button
-          onClick={() => setActiveTab('create')}
+          onClick={() => {
+            setEditingInvoice(null);
+            setActiveTab('create');
+          }}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-200 ${
-            activeTab === 'create'
+            activeTab === 'create' && !editingInvoice
               ? 'bg-white text-indigo-700 shadow-sm'
               : 'text-slate-400 hover:text-slate-600'
           }`}
@@ -105,8 +829,17 @@ export function GstSalesModule() {
           <Receipt className="w-3.5 h-3.5" />
           Create Invoice
         </button>
+        {editingInvoice && (
+          <div className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-700 font-black text-xs uppercase tracking-widest shadow-sm">
+            <Receipt className="w-3.5 h-3.5" />
+            Edit: {editingInvoice.invoice_number}
+          </div>
+        )}
         <button
-          onClick={() => setActiveTab('report')}
+          onClick={() => {
+            setEditingInvoice(null);
+            setActiveTab('report');
+          }}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-200 ${
             activeTab === 'report'
               ? 'bg-white text-indigo-700 shadow-sm'
@@ -119,16 +852,31 @@ export function GstSalesModule() {
       </div>
 
       {activeTab === 'create' ? (
-        <GstInvoiceCreator onSaved={() => setActiveTab('report')} />
+        <GstInvoiceCreator
+          initialData={editingInvoice || undefined}
+          onSaved={() => {
+            setEditingInvoice(null);
+            setActiveTab('report');
+          }}
+          onCancel={editingInvoice ? handleCancelEdit : undefined}
+        />
       ) : (
-        <GstReportViewer />
+        <GstReportViewer onEdit={handleEdit} />
       )}
     </div>
   );
 }
 
 // ─── Invoice Creator ──────────────────────────────────────────────────────────
-function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
+function GstInvoiceCreator({
+  initialData,
+  onSaved,
+  onCancel,
+}: {
+  initialData?: Invoice;
+  onSaved: () => void;
+  onCancel?: () => void;
+}) {
   const [selectedCompany, setSelectedCompany] = useState<CompanyId>('sbbm');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -196,11 +944,68 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
     fetchData();
   }, []);
 
+  // ── Pre-populate when initialData changes ────────────────────────────────────
+  useEffect(() => {
+    if (initialData) {
+      setInvoiceDate(initialData.invoice_date || '');
+      setInvoiceNumber(initialData.invoice_number || '');
+      setSelectedCustomerId(initialData.customer_id || null);
+      setCustomerName(initialData.customer_name || '');
+      setVehicleNo(initialData.vehicle_no || '');
+
+      // Parse items
+      try {
+        const itemsData = typeof initialData.items === 'string'
+          ? JSON.parse(initialData.items)
+          : initialData.items;
+        if (Array.isArray(itemsData)) {
+          const mapped = itemsData.map((item: any) => {
+            const qty = parseFloat(item.quantity) || 0;
+            const price = parseFloat(item.rate || item.price) || 0;
+            const baseAmount = qty * price;
+            const discountRs = parseFloat(item.discount_rs || item.discount) || 0;
+            const discountPct = baseAmount > 0 ? ((discountRs / baseAmount) * 100).toFixed(2) : '0';
+            return {
+              id: item.id || crypto.randomUUID(),
+              material: item.material || item.material_name || '',
+              hsn: item.hsn || '',
+              quantity: String(item.quantity || ''),
+              price: String(item.rate || item.price || ''),
+              discountRs: String(discountRs),
+              discountPct: discountPct,
+              taxRate: 5,
+            };
+          });
+          setLineItems(mapped);
+        }
+      } catch (e) {
+        console.error('Error parsing items in initialData:', e);
+      }
+
+      // Parse notes
+      if (initialData.notes) {
+        try {
+          const parsed = typeof initialData.notes === 'string'
+            ? JSON.parse(initialData.notes)
+            : initialData.notes;
+          if (parsed.company_id) setSelectedCompany(parsed.company_id);
+          if (parsed.security_paper_no) setSecurityPaperNo(parsed.security_paper_no);
+          if (parsed.bulk_permit_no) setBulkPermitNo(parsed.bulk_permit_no);
+          if (parsed.customer_gstin) setCustomerGst(parsed.customer_gstin);
+        } catch (e) {
+          console.error('Error parsing notes in initialData:', e);
+        }
+      }
+    }
+  }, [initialData]);
+
   // ── Generate invoice number whenever company changes ────────────────────────
   useEffect(() => {
-    generateInvoiceNumber(selectedCompany);
+    if (!initialData) {
+      generateInvoiceNumber(selectedCompany);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompany]);
+  }, [selectedCompany, initialData]);
 
   const generateInvoiceNumber = async (companyId: CompanyId) => {
     setGeneratingNumber(true);
@@ -306,13 +1111,14 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
       acc.sgst += c.sgst;
       acc.grandTotal += c.lineTotal;
       acc.totalDiscount += c.discountRs;
+      acc.netWeight += c.qty;
       return acc;
     },
-    { subtotal: 0, cgst: 0, sgst: 0, grandTotal: 0, totalDiscount: 0 }
+    { subtotal: 0, cgst: 0, sgst: 0, grandTotal: 0, totalDiscount: 0, netWeight: 0 }
   );
 
   // ── Save invoice ────────────────────────────────────────────────────────────
-  const handleSave = async () => {
+  const handleSave = async (shouldPrint = false) => {
     if (!customerName.trim()) {
       toast.error('Please select a customer');
       return;
@@ -344,7 +1150,9 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
           };
         });
 
+      const uuid = initialData?.id || crypto.randomUUID();
       const payload = {
+        id: uuid,
         invoice_number: invoiceNumber,
         invoice_date: invoiceDate,
         due_date: invoiceDate,
@@ -358,14 +1166,14 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
         material_rate: parseFloat(lineItems[0]?.price) || 0,
         empty_weight: 0,
         gross_weight: 0,
-        net_weight: 0,
+        net_weight: parseFloat(totals.netWeight.toFixed(3)),
         subtotal: parseFloat(totals.subtotal.toFixed(2)),
         tax_rate: 5,
         tax_amount: parseFloat((totals.cgst + totals.sgst).toFixed(2)),
         total_amount: parseFloat(totals.grandTotal.toFixed(2)),
-        amount_paid: 0,
-        status: 'unpaid',
-        payment_history: '[]',
+        amount_paid: initialData?.amount_paid || 0,
+        status: initialData?.status || 'unpaid',
+        payment_history: initialData?.payment_history || '[]',
         items: JSON.stringify(detailedItems),
         notes: JSON.stringify({
           company_id: selectedCompany,
@@ -378,13 +1186,25 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
         }),
       };
 
-      const { error } = await supabase.from('invoices').insert([payload]);
+      const query = initialData?.id
+        ? supabase.from('invoices').update(payload).eq('id', initialData.id)
+        : supabase.from('invoices').insert([payload]);
+
+      const { error } = await query;
       if (error) throw error;
 
-      toast.success(`GST Invoice ${invoiceNumber} saved successfully!`);
+      toast.success(`GST Invoice ${invoiceNumber} ${initialData ? 'updated' : 'saved'} successfully!`);
+
+      if (shouldPrint) {
+        printGstInvoice({
+          ...payload,
+          created_at: initialData?.created_at || new Date().toISOString(),
+        } as unknown as Invoice);
+      }
+
       onSaved();
     } catch (err: any) {
-      toast.error('Failed to save invoice: ' + (err.message || 'Unknown error'));
+      toast.error(`Failed to ${initialData ? 'update' : 'save'} invoice: ` + (err.message || 'Unknown error'));
     } finally {
       setSaving(false);
     }
@@ -393,6 +1213,7 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
+
 
       {/* ── 1. Company Selector ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -752,11 +1573,33 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
         </div>
       </div>
 
-      {/* ── Save Button ── */}
-      <div className="flex justify-end pb-2">
+      {/* ── Save Buttons ── */}
+      <div className="flex justify-end gap-3 pb-2">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black text-sm uppercase tracking-widest rounded-2xl transition-all"
+          >
+            Cancel Edit
+          </button>
+        )}
         <button
           type="button"
-          onClick={handleSave}
+          onClick={() => handleSave(true)}
+          disabled={saving}
+          className="flex items-center gap-3 px-6 py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-xl shadow-emerald-100 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {saving ? (
+            <RefreshCw className="w-5 h-5 animate-spin" />
+          ) : (
+            <Printer className="w-5 h-5" />
+          )}
+          {saving ? 'Saving...' : initialData ? 'Update & Print' : 'Save & Print'}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSave(false)}
           disabled={saving}
           className="flex items-center gap-3 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-xl shadow-indigo-200 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
         >
@@ -765,7 +1608,7 @@ function GstInvoiceCreator({ onSaved }: { onSaved: () => void }) {
           ) : (
             <Receipt className="w-5 h-5" />
           )}
-          {saving ? 'Saving Invoice...' : 'Save GST Invoice'}
+          {saving ? 'Saving...' : initialData ? 'Update GST Invoice' : 'Save GST Invoice'}
         </button>
       </div>
     </div>
@@ -964,13 +1807,26 @@ function MaterialDropdown({
 }
 
 // ─── Report Viewer (existing functionality preserved) ─────────────────────────
-function GstReportViewer() {
+function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchTerm, setSearchTerm] = useState('');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this GST invoice?')) return;
+    try {
+      const { error } = await supabase.from('invoices').delete().eq('id', id);
+      if (error) throw error;
+      toast.success('GST Invoice deleted successfully!');
+      fetchGstInvoices();
+    } catch (err: any) {
+      toast.error('Failed to delete invoice: ' + (err.message || 'Unknown error'));
+    }
+  };
 
   const fetchGstInvoices = useCallback(async () => {
     setLoading(true);
@@ -1253,8 +2109,8 @@ function GstReportViewer() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  {['Sl', 'Invoice Details', 'Customer & Routing', 'Vehicle & Materials', 'Subtotal', 'GST (5%)', 'Gross Total', 'Paid', 'Due', 'Status'].map((h, i) => (
-                    <th key={h} className={`px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest ${i > 3 ? 'text-right' : ''} ${i === 0 || i === 9 ? 'text-center' : ''}`}>{h}</th>
+                  {['Sl', 'Invoice Details', 'Customer & Routing', 'Vehicle & Materials', 'Subtotal', 'GST (5%)', 'Gross Total', 'Paid', 'Due', 'Status', 'Actions'].map((h, i) => (
+                    <th key={h} className={`px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest ${i > 3 && i < 9 ? 'text-right' : ''} ${i === 0 || i === 9 || i === 10 ? 'text-center' : ''}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -1290,6 +2146,33 @@ function GstReportViewer() {
                         {inv.status}
                       </span>
                     </td>
+                    <td className="px-4 py-4 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => printGstInvoice(inv)}
+                          title="Print GST Invoice"
+                          className="p-2 hover:bg-slate-100 text-slate-500 hover:text-slate-900 rounded-xl transition-all border border-transparent hover:border-slate-200 inline-flex items-center justify-center"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onEdit(inv)}
+                          title="Edit GST Invoice"
+                          className="p-2 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded-xl transition-all border border-transparent hover:border-indigo-100 inline-flex items-center justify-center"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        {user?.role === 'director' && (
+                          <button
+                            onClick={() => handleDelete(inv.id)}
+                            title="Delete GST Invoice"
+                            className="p-2 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-xl transition-all border border-transparent hover:border-rose-100 inline-flex items-center justify-center"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1301,6 +2184,7 @@ function GstReportViewer() {
                   <td className="px-4 py-4 text-right text-xs text-slate-900">Rs. {stats.totalGross.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   <td className="px-4 py-4 text-right text-xs text-emerald-600">Rs. {stats.totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   <td className="px-4 py-4 text-right text-xs text-rose-600">Rs. {stats.totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                  <td></td>
                   <td></td>
                 </tr>
               </tfoot>
