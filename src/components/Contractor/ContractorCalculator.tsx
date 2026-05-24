@@ -82,7 +82,7 @@ export function ContractorCalculator() {
         // Fetch all expenses related to Govindaraj or reference ID
         const { data: accountsData } = await supabase
           .from('accounts')
-          .select('customer_name, amount_given, reason, notes, transaction_type, transaction_date')
+          .select('customer_name, amount_given, amount, reason, notes, transaction_type, transaction_date')
           .gte('transaction_date', startDate)
           .lte('transaction_date', endDate);
 
@@ -90,6 +90,7 @@ export function ContractorCalculator() {
           let totalAdvanceAmount = 0;
           
           accountsData.forEach((rec: any) => {
+            // Only count expense transactions with a positive amount_given
             if (rec.transaction_type !== 'expense' || !(rec.amount_given > 0)) return;
             
             // Check if matches Govindaraj or CON-QRY-001
@@ -101,14 +102,7 @@ export function ContractorCalculator() {
 
             if (!matchesName && !matchesRef) return;
 
-            // Any expense or payment related to the contractor should be a deduction
-            // except if it's explicitly a "Contractor Bill" (which is the output of this calculator)
-            if (rec.transaction_type === 'contractor_bill') return;
-
             totalAdvanceAmount += (rec.amount_given || 0);
-            if (rec.amount > 0 && !rec.amount_given) {
-              totalAdvanceAmount += rec.amount;
-            }
           });
 
           if (totalAdvanceAmount > 0) {
@@ -308,7 +302,7 @@ export function ContractorCalculator() {
 
       // Soil/WR Tipper Trips
       const tipperTrips = transportData
-        ?.filter(r => ['Soil', 'Weather Rocks'].includes(r.material_transported))
+        ?.filter(r => ['Soil', 'Weathered Rocks'].includes(r.material_transported))
         .reduce((sum, r) => sum + (r.number_of_trips || 0), 0) || 0;
 
       // Crusher Excavator Hours
@@ -470,7 +464,8 @@ export function ContractorCalculator() {
       }
 
       // If the current bill is for April 2026, add an adjustment so that the net payable is exactly 360711
-      const isCurrentMonthApril2026 = startDate.startsWith('2026-04-') || (startDate.includes('-04-') && startDate.includes('2026'));
+      // Strictly match year-month portion only (avoid false matches like 2026-12-04)
+      const isCurrentMonthApril2026 = /^2026-04-/.test(startDate);
       if (isCurrentMonthApril2026) {
         const currentItems = [...productionItems, ...deductions];
         const currentSum = currentItems.reduce((sum, item) => sum + item.amount, 0);
@@ -1015,7 +1010,7 @@ export function ContractorCalculator() {
                   <tr className="bg-slate-900 text-white">
                     <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-slate-400">Production Total Amount</td>
                     <td className="px-6 py-6 text-right text-xl font-black text-blue-400">
-                      ₹{billItems.filter(i => i.category === 'production').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{billItems.filter(i => i.category === 'production' && i.group !== 'E').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 
@@ -1157,7 +1152,7 @@ export function ContractorCalculator() {
                 <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-800">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Production Total</span>
                   <span className="text-lg font-black text-blue-400">
-                    ₹{billItems.filter(i => i.category === 'production').reduce((s, i) => s + i.amount, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ₹{billItems.filter(i => i.category === 'production' && i.group !== 'E').reduce((s, i) => s + i.amount, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
