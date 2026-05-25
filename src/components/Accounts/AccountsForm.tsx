@@ -17,6 +17,8 @@ interface AccountsFormProps {
   onSuccess: () => void;
 }
 
+const t = (text: string): string => text;
+
 const DEPARTMENTS = [
   'Quarry', 'Crusher', 'JCB', 'Sales', 'Weighbridge', 'Other'
 ];
@@ -33,8 +35,8 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
   const [showVendorDropdown, setShowVendorDropdown] = useState(false);
   const vendorRef = useRef<HTMLDivElement>(null);
   const [vendorBalance, setVendorBalance] = useState<number | null>(null);
-  const [fundBalances, setFundBalances] = useState<Record<string, number>>({});
-  const [paymentSplits, setPaymentSplits] = useState<Record<string, string>>({});
+  const [fundBalances, setFundBalances] = useState<Map<string, number>>(new Map());
+  const [paymentSplits, setPaymentSplits] = useState<Map<string, string>>(new Map());
   
   const [outflowType, setOutflowType] = useState<'overheads' | 'contractors' | 'suppliers'>('suppliers');
   const [contractorsList, setContractorsList] = useState<any[]>([]);
@@ -83,12 +85,14 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
           .select('amount_paid, payment_mode')
           .gt('amount_paid', 0);
 
-        const totals: Record<string, number> = {};
+        const totals = new Map<string, number>();
         
         if (data) {
           data.forEach(row => {
-            if (!totals[row.source_id]) totals[row.source_id] = 0;
-            totals[row.source_id] += row.type === 'deposit' ? row.amount : -row.amount;
+            const sid = row.source_id;
+            if (!sid || sid === '__proto__' || sid === 'constructor' || sid === 'prototype') return;
+            const current = totals.get(sid) || 0;
+            totals.set(sid, current + (row.type === 'deposit' ? row.amount : -row.amount));
           });
         }
 
@@ -99,8 +103,8 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
             if (mode.includes('upi')) sourceId = 'sbbm_upi';
             if (mode.includes('net') || mode.includes('bank')) sourceId = 'sbbm_netbank';
             
-            if (!totals[sourceId]) totals[sourceId] = 0;
-            totals[sourceId] += (sale.amount_paid || 0);
+            const current = totals.get(sourceId) || 0;
+            totals.set(sourceId, current + (sale.amount_paid || 0));
           });
         }
 
@@ -211,28 +215,28 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
     e.preventDefault();
     setLoading(true);
     try {
-      const selectedSources = Object.keys(paymentSplits);
+      const selectedSources = Array.from(paymentSplits.keys());
       
       if (selectedSources.length === 0) {
-        toast.warning('Please select at least one payment method.');
+        toast.warning(t('Please select at least one payment method.'));
         setLoading(false);
         return;
       }
 
-      const splitTotal = selectedSources.reduce((sum, src) => sum + (parseFloat(paymentSplits[src]) || 0), 0);
+      const splitTotal = selectedSources.reduce((sum, src) => sum + (parseFloat(paymentSplits.get(src) || '0') || 0), 0);
       
       if (Math.abs(splitTotal - amountPaid) > 0.01) {
-        toast.warning(`Total split amount (₹${splitTotal}) must equal Amount to Record (₹${amountPaid}).`);
+        toast.warning(t(`Total split amount (₹${splitTotal}) must equal Amount to Record (₹${amountPaid}).`));
         setLoading(false);
         return;
       }
 
       if (formData.transaction_type === 'expense') {
         for (const src of selectedSources) {
-          const splitAmount = parseFloat(paymentSplits[src]) || 0;
-          const availableBalance = fundBalances[src] || 0;
+          const splitAmount = parseFloat(paymentSplits.get(src) || '0') || 0;
+          const availableBalance = fundBalances.get(src) || 0;
           if (splitAmount > availableBalance) {
-            toast.warning(`Insufficient balance in ${FUND_SOURCES.find(s => s.id === src)?.label || 'selected account'}. Available: ₹${availableBalance.toLocaleString('en-IN')}`);
+            toast.warning(t(`Insufficient balance in ${FUND_SOURCES.find(s => s.id === src)?.label || 'selected account'}. Available: ₹${availableBalance.toLocaleString('en-IN')}`));
             setLoading(false);
             return;
           }
@@ -272,7 +276,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
       const fundInsertions = selectedSources.map(src => ({
         source_id: src,
         type: formData.transaction_type === 'expense' ? 'withdrawal' : 'deposit',
-        amount: parseFloat(paymentSplits[src]) || 0,
+        amount: parseFloat(paymentSplits.get(src) || '0') || 0,
         note: `${formData.transaction_type === 'expense' ? 'Outflow' : 'Inflow'} for ${formData.vendor_payee} (${formData.project_item})`,
         transaction_date: formData.transaction_date,
         created_by: user.id
@@ -286,7 +290,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
         // but ideally we'd use a postgres function for a transaction.
       }
 
-      toast.success(`${formData.transaction_type === 'income' ? 'Inflow' : 'Outflow'} recorded successfully!`);
+      toast.success(t(`${formData.transaction_type === 'income' ? 'Inflow' : 'Outflow'} recorded successfully!`));
       setFormData({
         transaction_type: 'expense',
         towards_company: 'KVSS',
@@ -304,7 +308,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
         is_payment_only: false,
         notes: ''
       });
-      setPaymentSplits({});
+      setPaymentSplits(new Map());
       setVendorSearch('');
       onSuccess();
     } catch (error: any) {
@@ -337,9 +341,9 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
               )}
             </div>
             <div>
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.25em] mb-1">Accounts Module</p>
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.25em] mb-1">{t('Accounts Module')}</p>
               <h2 className="text-2xl md:text-3xl font-black tracking-tight leading-none">
-                {formData.transaction_type === 'income' ? 'Inflow Entry' : 'Outflow Entry'}
+                {formData.transaction_type === 'income' ? t('Inflow Entry') : t('Outflow Entry')}
               </h2>
             </div>
           </div>
@@ -347,20 +351,22 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
           <div className="flex flex-col items-end gap-3">
             <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
                <button 
+                 type="button"
                  onClick={() => update('transaction_type', 'income')}
                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                    formData.transaction_type === 'income' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'
                  }`}
                >
-                 Inflow
+                 {t('Inflow')}
                </button>
                <button 
+                 type="button"
                  onClick={() => update('transaction_type', 'expense')}
                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                    formData.transaction_type === 'expense' ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'
                  }`}
                >
-                 Outflow
+                 {t('Outflow')}
                </button>
             </div>
           </div>
@@ -374,7 +380,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-slate-400" />
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Date')}</label>
           </div>
           <input
             type="date"
@@ -393,7 +399,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-slate-400" />
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outflow Category *</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Outflow Category *')}</label>
               </div>
               <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100 w-full">
                 <button 
@@ -407,7 +413,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                     outflowType === 'overheads' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  Overheads
+                  {t('Overheads')}
                 </button>
                 <button 
                   type="button"
@@ -420,7 +426,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                     outflowType === 'contractors' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  Contractors
+                  {t('Contractors')}
                 </button>
                 <button 
                   type="button"
@@ -433,7 +439,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                     outflowType === 'suppliers' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  Suppliers
+                  {t('Suppliers')}
                 </button>
               </div>
             </div>
@@ -443,7 +449,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-slate-400" />
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {outflowType === 'overheads' ? 'Select Employee' : outflowType === 'contractors' ? 'Select Contractor' : 'Material Supplier *'}
+                  {outflowType === 'overheads' ? t('Select Employee') : outflowType === 'contractors' ? t('Select Contractor') : t('Material Supplier *')}
                 </label>
               </div>
 
@@ -461,7 +467,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                   }}
                   className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm appearance-none cursor-pointer"
                 >
-                  <option value="">-- Choose Employee --</option>
+                  <option value="">-- {t('Choose Employee')} --</option>
                   {overheadList.map(o => (
                     <option key={o.id} value={o.full_name}>
                       {o.full_name} (₹{o.amount.toLocaleString('en-IN')})
@@ -488,7 +494,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                   }}
                   className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm appearance-none cursor-pointer"
                 >
-                  <option value="">-- Choose Contractor --</option>
+                  <option value="">-- {t('Choose Contractor')} --</option>
                   {contractorsList.map(c => (
                     <option key={c.id} value={c.full_name}>
                       {c.full_name} ({c.employee_id})
@@ -509,7 +515,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                       setShowVendorDropdown(true);
                     }}
                     onFocus={() => setShowVendorDropdown(true)}
-                    placeholder="Search supplier…"
+                    placeholder={t('Search supplier…')}
                     className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 focus:bg-white transition-all outline-none text-sm"
                   />
                   {showVendorDropdown && filteredVendors.length > 0 && (
@@ -538,7 +544,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3" ref={vendorRef}>
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-slate-400" />
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer / Payee *</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Customer / Payee *')}</label>
             </div>
             <div className="relative">
               <input
@@ -551,7 +557,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                   setShowVendorDropdown(true);
                 }}
                 onFocus={() => setShowVendorDropdown(true)}
-                placeholder="Search or type name…"
+                placeholder={t('Search or type name…')}
                 className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 focus:bg-white transition-all outline-none text-sm"
               />
               {showVendorDropdown && filteredVendors.length > 0 && (
@@ -579,7 +585,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-slate-400" />
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Department')}</label>
             </div>
             <select
               required
@@ -597,14 +603,14 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-slate-400" />
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purpose of Payment *</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Purpose of Payment *')}</label>
             </div>
             <input
               type="text"
               required
               value={formData.reason}
               onChange={e => update('reason', e.target.value)}
-              placeholder="e.g. Fuel, advance, etc."
+              placeholder={t('e.g. Fuel, advance, etc.')}
               className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm"
             />
           </div>
@@ -613,7 +619,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-slate-400" />
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project / Item *</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Project / Item *')}</label>
             </div>
             <div className="space-y-3">
               <select
@@ -633,7 +639,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                   required
                   value={formData.custom_item}
                   onChange={e => update('custom_item', e.target.value)}
-                  placeholder="Type custom item name…"
+                  placeholder={t('Type custom item name…')}
                   className="w-full px-4 py-3 bg-indigo-50/30 rounded-xl border border-indigo-100 font-bold text-slate-800 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm animate-in slide-in-from-top-2 duration-300"
                 />
               )}
@@ -645,7 +651,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-slate-400" />
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Company</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Select Company')}</label>
           </div>
           <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100 w-full sm:w-fit">
             <button 
@@ -655,7 +661,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                 formData.towards_company === 'KVSS' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/50 hover:text-slate-600'
               }`}
             >
-              KVSS
+              {t('KVSS')}
             </button>
             <button 
               type="button"
@@ -664,7 +670,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                 formData.towards_company === 'SBBM' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/50 hover:text-slate-600'
               }`}
             >
-              SBBM
+              {t('SBBM')}
             </button>
           </div>
         </div>
@@ -679,7 +685,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-slate-400" />
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Financial Details</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Financial Details')}</p>
               </div>
             </div>
 
@@ -691,11 +697,11 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                 'bg-emerald-50 border-emerald-100 text-emerald-900'
               }`}>
                 <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-[0.1em] opacity-60">Vendor Account Standing</span>
+                  <span className="text-[9px] font-black uppercase tracking-[0.1em] opacity-60">{t('Vendor Account Standing')}</span>
                   <span className="text-sm font-black uppercase tracking-widest">
-                    {vendorBalance > 0 ? 'Payment Outstanding' : 
-                     vendorBalance < 0 ? 'Advance Credit' : 
-                     'Account Settled'}
+                    {vendorBalance > 0 ? t('Payment Outstanding') : 
+                     vendorBalance < 0 ? t('Advance Credit') : 
+                     t('Account Settled')}
                   </span>
                 </div>
                 <div className="text-right flex flex-col items-end gap-2">
@@ -710,7 +716,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                         : 'bg-white text-slate-400 hover:text-slate-600 border border-slate-200'
                       }`}
                     >
-                      {formData.is_payment_only ? '✓ Settling Outstanding' : 'Settling Previous Balance?'}
+                      {formData.is_payment_only ? t('✓ Settling Outstanding') : t('Settling Previous Balance?')}
                     </button>
                   )}
                 </div>
@@ -720,7 +726,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
             <div className="space-y-4">
               {/* Amount Paid */}
               <div className="space-y-2">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Amount to Record *</p>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{t('Amount to Record *')}</p>
                 <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-emerald-500/20 focus-within:border-emerald-400 transition-all shadow-inner">
                   <span className="px-5 py-4 text-xl font-black text-emerald-500 bg-emerald-50/50 border-r border-slate-200">₹</span>
                   <input
@@ -730,7 +736,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                     min="0"
                     value={formData.amount_paid}
                     onChange={e => update('amount_paid', e.target.value)}
-                    placeholder="0.00"
+                    placeholder={t('0.00')}
                     className="flex-1 px-6 py-5 font-black text-3xl text-slate-900 outline-none bg-transparent placeholder:text-slate-200"
                   />
                 </div>
@@ -742,13 +748,13 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
           <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
             <div className="flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-slate-400" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payed From</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Payed From')}</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
               {FUND_SOURCES.map(src => {
                 const Icon = src.icon;
-                const active = paymentSplits.hasOwnProperty(src.id);
-                const bal = fundBalances[src.id] ?? 0;
+                const active = paymentSplits.has(src.id);
+                const bal = fundBalances.get(src.id) ?? 0;
                 return (
                   <div
                     key={src.id}
@@ -761,27 +767,27 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                     <button
                       type="button"
                       onClick={() => {
-                        const newSplits = { ...paymentSplits };
+                        const newSplits = new Map(paymentSplits);
                         if (active) {
-                          delete newSplits[src.id];
+                          newSplits.delete(src.id);
                         } else {
-                          const currentTotal = Object.values(newSplits).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+                          const currentTotal = Array.from(newSplits.values()).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
                           const remaining = Math.max(0, parseFloat(formData.amount_paid || '0') - currentTotal);
-                          newSplits[src.id] = remaining > 0 ? String(remaining) : '';
+                          newSplits.set(src.id, remaining > 0 ? String(remaining) : '');
                         }
                         setPaymentSplits(newSplits);
                       }}
                       className="flex items-center gap-2 w-full text-left"
                     >
                       <Icon className={`w-4 h-4 ${active ? src.color : ''}`} />
-                      <span className={`text-[11px] font-black uppercase ${active ? src.color : ''}`}>{src.label}</span>
+                      <span className={`text-[11px] font-black uppercase ${active ? src.color : ''}`}>{t(src.label)}</span>
                     </button>
                     
                     <div className="flex justify-between items-center w-full mt-1">
                       <span className={`text-[10px] font-bold ${
                         bal > 0 ? 'text-emerald-600' : bal < 0 ? 'text-rose-500' : 'text-slate-300'
                       }`}>
-                        Bal: ₹{Math.abs(bal).toLocaleString('en-IN')}
+                        {t('Bal: ₹')}{Math.abs(bal).toLocaleString('en-IN')}
                       </span>
                       {active && (
                         <div className="relative">
@@ -791,10 +797,14 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                             step="0.01"
                             min="0"
                             required
-                            value={paymentSplits[src.id]}
-                            onChange={(e) => setPaymentSplits({ ...paymentSplits, [src.id]: e.target.value })}
+                            value={paymentSplits.get(src.id) || ''}
+                            onChange={(e) => {
+                              const newSplits = new Map(paymentSplits);
+                              newSplits.set(src.id, e.target.value);
+                              setPaymentSplits(newSplits);
+                            }}
                             onClick={(e) => e.stopPropagation()}
-                            placeholder="Amount"
+                            placeholder={t('Amount')}
                             className="w-24 pl-5 pr-2 py-1.5 text-xs font-black rounded-lg border-none focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 bg-white/60 shadow-inner"
                           />
                         </div>
@@ -806,9 +816,9 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
             </div>
 
             {/* Conditional Other Name Field */}
-            {Object.keys(paymentSplits).some(key => key.startsWith('other_')) && (
+            {Array.from(paymentSplits.keys()).some(key => key.startsWith('other_')) && (
               <div className="mt-4 pt-4 border-t border-slate-50 animate-in slide-in-from-top-2 duration-300">
-                <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 block">Specify Name / Holder *</label>
+                <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 block">{t('Specify Name / Holder *')}</label>
                 <div className="relative group">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
                   <input
@@ -816,7 +826,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
                     required
                     value={formData.other_name}
                     onChange={e => update('other_name', e.target.value)}
-                    placeholder="Enter name (e.g. Mani, Appa...)"
+                    placeholder={t('Enter name (e.g. Mani, Appa...)')}
                     className="w-full pl-11 pr-4 py-3 bg-indigo-50/30 rounded-xl border border-indigo-100 font-bold text-slate-800 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none text-sm"
                   />
                 </div>
@@ -827,12 +837,12 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
 
         {/* Remarks (Notes) */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks (Optional)</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Remarks (Optional)')}</p>
           <textarea
             rows={2}
             value={formData.notes}
             onChange={e => update('notes', e.target.value)}
-            placeholder="Any additional reference or remarks..."
+            placeholder={t('Any additional reference or remarks...')}
             className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-medium text-slate-700 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none resize-none text-sm"
           />
         </div>
@@ -841,7 +851,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="flex items-center gap-3 text-slate-400">
             <p className="text-xs font-bold">
-              <span className="text-indigo-600 uppercase tracking-tighter text-[10px] font-black">{formData.towards_company}</span>
+              <span className="text-indigo-600 uppercase tracking-tighter text-[10px] font-black">{t(formData.towards_company)}</span>
               <span className="mx-2 text-slate-300">|</span>
               {formData.vendor_payee && <span className="text-slate-600">{formData.vendor_payee}</span>}
               {amountPaid > 0 && <span className={`${formData.transaction_type === 'income' ? 'text-emerald-500' : 'text-rose-500'} font-black`}> {formData.vendor_payee ? '· ' : ''}₹{amountPaid.toLocaleString('en-IN')}</span>}
@@ -858,11 +868,11 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Processing…
+                {t('Processing…')}
               </>
             ) : (
               <>
-                Commit {formData.transaction_type === 'income' ? 'Inflow' : 'Outflow'}
+                {t('Commit')} {formData.transaction_type === 'income' ? t('Inflow') : t('Outflow')}
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </>
             )}

@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+
+const t = (text: string): string => text;
+
 import {
   Bomb,
   Calendar,
@@ -126,7 +129,7 @@ export function BlastingDetails() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-600">Loading blasting details...</div>
+        <div className="text-slate-600">{t('Loading blasting details...')}</div>
       </div>
     );
   }
@@ -142,7 +145,7 @@ export function BlastingDetails() {
             <TrendingUp className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.totalED.toFixed(1)}</p>
-          <p className="text-sm text-slate-600">Total ED</p>
+          <p className="text-sm text-slate-600">{t('Total ED')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -153,7 +156,7 @@ export function BlastingDetails() {
             <BarChart3 className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.totalEDET.toFixed(1)}</p>
-          <p className="text-sm text-slate-600">Total EDET</p>
+          <p className="text-sm text-slate-600">{t('Total EDET')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -164,7 +167,7 @@ export function BlastingDetails() {
             <BarChart3 className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.totalPG.toFixed(1)}</p>
-          <p className="text-sm text-slate-600">Total PG</p>
+          <p className="text-sm text-slate-600">{t('Total PG')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -175,7 +178,7 @@ export function BlastingDetails() {
             <TrendingUp className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.totalNONEL3m.toFixed(1)}</p>
-          <p className="text-sm text-slate-600">NONEL 3m</p>
+          <p className="text-sm text-slate-600">{t('NONEL 3m')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -186,7 +189,7 @@ export function BlastingDetails() {
             <TrendingUp className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.totalNONEL4m.toFixed(1)}</p>
-          <p className="text-sm text-slate-600">NONEL 4m</p>
+          <p className="text-sm text-slate-600">{t('NONEL 4m')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -197,20 +200,20 @@ export function BlastingDetails() {
             <BarChart3 className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.remainingBalance.toFixed(2)}</p>
-          <p className="text-sm text-slate-600">Remaining Balance</p>
+          <p className="text-sm text-slate-600">{t('Remaining Balance')}</p>
         </div>
 
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="px-6 py-4 border-b border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900">Blasting Records</h3>
-          <p className="text-sm text-slate-600">Click on a record to view details</p>
+          <h3 className="text-lg font-semibold text-slate-900">{t('Blasting Records')}</h3>
+          <p className="text-sm text-slate-600">{t('Click on a record to view details')}</p>
         </div>
 
         {records.length === 0 ? (
           <div className="p-8 text-center text-slate-600">
-            No blasting records found. Create your first record to get started.
+            {t('No blasting records found. Create your first record to get started.')}
           </div>
         ) : (
           <div className="divide-y divide-slate-200">
@@ -254,7 +257,7 @@ export function BlastingDetails() {
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Zap className="w-4 h-4 text-orange-600" />
-                      <span className="text-xs font-medium text-slate-600">ED</span>
+                      <span className="text-xs font-medium text-slate-600">{t('ED')}</span>
                     </div>
                     <p className="text-lg font-bold text-slate-900">{record.ed_nos}</p>
                   </div>
@@ -262,7 +265,7 @@ export function BlastingDetails() {
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Target className="w-4 h-4 text-red-600" />
-                      <span className="text-xs font-medium text-slate-600">EDET</span>
+                      <span className="text-xs font-medium text-slate-600">{t('EDET')}</span>
                     </div>
                     <p className="text-lg font-bold text-slate-900">{record.edet_nos}</p>
                   </div>
@@ -270,7 +273,7 @@ export function BlastingDetails() {
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Bomb className="w-4 h-4 text-purple-600" />
-                      <span className="text-xs font-medium text-slate-600">NONEL 3m</span>
+                      <span className="text-xs font-medium text-slate-600">{t('NONEL 3m')}</span>
                     </div>
                     <p className="text-lg font-bold text-slate-900">{record.nonel_3m_nos || 0}</p>
                   </div>
@@ -278,7 +281,7 @@ export function BlastingDetails() {
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Bomb className="w-4 h-4 text-indigo-600" />
-                      <span className="text-xs font-medium text-slate-600">NONEL 4m</span>
+                      <span className="text-xs font-medium text-slate-600">{t('NONEL 4m')}</span>
                     </div>
                     <p className="text-lg font-bold text-slate-900">{record.nonel_4m_nos || 0}</p>
                   </div>
@@ -286,7 +289,7 @@ export function BlastingDetails() {
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Zap className="w-4 h-4 text-amber-600" />
-                      <span className="text-xs font-medium text-slate-600">PG ({record.pg_unit || 'boxes'})</span>
+                      <span className="text-xs font-medium text-slate-600">{t('PG')} ({record.pg_unit || t('boxes')})</span>
                     </div>
                     <p className="text-lg font-bold text-slate-900">{record.pg_nos}</p>
                   </div>
@@ -298,7 +301,7 @@ export function BlastingDetails() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <FileText className="w-4 h-4 text-slate-600" />
-                          <span className="text-sm font-medium text-slate-700">Notes</span>
+                          <span className="text-sm font-medium text-slate-700">{t('Notes')}</span>
                         </div>
                         <p className="text-sm text-slate-600 ml-6">{record.notes}</p>
                       </div>
@@ -307,7 +310,7 @@ export function BlastingDetails() {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <Calendar className="w-4 h-4 text-slate-600" />
-                        <span className="text-sm font-medium text-slate-700">Submitted</span>
+                        <span className="text-sm font-medium text-slate-700">{t('Submitted')}</span>
                       </div>
                       <p className="text-sm text-slate-600 ml-6">
                         {new Date(record.created_at).toLocaleString()}

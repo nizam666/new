@@ -8,6 +8,8 @@ import {
   Download
 } from 'lucide-react';
 
+const t = (text: string): string => text;
+
 interface Account {
   id: string;
   transaction_type: string;
@@ -162,7 +164,7 @@ export function AccountsDetails() {
     return (
       <div className="flex flex-col items-center justify-center py-24 bg-white rounded-[32px] border border-slate-100">
         <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin mb-4" />
-        <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Hydrating Ledger...</p>
+        <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">{t('Hydrating Ledger...')}</p>
       </div>
     );
   }
@@ -176,7 +178,7 @@ export function AccountsDetails() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search ledger records..."
+            placeholder={t('Search ledger records...')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-slate-50 border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 transition-all font-bold text-slate-800 placeholder:text-slate-400 text-sm"
@@ -189,9 +191,9 @@ export function AccountsDetails() {
             onChange={(e) => setTypeFilter(e.target.value)}
             className="flex-1 lg:w-40 px-4 py-3 bg-slate-50 border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 transition-all font-black text-[10px] uppercase tracking-widest text-slate-600 outline-none"
           >
-            <option value="all">All Types</option>
-            <option value="income">Inflow</option>
-            <option value="expense">Outflow</option>
+            <option value="all">{t('All Types')}</option>
+            <option value="income">{t('Inflow')}</option>
+            <option value="expense">{t('Outflow')}</option>
           </select>
 
           <select
@@ -199,16 +201,16 @@ export function AccountsDetails() {
             onChange={(e) => setFilter(e.target.value)}
             className="flex-1 lg:w-40 px-4 py-3 bg-slate-50 border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500/10 transition-all font-black text-[10px] uppercase tracking-widest text-slate-600 outline-none"
           >
-            <option value="all">All Status</option>
-            <option value="paid">Paid</option>
-            <option value="partial">Partial</option>
-            <option value="pending">Pending</option>
+            <option value="all">{t('All Status')}</option>
+            <option value="paid">{t('Paid')}</option>
+            <option value="partial">{t('Partial')}</option>
+            <option value="pending">{t('Pending')}</option>
           </select>
           
           <button 
             onClick={exportToExcel}
             className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-emerald-600 transition-all shadow-lg shadow-slate-200 active:scale-95 group relative"
-            title="Download Excel Ledger"
+            title={t('Download Excel Ledger')}
           >
             <Download className="w-4 h-4" />
           </button>
@@ -221,15 +223,15 @@ export function AccountsDetails() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50">
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Date</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Transaction</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Type</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Details</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Company</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Pay Towards</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Amount</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Payed From</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Remarks</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">{t('Date')}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">{t('Transaction')}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">{t('Type')}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">{t('Details')}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">{t('Company')}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">{t('Pay Towards')}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">{t('Amount')}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">{t('Payed From')}</th>
+                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">{t('Remarks')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -246,7 +248,7 @@ export function AccountsDetails() {
                       <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest ${
                         account.transaction_type === 'income' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'
                       }`}>
-                        {account.transaction_type === 'income' ? 'Inflow' : 'Outflow'}
+                        {account.transaction_type === 'income' ? t('Inflow') : t('Outflow')}
                       </div>
                     </td>
                     <td className="px-6 py-6">
@@ -268,7 +270,7 @@ export function AccountsDetails() {
                           <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border ${
                             isAdvance ? 'bg-amber-50 border-amber-100 text-amber-600' : 'bg-blue-50 border-blue-100 text-blue-600'
                           }`}>
-                            {isAdvance ? 'Advance' : 'Payment'}
+                            {isAdvance ? t('Advance') : t('Payment')}
                           </span>
                         );
                       })()}
@@ -294,7 +296,7 @@ export function AccountsDetails() {
                         </span>
                         {payedBy && (
                           <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-tighter">
-                            By: {payedBy}
+                            {t('By: ')}{payedBy}
                           </span>
                         )}
                       </div>
@@ -313,8 +315,8 @@ export function AccountsDetails() {
               <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
                 <FileText className="w-8 h-8 text-slate-300" />
               </div>
-              <p className="text-slate-900 font-black text-lg">No records found</p>
-              <p className="text-slate-400 text-sm font-bold mt-1">Try adjusting your filters or search term</p>
+              <p className="text-slate-900 font-black text-lg">{t('No records found')}</p>
+              <p className="text-slate-400 text-sm font-bold mt-1">{t('Try adjusting your filters or search term')}</p>
             </div>
           )}
         </div>
@@ -322,11 +324,11 @@ export function AccountsDetails() {
         {/* ── Footer / Pagination Sim ── */}
         <div className="bg-slate-50/50 px-6 py-4 border-t border-slate-100 flex items-center justify-between">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Showing {filteredAccounts.length} of {accounts.length} transactions
+            {t('Showing ')}{filteredAccounts.length}{t(' of ')}{accounts.length}{t(' transactions')}
           </p>
           <div className="flex items-center gap-2">
-             <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-not-allowed">Previous</button>
-             <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-slate-300 transition-all">Next</button>
+             <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-not-allowed">{t('Previous')}</button>
+             <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-slate-300 transition-all">{t('Next')}</button>
           </div>
         </div>
       </div>

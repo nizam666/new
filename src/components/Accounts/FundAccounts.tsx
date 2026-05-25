@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
+const t = (text: string): string => text;
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface FundSource {
@@ -36,7 +38,7 @@ export const FUND_SOURCES: FundSource[] = [
 // ─── Live Balance Hook ────────────────────────────────────────────────────────
 
 export function useFundBalances() {
-  const [balances, setBalances] = useState<Record<string, number>>({});
+  const [balances, setBalances] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const fetch = async () => {
@@ -53,12 +55,14 @@ export function useFundBalances() {
         .select('amount_paid, payment_mode')
         .gt('amount_paid', 0);
 
-      const totals: Record<string, number> = {};
+      const totals = new Map<string, number>();
       
       // 1. Apply fund transactions (manual deposits/withdrawals)
       (data || []).forEach(row => {
-        if (!totals[row.source_id]) totals[row.source_id] = 0;
-        totals[row.source_id] += row.type === 'deposit' ? row.amount : -row.amount;
+        const sid = row.source_id;
+        if (!sid || sid === '__proto__' || sid === 'constructor' || sid === 'prototype') return;
+        const current = totals.get(sid) || 0;
+        totals.set(sid, current + (row.type === 'deposit' ? row.amount : -row.amount));
       });
 
       // 2. Automatically add Sales collections to SBBM balances
@@ -69,8 +73,8 @@ export function useFundBalances() {
           if (mode.includes('upi')) sourceId = 'sbbm_upi';
           if (mode.includes('net') || mode.includes('bank')) sourceId = 'sbbm_netbank';
           
-          if (!totals[sourceId]) totals[sourceId] = 0;
-          totals[sourceId] += (sale.amount_paid || 0);
+          const current = totals.get(sourceId) || 0;
+          totals.set(sourceId, current + (sale.amount_paid || 0));
         });
       }
 
@@ -97,7 +101,7 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
   const { balances, refresh } = useFundBalances();
 
   const handleSave = async () => {
-    if (!amount || parseFloat(amount) <= 0) return toast.warning('Enter a valid amount');
+    if (!amount || parseFloat(amount) <= 0) return toast.warning(t('Enter a valid amount'));
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -110,19 +114,19 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
         created_by: user?.id
       }]);
       if (error) throw error;
-      toast.success('Inflow recorded!');
+      toast.success(t('Inflow recorded!'));
       setAmount(''); setNote('');
       refresh();
       onSuccess();
     } catch (err: any) {
-      toast.error('Failed: ' + err.message);
+      toast.error(t('Failed: ') + err.message);
     } finally {
       setSaving(false);
     }
   };
 
   const currentSource = FUND_SOURCES.find(s => s.id === source)!;
-  const currentBalance = balances[source] ?? 0;
+  const currentBalance = balances.get(source) ?? 0;
 
   return (
     <div className="space-y-6">
@@ -137,20 +141,20 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
             <TrendingUp className="h-7 w-7 text-white" />
           </div>
           <div>
-            <p className="text-white/60 text-[10px] font-black uppercase tracking-widest">Financial Hub</p>
-            <h2 className="text-2xl font-black tracking-tight">Inflow Entry</h2>
-            <p className="text-white/70 text-sm font-medium mt-0.5">Record incoming funds per account source</p>
+            <p className="text-white/60 text-[10px] font-black uppercase tracking-widest">{t('Financial Hub')}</p>
+            <h2 className="text-2xl font-black tracking-tight">{t('Inflow Entry')}</h2>
+            <p className="text-white/70 text-sm font-medium mt-0.5">{t('Record incoming funds per account source')}</p>
           </div>
         </div>
       </div>
 
       {/* Source Selection */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Fund Source</p>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Select Fund Source')}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
           {FUND_SOURCES.map(src => {
             const Icon = src.icon;
-            const bal = balances[src.id] ?? 0;
+            const bal = balances.get(src.id) ?? 0;
             const active = source === src.id;
             return (
               <button
@@ -163,7 +167,7 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
                 }`}
               >
                 <Icon className={`w-4 h-4 ${active ? src.color : ''}`} />
-                <span className={`text-[10px] font-black uppercase leading-tight ${active ? src.color : ''}`}>{src.label}</span>
+                <span className={`text-[10px] font-black uppercase leading-tight ${active ? src.color : ''}`}>{t(src.label)}</span>
                 <span className={`text-[9px] font-bold ${bal >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                   ₹{Math.abs(bal).toLocaleString('en-IN')}
                 </span>
@@ -177,7 +181,7 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount *</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Amount *')}</p>
           </div>
           <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-4 focus-within:ring-emerald-500/20 focus-within:border-emerald-400 transition-all shadow-inner">
             <span className="px-5 py-4 text-xl font-black text-emerald-500 bg-emerald-50/50 border-r border-slate-200">₹</span>
@@ -191,13 +195,13 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
           </div>
           {currentBalance !== 0 && (
             <p className={`text-[10px] font-bold ${currentBalance > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-              Current {currentSource.label} Balance: ₹{currentBalance.toLocaleString('en-IN')}
+              {t('Current')} {t(currentSource.label)} {t('Balance')}: ₹{currentBalance.toLocaleString('en-IN')}
             </p>
           )}
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Date')}</p>
           <input
             type="date"
             value={date}
@@ -205,12 +209,12 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
             onChange={e => setDate(e.target.value)}
             className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none text-sm"
           />
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Note (Optional)</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{t('Note (Optional)')}</p>
           <input
             type="text"
             value={note}
             onChange={e => setNote(e.target.value)}
-            placeholder="Reference or description..."
+            placeholder={t('Reference or description...')}
             className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 font-medium text-slate-700 placeholder:text-slate-300 focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all outline-none text-sm"
           />
         </div>
@@ -220,10 +224,10 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
       <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <div>
           <p className="text-xs font-black text-slate-500">
-            <span className={`font-black ${currentSource.color}`}>{currentSource.label}</span>
+            <span className={`font-black ${currentSource.color}`}>{t(currentSource.label)}</span>
             {amount && <span className="text-emerald-600 font-black"> + ₹{parseFloat(amount).toLocaleString('en-IN')}</span>}
           </p>
-          <p className="text-[10px] text-slate-400 font-bold mt-0.5">Inflow deposit</p>
+          <p className="text-[10px] text-slate-400 font-bold mt-0.5">{t('Inflow deposit')}</p>
         </div>
         <button
           onClick={handleSave}
@@ -231,7 +235,7 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
           className="flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-emerald-200 active:scale-95 disabled:opacity-50"
         >
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          Record Inflow
+          {t('Record Inflow')}
         </button>
       </div>
     </div>
@@ -243,13 +247,13 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
 export function FundBalanceDashboard() {
   const { balances, loading, refresh } = useFundBalances();
 
-  const total = Object.values(balances).reduce((a, b) => a + b, 0);
+  const total = Array.from(balances.values()).reduce((a, b) => a + b, 0);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Available Funds</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Total Available Funds')}</p>
           <p className={`text-3xl font-black ${total >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>
             ₹{Math.abs(total).toLocaleString('en-IN')}
           </p>
@@ -262,7 +266,7 @@ export function FundBalanceDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {FUND_SOURCES.map(src => {
           const Icon = src.icon;
-          const bal = balances[src.id] ?? 0;
+          const bal = balances.get(src.id) ?? 0;
           return (
             <div key={src.id} className={`p-4 rounded-2xl border ${src.bg} border-transparent space-y-2`}>
               <div className="flex items-center justify-between">
@@ -274,7 +278,7 @@ export function FundBalanceDashboard() {
                   : <Wallet className="w-3 h-3 text-slate-300" />
                 }
               </div>
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-tight">{src.label}</p>
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-tight">{t(src.label)}</p>
               <p className={`text-sm font-black ${bal > 0 ? src.color : bal < 0 ? 'text-rose-600' : 'text-slate-300'}`}>
                 ₹{Math.abs(bal).toLocaleString('en-IN')}
               </p>

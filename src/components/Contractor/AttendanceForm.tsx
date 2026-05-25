@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Clock, Save, Plus } from 'lucide-react';
 
+const t = (text: string): string => text;
+
 const workTypes = [
 	'Drilling',
 	'Blasting',
@@ -246,7 +248,7 @@ export function AttendanceForm({
 						required
 						className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 					>
-						<option value="">Select location</option>
+						<option value="">{t('Select location')}</option>
 						{locationsToDisplay.map((location) => (
 							<option key={location} value={location}>
 								{location}
@@ -296,7 +298,7 @@ export function AttendanceForm({
 						required
 						className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 					>
-						<option value="">Select work type</option>
+						<option value="">{t('Select work type')}</option>
 						{workTypesToDisplay.map((type) => (
 							<option key={type} value={type}>
 								{type}

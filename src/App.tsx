@@ -57,6 +57,11 @@ import { ContractorMasterReport } from './components/Reports/ContractorMasterRep
 import { CrusherContractorReport } from './components/Reports/CrusherContractorReport';
 import { QuarryCrusherCostingReport } from './components/Reports/QuarryCrusherCostingReport';
 import { QuarryDetailCostReport } from './components/Reports/QuarryDetailCostReport';
+import { BalanceSheetReport } from './components/Reports/BalanceSheetReport';
+import { GstrSalesReport } from './components/Reports/GstrSalesReport';
+import { ProfitAndLossReport } from './components/Reports/ProfitAndLossReport';
+
+const t = (text: string): string => text;
 
 function AppContent() {
   const { session, user, loading } = useAuth();
@@ -84,7 +89,7 @@ function AppContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+        <div className="text-white text-xl">{t('Loading...')}</div>
       </div>
     );
   }
@@ -112,11 +117,11 @@ function AppContent() {
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight transition-all">Welcome, {user.full_name}!</h2>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">Role: {user.role.replace('_', ' ')}</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight transition-all">{t('Welcome, ')}{user.full_name}{t('!')}</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">{t('Role: ')}{user.role.replace('_', ' ')}</p>
               </div>
               <div className="px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-black text-indigo-600 uppercase tracking-widest shadow-sm">
-                Attendance Terminal
+                {t('Attendance Terminal')}
               </div>
             </div>
 
@@ -130,12 +135,12 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Drilling Operations</h2>
-              <p className="text-slate-600 mt-1">Record and manage drilling activities</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Drilling Operations')}</h2>
+              <p className="text-slate-600 mt-1">{t('Record and manage drilling activities')}</p>
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <h3 className="text-lg font-semibold mb-4">New Drilling Record</h3>
-              <ErrorBoundary fallback={<div className="text-red-600">Failed to load Drilling Form. Please try again later.</div>}>
+              <h3 className="text-lg font-semibold mb-4">{t('New Drilling Record')}</h3>
+              <ErrorBoundary fallback={<div className="text-red-600">{t('Failed to load Drilling Form. Please try again later.')}</div>}>
                 <DrillingForm onSuccess={() => window.location.reload()} />
               </ErrorBoundary>
             </div>
@@ -164,8 +169,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Blasting Operations</h2>
-              <p className="text-slate-600 mt-1">Record and manage blasting activities</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Blasting Operations')}</h2>
+              <p className="text-slate-600 mt-1">{t('Record and manage blasting activities')}</p>
             </div>
             <BlastingForm onSuccess={() => window.location.reload()} />
           </div>
@@ -175,8 +180,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Breaking/Loading Operations</h2>
-              <p className="text-slate-600 mt-1">Track material breaking and loading</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Breaking/Loading Operations')}</h2>
+              <p className="text-slate-600 mt-1">{t('Track material breaking and loading')}</p>
             </div>
             <LoadingForm onSuccess={() => window.location.reload()} />
           </div>
@@ -193,8 +198,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Transport Operations</h2>
-              <p className="text-slate-600 mt-1">Track vehicle and material transport</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Transport Operations')}</h2>
+              <p className="text-slate-600 mt-1">{t('Track vehicle and material transport')}</p>
             </div>
             <TransportForm onSuccess={() => window.location.reload()} />
           </div>
@@ -204,8 +209,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Boulders Sale Report</h2>
-              <p className="text-slate-600 mt-1">Detailed sales analysis for Q-Boulders material</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Boulders Sale Report')}</h2>
+              <p className="text-slate-600 mt-1">{t('Detailed sales analysis for Q-Boulders material')}</p>
             </div>
             <BouldersSaleReport />
           </div>
@@ -215,8 +220,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Contractor Calculator</h2>
-              <p className="text-slate-600 mt-1">Quarry production and cost calculation hub</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Contractor Calculator')}</h2>
+              <p className="text-slate-600 mt-1">{t('Quarry production and cost calculation hub')}</p>
             </div>
             <ContractorCalculator />
           </div>
@@ -254,8 +259,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Photos & Videos</h2>
-              <p className="text-slate-600 mt-1">Upload and manage site documentation</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Photos & Videos')}</h2>
+              <p className="text-slate-600 mt-1">{t('Upload and manage site documentation')}</p>
             </div>
             <MediaForm onSuccess={() => window.location.reload()} />
           </div>
@@ -265,8 +270,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Crusher Production</h2>
-              <p className="text-slate-600 mt-1">Track crusher operations and output</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Crusher Production')}</h2>
+              <p className="text-slate-600 mt-1">{t('Track crusher operations and output')}</p>
             </div>
             <CrusherProductionForm onSuccess={() => window.location.reload()} />
           </div>
@@ -276,8 +281,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Average Production Cost</h2>
-              <p className="text-slate-600 mt-1">Daily production efficiency and EB consumption analysis</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Average Production Cost')}</h2>
+              <p className="text-slate-600 mt-1">{t('Daily production efficiency and EB consumption analysis')}</p>
             </div>
             <CrusherProductionCostReport />
           </div>
@@ -287,8 +292,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">EB Reports</h2>
-              <p className="text-slate-600 mt-1">Manage Electricity Board reports and records</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('EB Reports')}</h2>
+              <p className="text-slate-600 mt-1">{t('Manage Electricity Board reports and records')}</p>
             </div>
             <EBReportForm onSuccess={() => window.location.reload()} />
           </div>
@@ -298,8 +303,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">EB Records</h2>
-              <p className="text-slate-600 mt-1">Record received EB bill and perform KW UC meter reset</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('EB Records')}</h2>
+              <p className="text-slate-600 mt-1">{t('Record received EB bill and perform KW UC meter reset')}</p>
             </div>
             <EBRecords onSuccess={() => window.location.reload()} />
           </div>
@@ -316,8 +321,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Crusher Maintenance</h2>
-              <p className="text-slate-600 mt-1">Record and document crusher maintenance activities</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Crusher Maintenance')}</h2>
+              <p className="text-slate-600 mt-1">{t('Record and document crusher maintenance activities')}</p>
             </div>
             <CrusherMaintenanceForm onSuccess={() => window.location.reload()} />
           </div>
@@ -337,8 +342,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Inventory Hub</h2>
-              <p className="text-slate-600 mt-1">Track equipment, tools, and supplies</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Inventory Hub')}</h2>
+              <p className="text-slate-600 mt-1">{t('Track equipment, tools, and supplies')}</p>
             </div>
             <InventoryForm onSuccess={() => window.location.reload()} />
           </div>
@@ -367,8 +372,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Storage Management</h2>
-              <p className="text-slate-600 mt-1">Manage storage items, quantities, and pricing</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Storage Management')}</h2>
+              <p className="text-slate-600 mt-1">{t('Manage storage items, quantities, and pricing')}</p>
             </div>
             <StorageForm />
           </div>
@@ -378,8 +383,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Safety & Incidents</h2>
-              <p className="text-slate-600 mt-1">Report and track safety incidents</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Safety & Incidents')}</h2>
+              <p className="text-slate-600 mt-1">{t('Report and track safety incidents')}</p>
             </div>
             <SafetyForm onSuccess={() => window.location.reload()} />
           </div>
@@ -389,8 +394,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Reports & Analytics</h2>
-              <p className="text-slate-600 mt-1">Comprehensive reports for all operations</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Reports & Analytics')}</h2>
+              <p className="text-slate-600 mt-1">{t('Comprehensive reports for all operations')}</p>
             </div>
             <ReportsModule />
           </div>
@@ -400,8 +405,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Material Balance Report</h2>
-              <p className="text-slate-600 mt-1">Production and sales balance</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Material Balance Report')}</h2>
+              <p className="text-slate-600 mt-1">{t('Production and sales balance')}</p>
             </div>
             <MaterialBalanceReportModule />
           </div>
@@ -411,8 +416,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Quarry Production Report</h2>
-              <p className="text-slate-600 mt-1">Contractor operations summary</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Quarry Production Report')}</h2>
+              <p className="text-slate-600 mt-1">{t('Contractor operations summary')}</p>
             </div>
             <QuarryProductionReportModule />
           </div>
@@ -422,8 +427,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Quarry Production Cost Report</h2>
-              <p className="text-slate-600 mt-1">Yield and expense analysis</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Quarry Production Cost Report')}</h2>
+              <p className="text-slate-600 mt-1">{t('Yield and expense analysis')}</p>
             </div>
             <QuarryProductionCostReportModule />
           </div>
@@ -435,12 +440,29 @@ function AppContent() {
       case 'quarry-detail-cost':
         return <QuarryDetailCostReport />;
 
+      case 'gstr1-sales':
+        return <GstrSalesReport />;
+
+      case 'profit-and-loss':
+        return <ProfitAndLossReport />;
+
+      case 'balance-sheet':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Balance Sheet Report')}</h2>
+              <p className="text-slate-600 mt-1">{t('Complete financial statement — income, expenses & net position')}</p>
+            </div>
+            <BalanceSheetReport />
+          </div>
+        );
+
       case 'operations-history':
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Operations History</h2>
-              <p className="text-slate-600 mt-1">Detailed records and logs</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Operations History')}</h2>
+              <p className="text-slate-600 mt-1">{t('Detailed records and logs')}</p>
             </div>
             <OperationsHistoryModule />
           </div>
@@ -450,8 +472,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Sales Report</h2>
-              <p className="text-slate-600 mt-1">Material dispatch and customer sales</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Sales Report')}</h2>
+              <p className="text-slate-600 mt-1">{t('Material dispatch and customer sales')}</p>
             </div>
             <SalesReportModule />
           </div>
@@ -461,8 +483,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Accounting Report</h2>
-              <p className="text-slate-600 mt-1">Financial transactions and balance</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Accounting Report')}</h2>
+              <p className="text-slate-600 mt-1">{t('Financial transactions and balance')}</p>
             </div>
             <AccountingReportModule />
           </div>
@@ -472,8 +494,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Attendance Report</h2>
-              <p className="text-slate-600 mt-1">View Quarry & Crusher attendance records</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Attendance Report')}</h2>
+              <p className="text-slate-600 mt-1">{t('View Quarry & Crusher attendance records')}</p>
             </div>
             <AttendanceReportModule />
           </div>
@@ -483,8 +505,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">New Permit</h2>
-              <p className="text-slate-600 mt-1">Create and submit new permit applications</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('New Permit')}</h2>
+              <p className="text-slate-600 mt-1">{t('Create and submit new permit applications')}</p>
             </div>
             <PermitForm onSuccess={() => window.location.reload()} />
           </div>
@@ -494,8 +516,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Permit Reports</h2>
-              <p className="text-slate-600 mt-1">View and export permit data</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Permit Reports')}</h2>
+              <p className="text-slate-600 mt-1">{t('View and export permit data')}</p>
             </div>
             <PermitReport />
           </div>
@@ -505,8 +527,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Master Contractor Report</h2>
-              <p className="text-slate-600 mt-1">Production, Billing & Deductions Hub</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Master Contractor Report')}</h2>
+              <p className="text-slate-600 mt-1">{t('Production, Billing & Deductions Hub')}</p>
             </div>
             <ContractorMasterReport />
           </div>
@@ -519,8 +541,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Accounts</h2>
-              <p className="text-slate-600 mt-1">Manage invoices, payments, and financial transactions</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Accounts')}</h2>
+              <p className="text-slate-600 mt-1">{t('Manage invoices, payments, and financial transactions')}</p>
             </div>
             <AccountsModule />
           </div>
@@ -530,8 +552,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Issue Items from Stock</h2>
-              <p className="text-slate-600 mt-1">Track items given to departments and employees</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Issue Items from Stock')}</h2>
+              <p className="text-slate-600 mt-1">{t('Track items given to departments and employees')}</p>
             </div>
             <DispatchForm onSuccess={() => window.location.hash = '#inventory-dispatch-report'} />
           </div>
@@ -553,8 +575,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Quarry JCB Operations</h2>
-              <p className="text-slate-600 mt-1">Manage Quarry JCB operations and maintenance</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Quarry JCB Operations')}</h2>
+              <p className="text-slate-600 mt-1">{t('Manage Quarry JCB operations and maintenance')}</p>
             </div>
             <JCBOperationsForm 
               workArea="quarry" 
@@ -573,8 +595,8 @@ function AppContent() {
         return (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Crusher JCB Operations</h2>
-              <p className="text-slate-600 mt-1">Manage Crusher JCB operations and maintenance</p>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Crusher JCB Operations')}</h2>
+              <p className="text-slate-600 mt-1">{t('Manage Crusher JCB operations and maintenance')}</p>
             </div>
             <JCBOperationsForm 
               workArea="crusher" 
@@ -589,7 +611,7 @@ function AppContent() {
       default:
         return (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-            <p className="text-slate-600">Page not found</p>
+            <p className="text-slate-600">{t('Page not found')}</p>
           </div>
         );
     }

@@ -24,6 +24,45 @@ interface BillItem {
   group: 'A' | 'B' | 'C' | 'D' | 'E';
 }
 
+const getRodMeasurementSet1 = (obj: any, step: number): number => {
+  if (!obj) return 0;
+  switch (step) {
+    case 10: return Number(obj.rod10) || 0;
+    case 9: return Number(obj.rod9) || 0;
+    case 8: return Number(obj.rod8) || 0;
+    case 7: return Number(obj.rod7) || 0;
+    case 6: return Number(obj.rod6) || 0;
+    case 5: return Number(obj.rod5) || 0;
+    case 4: return Number(obj.rod4) || 0;
+    case 3: return Number(obj.rod3) || 0;
+    case 2: return Number(obj.rod2) || 0;
+    case 1: return Number(obj.rod1) || 0;
+    case 0.5: return Number(obj.rod0_5) || 0;
+    default: return 0;
+  }
+};
+
+const getRodMeasurementSet2 = (obj: any, step: number): number => {
+  if (!obj) return 0;
+  switch (step) {
+    case 10: return Number(obj.rod10_set2) || 0;
+    case 9: return Number(obj.rod9_set2) || 0;
+    case 8: return Number(obj.rod8_set2) || 0;
+    case 7: return Number(obj.rod7_set2) || 0;
+    case 6: return Number(obj.rod6_set2) || 0;
+    case 5: return Number(obj.rod5_set2) || 0;
+    case 4: return Number(obj.rod4_set2) || 0;
+    case 3: return Number(obj.rod3_set2) || 0;
+    case 2: return Number(obj.rod2_set2) || 0;
+    case 1: return Number(obj.rod1_set2) || 0;
+    case 0.5: return Number(obj.rod0_5_set2) || 0;
+    default: return 0;
+  }
+};
+
+// Lightweight internationalization helper
+const t = (text: string): string => text;
+
 export function ContractorCalculator() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -327,9 +366,8 @@ export function ContractorCalculator() {
           const set2 = r.rod_measurements_set2 || {};
           const ROD_STEPS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0.5];
           ROD_STEPS.forEach(step => {
-            const key = step.toString().replace('.', '_');
-            dailySum += (set1[`rod${key}`] || 0) * step;
-            dailySum += (set2[`rod${key}_set2`] || 0) * step;
+            dailySum += getRodMeasurementSet1(set1, step) * step;
+            dailySum += getRodMeasurementSet2(set2, step) * step;
           });
           return sum + dailySum;
         }, 0) || 0;
@@ -817,8 +855,8 @@ export function ContractorCalculator() {
               <Calculator className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
             <div>
-              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight text-center sm:text-left">Contractor Bill Calculator</h3>
-              <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest text-center sm:text-left">Automated Quarry billing system</p>
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight text-center sm:text-left">{t('Contractor Bill Calculator')}</h3>
+              <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-widest text-center sm:text-left">{t('Automated Quarry billing system')}</p>
             </div>
           </div>
 
@@ -833,7 +871,7 @@ export function ContractorCalculator() {
                   className="w-full sm:w-auto pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <span className="text-slate-400 font-black text-xs hidden sm:inline">TO</span>
+              <span className="text-slate-400 font-black text-xs hidden sm:inline">{t('TO')}</span>
               <div className="relative w-full sm:w-auto">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
                 <input
@@ -850,21 +888,21 @@ export function ContractorCalculator() {
                 onClick={() => saveCalculation(false)}
                 className="flex-1 sm:flex-none px-4 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 active:scale-95 transition-all"
               >
-                <Save className="w-4 h-4" /> Save
+                <Save className="w-4 h-4" /> {t('Save')}
               </button>
               
               <button
                 onClick={exportToExcel}
                 className="flex-1 sm:flex-none px-4 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 flex items-center justify-center gap-2 shadow-lg shadow-slate-200 active:scale-95 transition-all"
               >
-                <Download className="w-4 h-4" /> Excel
+                <Download className="w-4 h-4" /> {t('Excel')}
               </button>
               
               <button
                 onClick={exportToPDF}
                 className="flex-1 sm:flex-none px-4 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
               >
-                <FileText className="w-4 h-4" /> PDF
+                <FileText className="w-4 h-4" /> {t('PDF')}
               </button>
             </div>
           </div>
@@ -875,14 +913,14 @@ export function ContractorCalculator() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-blue-500/20 transition-all duration-700" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="text-center md:text-left">
-              <p className="text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-2">Estimated Net Payable</p>
+              <p className="text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-2">{t('Estimated Net Payable')}</p>
               <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter">
                 ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
               {remainingAdvance > 0 && (
                 <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-lg">
                   <span className="text-[10px] md:text-xs font-black text-amber-400 uppercase tracking-widest">
-                    Remaining Advance Balance:
+                    {t('Remaining Advance Balance:')}
                   </span>
                   <span className="text-sm md:text-base font-black text-amber-300">
                     ₹{remainingAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -892,10 +930,10 @@ export function ContractorCalculator() {
             </div>
             <div className="flex flex-col items-center md:items-end">
               <div className="px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-xl mb-3">
-                <span className="text-blue-400 text-[10px] sm:text-xs font-black uppercase tracking-widest">Contractor: {contractorName}</span>
+                <span className="text-blue-400 text-[10px] sm:text-xs font-black uppercase tracking-widest">{t('Contractor:')} {contractorName}</span>
               </div>
               <p className="text-slate-500 text-[10px] font-bold text-center md:text-right leading-relaxed max-w-[200px]">
-                Net amount after itemized resource deductions and production credits.
+                {t('Net amount after itemized resource deductions and production credits.')}
               </p>
             </div>
           </div>
@@ -906,12 +944,12 @@ export function ContractorCalculator() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Sl.No.</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Item Description</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">UOM</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Rate (₹)</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">QTY</th>
-                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount (₹)</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Sl.No.')}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Item Description')}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t('UOM')}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t('Rate (₹)')}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t('QTY')}</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t('Amount (₹)')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -920,14 +958,14 @@ export function ContractorCalculator() {
                   <td colSpan={6} className="px-6 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-                      <p className="text-sm font-bold text-slate-400">Processing Quarry Data...</p>
+                      <p className="text-sm font-bold text-slate-400">{t('Processing Quarry Data...')}</p>
                     </div>
                   </td>
                 </tr>
               ) : billItems.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-20 text-center">
-                    <p className="text-sm font-bold text-slate-400 italic">No records found for the selected period</p>
+                    <p className="text-sm font-bold text-slate-400 italic">{t('No records found for the selected period')}</p>
                   </td>
                 </tr>
               ) : (
@@ -935,7 +973,7 @@ export function ContractorCalculator() {
                   {/* Group A: Quarry Good Boulders */}
                   <tr className="bg-blue-50/50">
                     <td colSpan={6} className="px-6 py-3">
-                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">Group A: Quarry Good Boulders</span>
+                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">{t('Group A: Quarry Good Boulders')}</span>
                     </td>
                   </tr>
                   {billItems.filter(i => i.group === 'A').map((item) => (
@@ -951,7 +989,7 @@ export function ContractorCalculator() {
                     </tr>
                   ))}
                   <tr className="bg-blue-50/30 border-b border-blue-100">
-                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-blue-400">Section Subtotal</td>
+                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-blue-400">{t('Section Subtotal')}</td>
                     <td className="px-6 py-3 text-right text-sm font-black text-blue-600">
                       ₹{billItems.filter(i => i.group === 'A').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
@@ -960,7 +998,7 @@ export function ContractorCalculator() {
                   {/* Group B: Soil/Weather Rocks */}
                   <tr className="bg-orange-50/50">
                     <td colSpan={6} className="px-6 py-3">
-                      <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em]">Group B: Soil/Weather Rocks</span>
+                      <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em]">{t('Group B: Soil/Weather Rocks')}</span>
                     </td>
                   </tr>
                   {billItems.filter(i => i.group === 'B').map((item) => (
@@ -976,7 +1014,7 @@ export function ContractorCalculator() {
                     </tr>
                   ))}
                   <tr className="bg-orange-50/30 border-b border-orange-100">
-                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-orange-400">Section Subtotal</td>
+                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-orange-400">{t('Section Subtotal')}</td>
                     <td className="px-6 py-3 text-right text-sm font-black text-orange-600">
                       ₹{billItems.filter(i => i.group === 'B').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
@@ -985,7 +1023,7 @@ export function ContractorCalculator() {
                   {/* Group C: Crusher Works */}
                   <tr className="bg-emerald-50/50">
                     <td colSpan={6} className="px-6 py-3">
-                      <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">Group C: Crusher Works</span>
+                      <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">{t('Group C: Crusher Works')}</span>
                     </td>
                   </tr>
                   {billItems.filter(i => i.group === 'C').map((item) => (
@@ -1001,14 +1039,14 @@ export function ContractorCalculator() {
                     </tr>
                   ))}
                   <tr className="bg-emerald-50/30 border-b border-emerald-100">
-                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-emerald-400">Section Subtotal</td>
+                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-emerald-400">{t('Section Subtotal')}</td>
                     <td className="px-6 py-3 text-right text-sm font-black text-emerald-600">
                       ₹{billItems.filter(i => i.group === 'C').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
 
                   <tr className="bg-slate-900 text-white">
-                    <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-slate-400">Production Total Amount</td>
+                    <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('Production Total Amount')}</td>
                     <td className="px-6 py-6 text-right text-xl font-black text-blue-400">
                       ₹{billItems.filter(i => i.category === 'production' && i.group !== 'E').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
@@ -1017,7 +1055,7 @@ export function ContractorCalculator() {
                   {/* Group D: Deductions */}
                   <tr className="bg-rose-50/50">
                     <td colSpan={6} className="px-6 py-3">
-                      <span className="text-[10px] font-black text-rose-600 uppercase tracking-[0.2em]">Group D: Deductions for {contractorName}</span>
+                      <span className="text-[10px] font-black text-rose-600 uppercase tracking-[0.2em]">{t('Group D: Deductions for')} {contractorName}</span>
                     </td>
                   </tr>
                   {billItems.filter(i => i.group === 'D').map((item) => (
@@ -1033,7 +1071,7 @@ export function ContractorCalculator() {
                     </tr>
                   ))}
                   <tr className="bg-rose-50/30 border-b border-rose-100">
-                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-rose-400">Total Deductions</td>
+                    <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-rose-400">{t('Total Deductions')}</td>
                     <td className="px-6 py-3 text-right text-sm font-black text-rose-600">
                       ₹{billItems.filter(i => i.group === 'D').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
@@ -1044,7 +1082,7 @@ export function ContractorCalculator() {
                     <>
                       <tr className="bg-indigo-50/50">
                         <td colSpan={6} className="px-6 py-3">
-                          <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Group E: Brought Forward</span>
+                          <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">{t('Group E: Brought Forward')}</span>
                         </td>
                       </tr>
                       {billItems.filter(i => i.group === 'E').map((item) => (
@@ -1060,7 +1098,7 @@ export function ContractorCalculator() {
                         </tr>
                       ))}
                       <tr className="bg-indigo-50/30 border-b border-indigo-100">
-                        <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-indigo-400">Section Subtotal</td>
+                        <td colSpan={5} className="px-6 py-3 text-right text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('Section Subtotal')}</td>
                         <td className="px-6 py-3 text-right text-sm font-black text-indigo-600">
                           ₹{billItems.filter(i => i.group === 'E').reduce((s, i) => s + i.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
@@ -1069,7 +1107,7 @@ export function ContractorCalculator() {
                   )}
 
                   <tr className="bg-emerald-600 text-white shadow-xl">
-                    <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-emerald-100">Net Payable Amount</td>
+                    <td colSpan={5} className="px-6 py-6 text-right text-xs font-black uppercase tracking-[0.2em] text-emerald-100">{t('Net Payable Amount')}</td>
                     <td className="px-6 py-6 text-right text-2xl font-black text-white">
                       ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
@@ -1085,20 +1123,20 @@ export function ContractorCalculator() {
           {loading ? (
             <div className="py-12 text-center bg-slate-50 rounded-2xl border border-slate-100">
               <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-sm font-bold text-slate-400">Processing Quarry Data...</p>
+              <p className="text-sm font-bold text-slate-400">{t('Processing Quarry Data...')}</p>
             </div>
           ) : billItems.length === 0 ? (
             <div className="py-12 text-center bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-sm font-bold text-slate-400 italic">No records found</p>
+              <p className="text-sm font-bold text-slate-400 italic">{t('No records found')}</p>
             </div>
           ) : (
             <div className="space-y-6">
               {[
-                { id: 'A', label: 'Group A: Quarry Production', bgColor: 'bg-blue-50', textColor: 'text-blue-600', borderColor: 'border-blue-100' },
-                { id: 'B', label: 'Group B: Soil/Weather Rocks', bgColor: 'bg-orange-50', textColor: 'text-orange-600', borderColor: 'border-orange-100' },
-                { id: 'C', label: 'Group C: Crusher Works', bgColor: 'bg-emerald-50', textColor: 'text-emerald-600', borderColor: 'border-emerald-100' },
-                { id: 'D', label: 'Group D: Deductions', bgColor: 'bg-rose-50', textColor: 'text-rose-600', borderColor: 'border-rose-100' },
-                { id: 'E', label: 'Group E: Brought Forward', bgColor: 'bg-indigo-50', textColor: 'text-indigo-600', borderColor: 'border-indigo-100' }
+                { id: 'A', label: t('Group A: Quarry Production'), bgColor: 'bg-blue-50', textColor: 'text-blue-600', borderColor: 'border-blue-100' },
+                { id: 'B', label: t('Group B: Soil/Weather Rocks'), bgColor: 'bg-orange-50', textColor: 'text-orange-600', borderColor: 'border-orange-100' },
+                { id: 'C', label: t('Group C: Crusher Works'), bgColor: 'bg-emerald-50', textColor: 'text-emerald-600', borderColor: 'border-emerald-100' },
+                { id: 'D', label: t('Group D: Deductions'), bgColor: 'bg-rose-50', textColor: 'text-rose-600', borderColor: 'border-rose-100' },
+                { id: 'E', label: t('Group E: Brought Forward'), bgColor: 'bg-indigo-50', textColor: 'text-indigo-600', borderColor: 'border-indigo-100' }
               ].map(group => {
                 const items = billItems.filter(i => i.group === group.id);
                 if (items.length === 0) return null;
@@ -1123,13 +1161,13 @@ export function ContractorCalculator() {
                         
                         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-50">
                           <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rate / QTY</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{t('Rate / QTY')}</p>
                             <p className="text-xs font-black text-slate-700">
                               ₹{item.rate.toLocaleString()} × {item.qty.toLocaleString(undefined, { minimumFractionDigits: 1 })}
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Amount</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{t('Amount')}</p>
                             <p className={`text-sm font-black ${item.category === 'deduction' ? 'text-rose-600' : 'text-slate-900'}`}>
                               ₹{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </p>
@@ -1139,7 +1177,7 @@ export function ContractorCalculator() {
                     ))}
 
                     <div className="flex justify-between items-center px-4 py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Section Subtotal</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Section Subtotal')}</span>
                       <span className={`text-sm font-black ${group.id === 'D' ? 'text-rose-600' : group.textColor}`}>
                         ₹{groupSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
@@ -1150,13 +1188,13 @@ export function ContractorCalculator() {
 
               <div className="mt-8 bg-slate-900 rounded-2xl p-5 shadow-xl">
                 <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-800">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Production Total</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('Production Total')}</span>
                   <span className="text-lg font-black text-blue-400">
                     ₹{billItems.filter(i => i.category === 'production' && i.group !== 'E').reduce((s, i) => s + i.amount, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-black text-white uppercase tracking-widest">Net Payable</span>
+                  <span className="text-xs font-black text-white uppercase tracking-widest">{t('Net Payable')}</span>
                   <span className="text-2xl font-black text-white">
                     ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
@@ -1169,7 +1207,7 @@ export function ContractorCalculator() {
         <div className="mt-8 flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
           <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <p className="text-xs font-medium text-blue-800 leading-relaxed">
-            <strong>Note:</strong> Itemized deductions are based on verified field records for {contractorName}. Production values reflect automated logs from transport, loading, and drilling modules.
+            <strong>{t('Note:')}</strong> {t('Itemized deductions are based on verified field records for')} {contractorName}. {t('Production values reflect automated logs from transport, loading, and drilling modules.')}
           </p>
         </div>
 
@@ -1181,8 +1219,8 @@ export function ContractorCalculator() {
                 <FileText className="h-5 w-5" />
               </div>
               <div>
-                <h4 className="text-base font-black text-slate-900 tracking-tight">Recent Saved Bills</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Historical Snapshot Registry</p>
+                <h4 className="text-base font-black text-slate-900 tracking-tight">{t('Recent Saved Bills')}</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{t('Historical Snapshot Registry')}</p>
               </div>
             </div>
 
@@ -1198,7 +1236,7 @@ export function ContractorCalculator() {
                     </span>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Payable</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{t('Net Payable')}</p>
                     <h5 className="text-xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">
                       ₹{bill.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </h5>

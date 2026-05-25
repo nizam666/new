@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import {
   Calendar, Search, Download, FileText, CheckCircle, TrendingUp,
   Calculator, ShieldAlert, Award, Plus, Trash2, Building2, ChevronDown,
-  Receipt, LayoutList, RefreshCw, Printer, Pencil
+  Receipt, LayoutList, RefreshCw, Printer, Pencil, Truck
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import ExcelJS from 'exceljs';
@@ -47,6 +47,23 @@ const COMPANIES = {
 
 type CompanyId = keyof typeof COMPANIES;
 
+const getCompanyDetails = (id?: string) => {
+  if (id === 'kvs') return COMPANIES.kvs;
+  return COMPANIES.sbbm;
+};
+
+function escapeHtml(unsafe: any): string {
+  if (unsafe === null || unsafe === undefined) return '';
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+const t = (text: string): string => text;
+
 // ─── Indian Numbering System Word Converter ───────────────────────────────────
 function numberToWords(num: number): string {
   const a = [
@@ -56,15 +73,15 @@ function numberToWords(num: number): string {
   const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
   function g(n: number): string {
-    if (n < 20) return a[n];
+    if (n < 20) return a.slice(n, n + 1)[0] || '';
     const digit = n % 10;
-    return b[Math.floor(n / 10)] + (digit ? ' ' + a[digit] : '');
+    return (b.slice(Math.floor(n / 10), Math.floor(n / 10) + 1)[0] || '') + (digit ? ' ' + (a.slice(digit, digit + 1)[0] || '') : '');
   }
 
   function h(n: number): string {
     if (n < 100) return g(n);
     const remainder = n % 100;
-    return a[Math.floor(n / 100)] + ' Hundred' + (remainder ? ' and ' + g(remainder) : '');
+    return (a.slice(Math.floor(n / 100), Math.floor(n / 100) + 1)[0] || '') + ' Hundred' + (remainder ? ' and ' + g(remainder) : '');
   }
 
   function c(n: number): string {
@@ -120,17 +137,497 @@ const formatDate = (dateStr: string) => {
 };
 
 // ─── Dynamic GST Invoice PDF Printing ─────────────────────────────────────────
-const printGstInvoice = async (inv: Invoice) => {
+const GST_INVOICE_TEMPLATE = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>GST Invoice (__BADGE_TEXT__) - __INVOICE_NUMBER__</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 10mm 15mm;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        color: #000000;
+        margin: 0;
+        padding: 0;
+        font-size: 11px;
+        line-height: 1.35;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .container {
+        width: 100%;
+        max-width: 210mm;
+        margin: 0 auto;
+      }
+      .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2px;
+      }
+      .tax-invoice-label {
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        color: #000;
+      }
+      .recipient-badge {
+        border: 1.5px solid #000000;
+        border-radius: 4px;
+        padding: 3px 8px;
+        font-size: 9px;
+        color: #000000;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+      .company-name {
+        font-size: 26px;
+        font-weight: 900;
+        color: #000;
+        margin: 6px 0 2px 0;
+        letter-spacing: -0.01em;
+      }
+      .company-address {
+        font-size: 11px;
+        color: #000;
+        margin: 2px 0 4px 0;
+        font-weight: 500;
+      }
+      .company-contacts {
+        font-size: 11px;
+        color: #000;
+        margin: 4px 0 8px 0;
+        font-weight: 500;
+      }
+      .company-contacts span {
+        margin-right: 15px;
+      }
+      .thick-line {
+        border-top: 4px solid #000;
+        margin: 4px 0 8px 0;
+      }
+      .invoice-banner {
+        background-color: #f1f5f9;
+        padding: 10px 14px;
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        font-weight: 800;
+        margin-bottom: 12px;
+        border: 1px solid #cbd5e1;
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1.2fr 1fr;
+        gap: 20px;
+        margin-bottom: 15px;
+      }
+      .info-col-title {
+        font-size: 11px;
+        font-weight: 900;
+        color: #000;
+        margin-bottom: 6px;
+        letter-spacing: 0.02em;
+        border-bottom: 1px dashed #cbd5e1;
+        padding-bottom: 2px;
+      }
+      .info-col-content {
+        font-size: 11px;
+        line-height: 1.4;
+        color: #000;
+      }
+      .info-col-content strong {
+        font-size: 11px;
+        display: block;
+        margin-bottom: 3px;
+        color: #000;
+      }
+      .permit-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        font-size: 11px;
+      }
+      .permit-label {
+        font-weight: 800;
+        color: #000;
+        text-transform: uppercase;
+      }
+      .permit-value {
+        font-weight: 700;
+        text-align: right;
+      }
+      .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        margin-bottom: 12px;
+      }
+      .items-table thead {
+        border-top: 2.5px solid #000;
+        border-bottom: 2.5px solid #000;
+      }
+      .items-table th {
+        padding: 10px 4px;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        color: #000;
+      }
+      .items-table tbody td {
+        padding: 12px 4px;
+        font-size: 11px;
+        font-weight: 700;
+        vertical-align: middle;
+        color: #000;
+      }
+      .items-table .text-left { text-align: left; }
+      .items-table .text-center { text-align: center; }
+      .items-table .text-right { text-align: right; }
+      
+      .subtotal-row {
+        border-top: 2.5px solid #000;
+        border-bottom: 2.5px solid #000;
+        font-weight: 900;
+      }
+      .subtotal-row td {
+        padding: 10px 4px !important;
+        font-size: 11px !important;
+        text-transform: uppercase;
+      }
+      .bottom-section {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr;
+        gap: 30px;
+        margin-top: 15px;
+      }
+      .bank-title {
+        font-size: 11px;
+        font-weight: 900;
+        color: #000;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+      }
+      .bank-row {
+        display: flex;
+        margin-bottom: 4px;
+        font-size: 10.5px;
+      }
+      .bank-label {
+        width: 90px;
+        font-weight: 700;
+        color: #475569;
+      }
+      .bank-val {
+        font-weight: 800;
+        color: #000;
+      }
+      
+      .qr-section {
+        margin-top: 15px;
+        display: flex;
+        align-items: flex-start;
+        gap: 15px;
+      }
+      .qr-code-img {
+        width: 90px;
+        height: 90px;
+        border: 1.5px solid #000;
+        padding: 4px;
+        border-radius: 4px;
+        background: white;
+      }
+      .qr-details {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 98px;
+      }
+      .qr-title {
+        font-size: 10px;
+        font-weight: 900;
+        color: #000;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+      }
+      .qr-upi-id {
+        font-size: 10.5px;
+        font-weight: 800;
+        color: #000;
+        margin-bottom: 8px;
+      }
+      .qr-logos {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .qr-logo-badge {
+        font-size: 8px;
+        font-weight: 900;
+        padding: 2px 5px;
+        border-radius: 3px;
+        text-transform: uppercase;
+      }
+      .phonepe { background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+      .gpay { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+      .paytm { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+      .upi { background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1; font-style: italic; }
+
+      .breakdown-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .breakdown-table td {
+        padding: 6px 0;
+        font-size: 11px;
+        font-weight: 700;
+        color: #000;
+      }
+      .breakdown-table .val {
+        text-align: right;
+        font-weight: 800;
+      }
+      .breakdown-divider {
+        border-top: 1px solid #94a3b8;
+      }
+      .breakdown-total {
+        font-size: 12.5px !important;
+        font-weight: 950 !important;
+      }
+      
+      .words-section {
+        text-align: right;
+        margin-top: 20px;
+        font-size: 11px;
+      }
+      .words-label {
+        font-weight: 800;
+        color: #475569;
+        margin-bottom: 3px;
+      }
+      .words-value {
+        font-weight: 900;
+        color: #000;
+      }
+      
+      .signatory-section {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        margin-top: 35px;
+        padding-right: 10px;
+      }
+      .signatory-title {
+        font-size: 10px;
+        font-weight: 900;
+        color: #000;
+        text-transform: uppercase;
+        text-align: right;
+        line-height: 1.4;
+      }
+      .signatory-space {
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+      }
+      
+      @media print {
+        body {
+          margin: 0;
+          padding: 0;
+        }
+        .no-print {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body onload="window.print();">
+    <div class="container">
+      <!-- Header Top Labels -->
+      <div class="header-top">
+        <div class="tax-invoice-label">TAX INVOICE</div>
+        <div class="recipient-badge">__BADGE_TEXT__</div>
+      </div>
+      
+      <!-- Company Info Header -->
+      <div class="company-name">__COMPANY_NAME__</div>
+      <div class="company-address">__COMPANY_ADDRESS__</div>
+      <div class="company-contacts">
+        __COMPANY_CONTACTS__
+      </div>
+      
+      <div class="thick-line"></div>
+      
+      <!-- Invoice Info Banner -->
+      <div class="invoice-banner">
+        <div>Invoice No.: __INVOICE_NO__</div>
+        <div>Invoice Date: __INVOICE_DATE__</div>
+      </div>
+      
+      <!-- Billing / Info Grid -->
+      <div class="info-grid">
+        <!-- Column 1: Bill To -->
+        <div>
+          <div class="info-col-title">BILL TO</div>
+          <div class="info-col-content">
+            <strong>__BILL_TO_NAME__</strong>
+            __BILL_TO_ADDRESS__<br/>
+            __BILL_TO_MOBILE__
+            __BILL_TO_GSTIN__
+            __BILL_TO_PAN__
+            Place of Supply: Tamil Nadu
+          </div>
+        </div>
+        
+        <!-- Column 2: Ship To -->
+        <div>
+          <div class="info-col-title">SHIP TO</div>
+          <div class="info-col-content">
+            <strong>__SHIP_TO_NAME__</strong>
+            __SHIP_TO_ADDRESS__<br/>
+            __SHIP_TO_MOBILE__
+            __SHIP_TO_GSTIN__
+            Place of Supply: Tamil Nadu
+          </div>
+        </div>
+        
+        <!-- Column 3: Permit Details -->
+        <div>
+          <div class="info-col-title">DETAILS</div>
+          <div class="info-col-content" style="padding-top: 2px;">
+            <div class="permit-row">
+              <span class="permit-label">Security Paper no</span>
+              <span class="permit-value">__SECURITY_PAPER_NO__</span>
+            </div>
+            __BULK_PERMIT_ROW__
+            <div class="permit-row">
+              <span class="permit-label">VEHICLE NO</span>
+              <span class="permit-value">__VEHICLE_NO__</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Items Table -->
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th class="text-left" style="width: 45%;">ITEMS</th>
+            <th class="text-center" style="width: 12%;">HSN</th>
+            <th class="text-center" style="width: 12%;">QTY.</th>
+            <th class="text-center" style="width: 10%;">RATE</th>
+            <th class="text-center" style="width: 11%;">TAX</th>
+            <th class="text-right" style="width: 10%;">AMOUNT</th>
+          </tr>
+        </thead>
+        <tbody>
+          __ITEMS_ROWS__
+          
+          <!-- Subtotal Row -->
+          <tr class="subtotal-row">
+            <td class="text-left">SUBTOTAL</td>
+            <td></td>
+            <td class="text-center">__TOTAL_QTY__</td>
+            <td></td>
+            <td class="text-center">₹ __TAX_SUBTOTAL__</td>
+            <td class="text-right">₹ __GRAND_TOTAL__</td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <!-- Bottom Section (Bank Details + QR & Breakdown) -->
+      <div class="bottom-section">
+        <!-- Bank details and QR code -->
+        <div>
+          <div class="bank-title">BANK DETAILS</div>
+          <div class="bank-row">
+            <div class="bank-label">Name:</div>
+            <div class="bank-val">__BANK_NAME__</div>
+          </div>
+          <div class="bank-row">
+            <div class="bank-label">IFSC Code:</div>
+            <div class="bank-val">__BANK_IFSC__</div>
+          </div>
+          <div class="bank-row">
+            <div class="bank-label">Account No:</div>
+            <div class="bank-val">__BANK_ACC__</div>
+          </div>
+          <div class="bank-row">
+            <div class="bank-label">Bank:</div>
+            <div class="bank-val">__BANK_BRANCH__</div>
+          </div>
+          
+          __QR_SECTION__
+        </div>
+        
+        <!-- Financial breakdown -->
+        <div>
+          <table class="breakdown-table">
+            <tr>
+              <td>Taxable Amount</td>
+              <td class="val">₹ __BREAKDOWN_SUBTOTAL__</td>
+            </tr>
+            <tr>
+              <td>CGST @2.5%</td>
+              <td class="val">₹ __BREAKDOWN_CGST__</td>
+            </tr>
+            <tr>
+              <td>SGST @2.5%</td>
+              <td class="val">₹ __BREAKDOWN_SGST__</td>
+            </tr>
+            <tr class="breakdown-divider">
+              <td class="breakdown-total" style="padding-top: 8px;">Total Amount</td>
+              <td class="val breakdown-total" style="padding-top: 8px;">₹ __BREAKDOWN_TOTAL__</td>
+            </tr>
+            <tr class="breakdown-divider">
+              <td style="padding-top: 6px; color: #475569;">Received Amount</td>
+              <td class="val" style="padding-top: 6px; color: #000;">₹ __BREAKDOWN_PAID__</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Amount in words -->
+      <div class="words-section">
+        <div class="words-label">Total Amount (in words)</div>
+        <div class="words-value">__AMOUNT_IN_WORDS__</div>
+      </div>
+      
+      <!-- Authorised Signatory Block -->
+      <div class="signatory-section">
+        <div class="signatory-title">
+          __SIGNATORY_CO__
+        </div>
+        <div class="signatory-space">
+          __SIGNATORY_SVG__
+        </div>
+        <div class="signatory-title">
+          __SIGNATORY_TEXT__
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+`;
+
+const printGstInvoice = async (inv: Invoice, copyType: 'original' | 'duplicate' | 'triplicate' = 'original') => {
   const toastId = toast.info('Preparing invoice for print...', { autoClose: false });
   try {
-    // 1. Resolve Company Details from notes or prefix
-    let companyId: CompanyId = 'sbbm';
+    // 1. Resolve Company Details from prefix first, then override from notes if present
+    let companyId: CompanyId = inv.invoice_number.startsWith('KVS') ? 'kvs' : 'sbbm';
     let securityPaperNo = '';
     let bulkPermitNo = '';
     let customerGstin = '';
 
-    try {
-      if (inv.notes) {
+    if (inv.notes) {
+      try {
         const parsedNotes = JSON.parse(inv.notes);
         if (parsedNotes.company_id) {
           companyId = parsedNotes.company_id;
@@ -138,14 +635,12 @@ const printGstInvoice = async (inv: Invoice) => {
         securityPaperNo = parsedNotes.security_paper_no || '';
         bulkPermitNo = parsedNotes.bulk_permit_no || '';
         customerGstin = parsedNotes.customer_gstin || '';
-      }
-    } catch (e) {
-      if (inv.invoice_number.startsWith('KVS')) {
-        companyId = 'kvs';
+      } catch {
+        // Ignore parsing error
       }
     }
 
-    const company = COMPANIES[companyId];
+    const company = getCompanyDetails(companyId);
 
     // 2. Fetch Customer Details for Billing address, PAN and Mobile
     let billingAddress = '';
@@ -189,548 +684,128 @@ const printGstInvoice = async (inv: Invoice) => {
     }
 
     // UPI Details
-    const showQrCode = companyId === 'sbbm' && 'upi_id' in company && company.upi_id;
+    const showQrCode = companyId === 'sbbm';
     const qrCodeUrl = showQrCode 
-      ? `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`upi://pay?pa=${(company as any).upi_id}&pn=${encodeURIComponent(company.name)}&am=${inv.total_amount}&cu=INR`)}`
+      ? 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent('upi://pay?pa=' + (company as any).upi_id + '&pn=' + encodeURIComponent(company.name) + '&am=' + inv.total_amount + '&cu=INR')
       : '';
 
     // Generate Signature SVG
-    const signatureSvg = `
-      <svg width="120" height="50" viewBox="0 0 120 50">
-        <path d="M 15 35 C 30 15, 35 10, 42 28 C 50 35, 65 35, 75 25 C 80 18, 92 10, 95 28 C 98 33, 108 30, 115 25" fill="none" stroke="#1e40af" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    `;
+    const signatureSvg = 
+      '<svg width="120" height="50" viewBox="0 0 120 50">' +
+        '<path d="M 15 35 C 30 15, 35 10, 42 28 C 50 35, 65 35, 75 25 C 80 18, 92 10, 95 28 C 98 33, 108 30, 115 25" fill="none" stroke="#1e40af" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>';
 
     // Number to words
     const amountInWords = numberToWords(inv.total_amount);
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>GST Invoice - ${inv.invoice_number}</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 10mm 15mm;
-            }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-              color: #000000;
-              margin: 0;
-              padding: 0;
-              font-size: 11px;
-              line-height: 1.35;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            .container {
-              width: 100%;
-              max-width: 210mm;
-              margin: 0 auto;
-            }
-            .header-top {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 2px;
-            }
-            .tax-invoice-label {
-              font-size: 14px;
-              font-weight: 800;
-              letter-spacing: 0.05em;
-              color: #000;
-            }
-            .recipient-badge {
-              border: 1.5px solid #000000;
-              border-radius: 4px;
-              padding: 3px 8px;
-              font-size: 9px;
-              color: #000000;
-              font-weight: 800;
-              letter-spacing: 0.02em;
-            }
-            .company-name {
-              font-size: 26px;
-              font-weight: 900;
-              color: #000;
-              margin: 6px 0 2px 0;
-              letter-spacing: -0.01em;
-            }
-            .company-address {
-              font-size: 11px;
-              color: #000;
-              margin: 2px 0 4px 0;
-              font-weight: 500;
-            }
-            .company-contacts {
-              font-size: 11px;
-              color: #000;
-              margin: 4px 0 8px 0;
-              font-weight: 500;
-            }
-            .company-contacts span {
-              margin-right: 15px;
-            }
-            .thick-line {
-              border-top: 4px solid #000;
-              margin: 4px 0 8px 0;
-            }
-            .invoice-banner {
-              background-color: #f1f5f9;
-              padding: 10px 14px;
-              border-radius: 4px;
-              display: flex;
-              justify-content: space-between;
-              font-size: 12px;
-              font-weight: 800;
-              margin-bottom: 12px;
-              border: 1px solid #cbd5e1;
-            }
-            .info-grid {
-              display: grid;
-              grid-template-columns: 1.2fr 1.2fr 1fr;
-              gap: 20px;
-              margin-bottom: 15px;
-            }
-            .info-col-title {
-              font-size: 11px;
-              font-weight: 900;
-              color: #000;
-              margin-bottom: 6px;
-              letter-spacing: 0.02em;
-              border-bottom: 1px dashed #cbd5e1;
-              padding-bottom: 2px;
-            }
-            .info-col-content {
-              font-size: 11px;
-              line-height: 1.4;
-              color: #000;
-            }
-            .info-col-content strong {
-              font-size: 11px;
-              display: block;
-              margin-bottom: 3px;
-              color: #000;
-            }
-            .permit-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 5px;
-              font-size: 11px;
-            }
-            .permit-label {
-              font-weight: 800;
-              color: #000;
-              text-transform: uppercase;
-            }
-            .permit-value {
-              font-weight: 700;
-              text-align: right;
-            }
-            .items-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 15px;
-              margin-bottom: 12px;
-            }
-            .items-table thead {
-              border-top: 2.5px solid #000;
-              border-bottom: 2.5px solid #000;
-            }
-            .items-table th {
-              padding: 10px 4px;
-              font-size: 11px;
-              font-weight: 900;
-              text-transform: uppercase;
-              color: #000;
-            }
-            .items-table tbody td {
-              padding: 12px 4px;
-              font-size: 11px;
-              font-weight: 700;
-              vertical-align: middle;
-              color: #000;
-            }
-            .items-table .text-left { text-align: left; }
-            .items-table .text-center { text-align: center; }
-            .items-table .text-right { text-align: right; }
-            
-            .subtotal-row {
-              border-top: 2.5px solid #000;
-              border-bottom: 2.5px solid #000;
-              font-weight: 900;
-            }
-            .subtotal-row td {
-              padding: 10px 4px !important;
-              font-size: 11px !important;
-              text-transform: uppercase;
-            }
-            .bottom-section {
-              display: grid;
-              grid-template-columns: 1.3fr 1fr;
-              gap: 30px;
-              margin-top: 15px;
-            }
-            .bank-title {
-              font-size: 11px;
-              font-weight: 900;
-              color: #000;
-              margin-bottom: 6px;
-              text-transform: uppercase;
-            }
-            .bank-row {
-              display: flex;
-              margin-bottom: 4px;
-              font-size: 10.5px;
-            }
-            .bank-label {
-              width: 90px;
-              font-weight: 700;
-              color: #475569;
-            }
-            .bank-val {
-              font-weight: 800;
-              color: #000;
-            }
-            
-            .qr-section {
-              margin-top: 15px;
-              display: flex;
-              align-items: flex-start;
-              gap: 15px;
-            }
-            .qr-code-img {
-              width: 90px;
-              height: 90px;
-              border: 1.5px solid #000;
-              padding: 4px;
-              border-radius: 4px;
-              background: white;
-            }
-            .qr-details {
-              display: flex;
-              flex-direction: column;
-              justify-content: center;
-              height: 98px;
-            }
-            .qr-title {
-              font-size: 10px;
-              font-weight: 900;
-              color: #000;
-              margin-bottom: 4px;
-              text-transform: uppercase;
-            }
-            .qr-upi-id {
-              font-size: 10.5px;
-              font-weight: 800;
-              color: #000;
-              margin-bottom: 8px;
-            }
-            .qr-logos {
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              margin-top: 2px;
-            }
-            .qr-logo-badge {
-              font-size: 8px;
-              font-weight: 900;
-              padding: 2px 5px;
-              border-radius: 3px;
-              text-transform: uppercase;
-            }
-            .phonepe { background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
-            .gpay { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-            .paytm { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-            .upi { background-color: #f8fafc; color: #475569; border: 1px solid #cbd5e1; font-style: italic; }
+    let badgeText = 'ORIGINAL FOR RECIPIENT';
+    if (copyType === 'duplicate') {
+      badgeText = 'DUPLICATE FOR TRANSPORTER';
+    } else if (copyType === 'triplicate') {
+      badgeText = 'TRIPLICATE FOR SUPPLIER';
+    }
 
-            .breakdown-table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            .breakdown-table td {
-              padding: 6px 0;
-              font-size: 11px;
-              font-weight: 700;
-              color: #000;
-            }
-            .breakdown-table .val {
-              text-align: right;
-              font-weight: 800;
-            }
-            .breakdown-divider {
-              border-top: 1px solid #94a3b8;
-            }
-            .breakdown-total {
-              font-size: 12.5px !important;
-              font-weight: 950 !important;
-            }
-            
-            .words-section {
-              text-align: right;
-              margin-top: 20px;
-              font-size: 11px;
-            }
-            .words-label {
-              font-weight: 800;
-              color: #475569;
-              margin-bottom: 3px;
-            }
-            .words-value {
-              font-weight: 900;
-              color: #000;
-            }
-            
-            .signatory-section {
-              display: flex;
-              flex-direction: column;
-              align-items: flex-end;
-              margin-top: 35px;
-              padding-right: 10px;
-            }
-            .signatory-title {
-              font-size: 10px;
-              font-weight: 900;
-              color: #000;
-              text-transform: uppercase;
-              text-align: right;
-              line-height: 1.4;
-            }
-            .signatory-space {
-              height: 50px;
-              display: flex;
-              align-items: center;
-              justify-content: flex-end;
-            }
-            
-            @media print {
-              body {
-                margin: 0;
-                padding: 0;
-              }
-              .no-print {
-                display: none;
-              }
-            }
-          </style>
-        </head>
-        <body onload="window.print();">
-          <div class="container">
-            <!-- Header Top Labels -->
-            <div class="header-top">
-              <div class="tax-invoice-label">TAX INVOICE</div>
-              <div class="recipient-badge">ORIGINAL FOR RECIPIENT</div>
-            </div>
-            
-            <!-- Company Info Header -->
-            <div class="company-name">${company.name}</div>
-            <div class="company-address">${company.address}</div>
-            <div class="company-contacts">
-              ${company.mobile ? `<span><strong>Mobile:</strong> ${company.mobile}</span>` : ''}
-              <span><strong>GSTIN:</strong> ${company.gstin}</span>
-              <span><strong>PAN Number:</strong> ${company.pan}</span>
-              <span><strong>Email:</strong> ${company.email}</span>
-            </div>
-            
-            <div class="thick-line"></div>
-            
-            <!-- Invoice Info Banner -->
-            <div class="invoice-banner">
-              <div>Invoice No.: ${inv.invoice_number.split('-').pop()}</div>
-              <div>Invoice Date: ${formatDate(inv.invoice_date)}</div>
-            </div>
-            
-            <!-- Billing / Info Grid -->
-            <div class="info-grid">
-              <!-- Column 1: Bill To -->
-              <div>
-                <div class="info-col-title">BILL TO</div>
-                <div class="info-col-content">
-                  <strong>${inv.customer_name.toUpperCase()}</strong>
-                  ${billingAddress ? billingAddress.replace(/\n/g, '<br/>') : 'Address not specified'}<br/>
-                  ${customerMobile ? `Mobile: ${customerMobile}<br/>` : ''}
-                  ${customerGstin ? `GSTIN: ${customerGstin}<br/>` : ''}
-                  ${customerPan ? `PAN Number: ${customerPan}<br/>` : ''}
-                  Place of Supply: Tamil Nadu
-                </div>
-              </div>
-              
-              <!-- Column 2: Ship To -->
-              <div>
-                <div class="info-col-title">SHIP TO</div>
-                <div class="info-col-content">
-                  <strong>${inv.customer_name.toUpperCase()}</strong>
-                  ${billingAddress ? billingAddress.replace(/\n/g, '<br/>') : 'Address not specified'}<br/>
-                  ${customerMobile ? `Mobile: ${customerMobile}<br/>` : ''}
-                  ${customerGstin ? `GSTIN: ${customerGstin}<br/>` : ''}
-                  Place of Supply: Tamil Nadu
-                </div>
-              </div>
-              
-              <!-- Column 3: Permit Details -->
-              <div>
-                <div class="info-col-title">DETAILS</div>
-                <div class="info-col-content" style="padding-top: 2px;">
-                  <div class="permit-row">
-                    <span class="permit-label">Security Paper no</span>
-                    <span class="permit-value">${securityPaperNo || '-'}</span>
-                  </div>
-                  ${bulkPermitNo ? `
-                  <div class="permit-row">
-                    <span class="permit-label">BULK PERMIT NO</span>
-                    <span class="permit-value">${bulkPermitNo}</span>
-                  </div>
-                  ` : ''}
-                  <div class="permit-row">
-                    <span class="permit-label">VEHICLE NO</span>
-                    <span class="permit-value">${inv.vehicle_no || '-'}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Items Table -->
-            <table class="items-table">
-              <thead>
-                <tr>
-                  <th class="text-left" style="width: 45%;">ITEMS</th>
-                  <th class="text-center" style="width: 12%;">HSN</th>
-                  <th class="text-center" style="width: 12%;">QTY.</th>
-                  <th class="text-center" style="width: 10%;">RATE</th>
-                  <th class="text-center" style="width: 11%;">TAX</th>
-                  <th class="text-right" style="width: 10%;">AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${parsedItems.map((item) => {
-                  const qty = parseFloat(item.quantity) || 0;
-                  const inclRate = parseFloat(item.price || item.rate) || 0;
-                  const discount = parseFloat(item.discount_rs || item.discount || 0);
-                  const baseTaxable = (qty * inclRate - discount) / 1.05;
-                  const calculatedRate = baseTaxable / qty;
-                  const taxVal = baseTaxable * 0.05;
-                  const lineTotal = qty * inclRate - discount;
-                  
-                  return `
-                    <tr>
-                      <td class="text-left">${item.material || item.material_name}</td>
-                      <td class="text-center">${item.hsn || '-'}</td>
-                      <td class="text-center">${qty} MTON</td>
-                      <td class="text-center">${calculatedRate.toFixed(2)}</td>
-                      <td class="text-center">
-                        ${taxVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <div style="font-size: 8px; color: #475569; font-weight: normal; margin-top: 1px;">(5%)</div>
-                      </td>
-                      <td class="text-right">${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-                    </tr>
-                  `;
-                }).join('')}
-                
-                <!-- Subtotal Row -->
-                <tr class="subtotal-row">
-                  <td class="text-left">SUBTOTAL</td>
-                  <td></td>
-                  <td class="text-center">${totalQty}</td>
-                  <td></td>
-                  <td class="text-center">₹ ${inv.tax_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  <td class="text-right">₹ ${inv.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-                </tr>
-              </tbody>
-            </table>
-            
-            <!-- Bottom Section (Bank Details + QR & Breakdown) -->
-            <div class="bottom-section">
-              <!-- Bank details and QR code -->
-              <div>
-                <div class="bank-title">BANK DETAILS</div>
-                <div class="bank-row">
-                  <div class="bank-label">Name:</div>
-                  <div class="bank-val">${company.bank_name}</div>
-                </div>
-                <div class="bank-row">
-                  <div class="bank-label">IFSC Code:</div>
-                  <div class="bank-val">${company.bank_ifsc}</div>
-                </div>
-                <div class="bank-row">
-                  <div class="bank-label">Account No:</div>
-                  <div class="bank-val">${company.bank_acc}</div>
-                </div>
-                <div class="bank-row">
-                  <div class="bank-label">Bank:</div>
-                  <div class="bank-val">${company.bank_branch}</div>
-                </div>
-                
-                ${showQrCode ? `
-                <!-- QR Code section -->
-                <div class="qr-section">
-                  <img class="qr-code-img" src="${qrCodeUrl}" alt="Payment QR Code"/>
-                  <div class="qr-details">
-                    <div class="qr-title">PAYMENT QR CODE</div>
-                    <div class="qr-upi-id">UPI ID: ${(company as any).upi_id}</div>
-                    <div class="qr-logos">
-                      <span class="qr-logo-badge phonepe">PhonePe</span>
-                      <span class="qr-logo-badge gpay">GPay</span>
-                      <span class="qr-logo-badge paytm">Paytm</span>
-                      <span class="qr-logo-badge upi">UPI</span>
-                    </div>
-                  </div>
-                </div>
-                ` : ''}
-              </div>
-              
-              <!-- Financial breakdown -->
-              <div>
-                <table class="breakdown-table">
-                  <tr>
-                    <td>Taxable Amount</td>
-                    <td class="val">₹ ${inv.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  </tr>
-                  <tr>
-                    <td>CGST @2.5%</td>
-                    <td class="val">₹ ${(inv.tax_amount / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  </tr>
-                  <tr>
-                    <td>SGST @2.5%</td>
-                    <td class="val">₹ ${(inv.tax_amount / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  </tr>
-                  <tr class="breakdown-divider">
-                    <td class="breakdown-total" style="padding-top: 8px;">Total Amount</td>
-                    <td class="val breakdown-total" style="padding-top: 8px;">₹ ${inv.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-                  </tr>
-                  <tr class="breakdown-divider">
-                    <td style="padding-top: 6px; color: #475569;">Received Amount</td>
-                    <td class="val" style="padding-top: 6px; color: #000;">₹ ${(inv.amount_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-                  </tr>
-                </table>
-              </div>
-            </div>
-            
-            <!-- Amount in words -->
-            <div class="words-section">
-              <div class="words-label">Total Amount (in words)</div>
-              <div class="words-value">${amountInWords}</div>
-            </div>
-            
-            <!-- Authorised Signatory Block -->
-            <div class="signatory-section">
-              <div class="signatory-title">
-                ${companyId === 'kvs' ? 'For KVS SUBRAHMANYAM' : ''}
-              </div>
-              <div class="signatory-space">
-                ${signatureSvg}
-              </div>
-              <div class="signatory-title">
-                ${companyId === 'kvs' ? 'AUTHORISED SIGNATORY.' : `
-                  AUTHORISED SIGNATORY FOR<br/>
-                  SRI BABA BLUE METALS PRIVATE LIMITED
-                `}
-              </div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
+    const companyContactsHtml = 
+      (company.mobile ? '<span><strong>Mobile:</strong> ' + escapeHtml(company.mobile) + '</span>' : '') +
+      '<span><strong>GSTIN:</strong> ' + escapeHtml(company.gstin) + '</span>' +
+      '<span><strong>PAN Number:</strong> ' + escapeHtml(company.pan) + '</span>' +
+      '<span><strong>Email:</strong> ' + escapeHtml(company.email) + '</span>';
 
+    const invoiceNoHtml = escapeHtml(inv.invoice_number.split('-').pop());
+    const invoiceDateHtml = escapeHtml(formatDate(inv.invoice_date));
+
+    const billingAddressHtml = billingAddress ? escapeHtml(billingAddress).replace(/\n/g, '<br/>') : 'Address not specified';
+    const customerMobileHtml = customerMobile ? 'Mobile: ' + escapeHtml(customerMobile) + '<br/>' : '';
+    const customerGstinHtml = customerGstin ? 'GSTIN: ' + escapeHtml(customerGstin) + '<br/>' : '';
+    const customerPanHtml = customerPan ? 'PAN Number: ' + escapeHtml(customerPan) + '<br/>' : '';
+
+    const bulkPermitRowHtml = bulkPermitNo 
+      ? '<div class="permit-row"><span class="permit-label">BULK PERMIT NO</span><span class="permit-value">' + escapeHtml(bulkPermitNo) + '</span></div>'
+      : '';
+
+    const itemsRowsHtml = parsedItems.map((item) => {
+      const qty = parseFloat(item.quantity) || 0;
+      const inclRate = parseFloat(item.price || item.rate) || 0;
+      const discount = parseFloat(item.discount_rs || item.discount || 0);
+      const baseTaxable = (qty * inclRate - discount) / 1.05;
+      const calculatedRate = baseTaxable / qty;
+      const taxVal = baseTaxable * 0.05;
+      const lineTotal = qty * inclRate - discount;
+      
+      return '<tr>' +
+        '<td class="text-left">' + escapeHtml(item.material || item.material_name) + '</td>' +
+        '<td class="text-center">' + escapeHtml(item.hsn || '-') + '</td>' +
+        '<td class="text-center">' + qty + ' MTON</td>' +
+        '<td class="text-center">' + calculatedRate.toFixed(2) + '</td>' +
+        '<td class="text-center">' +
+          taxVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+          '<div style="font-size: 8px; color: #475569; font-weight: normal; margin-top: 1px;">(5%)</div>' +
+        '</td>' +
+        '<td class="text-right">' + lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + '</td>' +
+      '</tr>';
+    }).join('');
+
+    const qrSectionHtml = showQrCode 
+      ? '<div class="qr-section">' +
+          '<img class="qr-code-img" src="' + escapeHtml(qrCodeUrl) + '" alt="Payment QR Code"/>' +
+          '<div class="qr-details">' +
+            '<div class="qr-title">PAYMENT QR CODE</div>' +
+            '<div class="qr-upi-id">UPI ID: ' + escapeHtml((company as any).upi_id) + '</div>' +
+            '<div class="qr-logos">' +
+              '<span class="qr-logo-badge phonepe">PhonePe</span>' +
+              '<span class="qr-logo-badge gpay">GPay</span>' +
+              '<span class="qr-logo-badge paytm">Paytm</span>' +
+              '<span class="qr-logo-badge upi">UPI</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      : '';
+
+    const signatoryCoHtml = companyId === 'kvs' ? 'For KVS SUBRAHMANYAM' : '';
+    const signatoryTextHtml = companyId === 'kvs' 
+      ? 'AUTHORISED SIGNATORY.' 
+      : 'AUTHORISED SIGNATORY FOR<br/>SRI BABA BLUE METALS PRIVATE LIMITED';
+
+    const finalHtml = GST_INVOICE_TEMPLATE
+      .replace(/__BADGE_TEXT__/g, escapeHtml(badgeText))
+      .replace(/__INVOICE_NUMBER__/g, escapeHtml(inv.invoice_number))
+      .replace(/__COMPANY_NAME__/g, escapeHtml(company.name))
+      .replace(/__COMPANY_ADDRESS__/g, escapeHtml(company.address))
+      .replace(/__COMPANY_CONTACTS__/g, companyContactsHtml)
+      .replace(/__INVOICE_NO__/g, invoiceNoHtml)
+      .replace(/__INVOICE_DATE__/g, invoiceDateHtml)
+      .replace(/__BILL_TO_NAME__/g, escapeHtml(inv.customer_name.toUpperCase()))
+      .replace(/__BILL_TO_ADDRESS__/g, billingAddressHtml)
+      .replace(/__BILL_TO_MOBILE__/g, customerMobileHtml)
+      .replace(/__BILL_TO_GSTIN__/g, customerGstinHtml)
+      .replace(/__BILL_TO_PAN__/g, customerPanHtml)
+      .replace(/__SHIP_TO_NAME__/g, escapeHtml(inv.customer_name.toUpperCase()))
+      .replace(/__SHIP_TO_ADDRESS__/g, billingAddressHtml)
+      .replace(/__SHIP_TO_MOBILE__/g, customerMobileHtml)
+      .replace(/__SHIP_TO_GSTIN__/g, customerGstinHtml)
+      .replace(/__SECURITY_PAPER_NO__/g, escapeHtml(securityPaperNo || '-'))
+      .replace(/__BULK_PERMIT_ROW__/g, bulkPermitRowHtml)
+      .replace(/__VEHICLE_NO__/g, escapeHtml(inv.vehicle_no || '-'))
+      .replace(/__ITEMS_ROWS__/g, itemsRowsHtml)
+      .replace(/__TOTAL_QTY__/g, String(totalQty))
+      .replace(/__TAX_SUBTOTAL__/g, inv.tax_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+      .replace(/__GRAND_TOTAL__/g, inv.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }))
+      .replace(/__BANK_NAME__/g, escapeHtml(company.bank_name))
+      .replace(/__BANK_IFSC__/g, escapeHtml(company.bank_ifsc))
+      .replace(/__BANK_ACC__/g, escapeHtml(company.bank_acc))
+      .replace(/__BANK_BRANCH__/g, escapeHtml(company.bank_branch))
+      .replace(/__QR_SECTION__/g, qrSectionHtml)
+      .replace(/__BREAKDOWN_SUBTOTAL__/g, inv.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+      .replace(/__BREAKDOWN_CGST__/g, (inv.tax_amount / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+      .replace(/__BREAKDOWN_SGST__/g, (inv.tax_amount / 2).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+      .replace(/__BREAKDOWN_TOTAL__/g, inv.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }))
+      .replace(/__BREAKDOWN_PAID__/g, (inv.amount_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }))
+      .replace(/__AMOUNT_IN_WORDS__/g, escapeHtml(amountInWords))
+      .replace(/__SIGNATORY_CO__/g, signatoryCoHtml)
+      .replace(/__SIGNATORY_SVG__/g, signatureSvg)
+      .replace(/__SIGNATORY_TEXT__/g, signatoryTextHtml);
+
+    printWindow.document.write(finalHtml);
     printWindow.document.close();
     toast.dismiss(toastId);
   } catch (err: any) {
@@ -800,6 +875,7 @@ interface Invoice {
 export function GstSalesModule() {
   const [activeTab, setActiveTab] = useState<'create' | 'report'>('create');
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
 
   const handleEdit = (inv: Invoice) => {
     setEditingInvoice(inv);
@@ -809,6 +885,27 @@ export function GstSalesModule() {
   const handleCancelEdit = () => {
     setEditingInvoice(null);
     setActiveTab('report');
+  };
+
+  const triggerPrint = (copy: 'original' | 'duplicate' | 'triplicate') => {
+    if (invoiceToPrint) {
+      printGstInvoice(invoiceToPrint, copy);
+    }
+  };
+
+  const triggerPrintAll = async () => {
+    if (invoiceToPrint) {
+      // Print Original
+      printGstInvoice(invoiceToPrint, 'original');
+      // Print Duplicate
+      setTimeout(() => {
+        printGstInvoice(invoiceToPrint!, 'duplicate');
+      }, 500);
+      // Print Triplicate
+      setTimeout(() => {
+        printGstInvoice(invoiceToPrint!, 'triplicate');
+      }, 1000);
+    }
   };
 
   return (
@@ -827,12 +924,12 @@ export function GstSalesModule() {
           }`}
         >
           <Receipt className="w-3.5 h-3.5" />
-          Create Invoice
+          {t('Create Invoice')}
         </button>
         {editingInvoice && (
           <div className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-700 font-black text-xs uppercase tracking-widest shadow-sm">
             <Receipt className="w-3.5 h-3.5" />
-            Edit: {editingInvoice.invoice_number}
+            {t('Edit:')} {editingInvoice.invoice_number}
           </div>
         )}
         <button
@@ -847,7 +944,7 @@ export function GstSalesModule() {
           }`}
         >
           <LayoutList className="w-3.5 h-3.5" />
-          GST Report
+          {t('GST Report')}
         </button>
       </div>
 
@@ -859,9 +956,115 @@ export function GstSalesModule() {
             setActiveTab('report');
           }}
           onCancel={editingInvoice ? handleCancelEdit : undefined}
+          onPrintRequest={(inv) => setInvoiceToPrint(inv)}
         />
       ) : (
-        <GstReportViewer onEdit={handleEdit} />
+        <GstReportViewer onEdit={handleEdit} onPrintRequest={(inv) => setInvoiceToPrint(inv)} />
+      )}
+
+      {/* ── Print Selection Modal ── */}
+      {invoiceToPrint && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden p-6 md:p-8 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-inner">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">{t('Print Invoice Copies')}</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{t('GST BILL Snapshots')}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInvoiceToPrint(null)}
+                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <span className="sr-only">{t('Close')}</span>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-6 bg-slate-50 border border-slate-100 rounded-2xl p-4">
+              <div className="flex justify-between text-xs font-bold text-slate-500 mb-1.5">
+                <span>{t('Invoice No:')}</span>
+                <span className="text-slate-800 font-extrabold">{invoiceToPrint.invoice_number}</span>
+              </div>
+              <div className="flex justify-between text-xs font-bold text-slate-500 mb-1.5">
+                <span>{t('Customer:')}</span>
+                <span className="text-slate-800 font-extrabold">{invoiceToPrint.customer_name}</span>
+              </div>
+              <div className="flex justify-between text-xs font-bold text-slate-500">
+                <span>{t('Total Amount:')}</span>
+                <span className="text-indigo-600 font-black">₹{invoiceToPrint.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  triggerPrint('original');
+                  setInvoiceToPrint(null);
+                }}
+                className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-200 rounded-2xl transition-all duration-200 group text-left shadow-sm hover:shadow"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-sm font-black text-slate-900 tracking-tight group-hover:text-indigo-600 transition-colors">{t('Original Copy')}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('For Recipient')}</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 group-hover:bg-indigo-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-colors">
+                  <FileText className="w-4 h-4" />
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  triggerPrint('duplicate');
+                  setInvoiceToPrint(null);
+                }}
+                className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-amber-50/50 border border-slate-200 hover:border-amber-200 rounded-2xl transition-all duration-200 group text-left shadow-sm hover:shadow"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-sm font-black text-slate-900 tracking-tight group-hover:text-amber-600 transition-colors">{t('Duplicate Copy')}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('For Transporter')}</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 group-hover:bg-amber-100 flex items-center justify-center text-slate-400 group-hover:text-amber-600 transition-colors">
+                  <Truck className="w-4 h-4" />
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  triggerPrint('triplicate');
+                  setInvoiceToPrint(null);
+                }}
+                className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-200 rounded-2xl transition-all duration-200 group text-left shadow-sm hover:shadow"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-sm font-black text-slate-900 tracking-tight group-hover:text-emerald-600 transition-colors">{t('Triplicate Copy')}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('For Supplier')}</p>
+                </div>
+                <div className="w-8 h-8 rounded-xl bg-slate-50 group-hover:bg-emerald-100 flex items-center justify-center text-slate-400 group-hover:text-emerald-600 transition-colors">
+                  <Building2 className="w-4 h-4" />
+                </div>
+              </button>
+
+              <div className="pt-2 border-t border-slate-100 mt-2">
+                <button
+                  onClick={() => {
+                    triggerPrintAll();
+                    setInvoiceToPrint(null);
+                  }}
+                  className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all duration-200 shadow-lg shadow-slate-200 hover:shadow active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Printer className="w-4 h-4" /> {t('Print All 3 Copies')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -872,10 +1075,12 @@ function GstInvoiceCreator({
   initialData,
   onSaved,
   onCancel,
+  onPrintRequest,
 }: {
   initialData?: Invoice;
   onSaved: () => void;
   onCancel?: () => void;
+  onPrintRequest?: (inv: Invoice) => void;
 }) {
   const [selectedCompany, setSelectedCompany] = useState<CompanyId>('sbbm');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -1011,7 +1216,7 @@ function GstInvoiceCreator({
     setGeneratingNumber(true);
     try {
       const year = new Date().getFullYear();
-      const prefix = COMPANIES[companyId].prefix;
+      const prefix = getCompanyDetails(companyId).prefix;
       const { data } = await supabase
         .from('invoices')
         .select('invoice_number')
@@ -1022,7 +1227,8 @@ function GstInvoiceCreator({
       let nextNum = 1;
       if (data && data.length > 0) {
         const parts = data[0].invoice_number.split('-');
-        const last = parseInt(parts[parts.length - 1]);
+        const lastVal = parts.slice(-1)[0];
+        const last = lastVal ? parseInt(lastVal) : NaN;
         if (!isNaN(last)) nextNum = last + 1;
       }
       setInvoiceNumber(`${prefix}-${year}-${String(nextNum).padStart(3, '0')}`);
@@ -1130,7 +1336,7 @@ function GstInvoiceCreator({
 
     setSaving(true);
     try {
-      const company = COMPANIES[selectedCompany];
+      const company = getCompanyDetails(selectedCompany);
 
       const detailedItems = lineItems
         .filter((i) => i.material)
@@ -1196,10 +1402,16 @@ function GstInvoiceCreator({
       toast.success(`GST Invoice ${invoiceNumber} ${initialData ? 'updated' : 'saved'} successfully!`);
 
       if (shouldPrint) {
-        printGstInvoice({
+        const invoiceObj = {
           ...payload,
+          id: initialData?.id || '',
           created_at: initialData?.created_at || new Date().toISOString(),
-        } as unknown as Invoice);
+        } as unknown as Invoice;
+        if (onPrintRequest) {
+          onPrintRequest(invoiceObj);
+        } else {
+          printGstInvoice(invoiceObj);
+        }
       }
 
       onSaved();
@@ -1218,7 +1430,7 @@ function GstInvoiceCreator({
       {/* ── 1. Company Selector ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {(Object.keys(COMPANIES) as CompanyId[]).map((compId) => {
-          const co = COMPANIES[compId];
+          const co = getCompanyDetails(compId);
           const isSelected = selectedCompany === compId;
           return (
             <button
@@ -1239,8 +1451,8 @@ function GstInvoiceCreator({
               <p className={`font-black text-sm leading-snug ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>
                 {co.name}
               </p>
-              <p className={`text-[10px] font-bold mt-1.5 uppercase tracking-wider ${isSelected ? 'text-indigo-400' : 'text-slate-400'}`}>
-                GSTIN: {co.gstin}
+              <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isSelected ? 'text-indigo-500' : 'text-slate-400'}`}>
+                {t('GSTIN:')} {co.gstin}
               </p>
               {isSelected && (
                 <div className="absolute top-3.5 right-3.5 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center shadow-sm">
@@ -1257,7 +1469,7 @@ function GstInvoiceCreator({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-              Invoice Number
+              {t('Invoice Number')}
             </label>
             <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 ${
               generatingNumber ? 'border-slate-100 bg-slate-50' : 'border-slate-200 bg-slate-50'
@@ -1268,13 +1480,13 @@ function GstInvoiceCreator({
                 <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
               )}
               <span className="font-black text-slate-700 text-sm tracking-wide">
-                {generatingNumber ? 'Generating...' : invoiceNumber}
+                {generatingNumber ? t('Generating...') : invoiceNumber}
               </span>
             </div>
           </div>
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-              Invoice Date
+              {t('Invoice Date')}
             </label>
             <div className="relative">
               <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -1293,79 +1505,74 @@ function GstInvoiceCreator({
       {/* ── 3. Bill To + Security / Permit / Vehicle ── */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-5">
-          Bill To
+          {t('Bill To')}
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {/* Customer */}
-          <div>
-            <label className="block text-xs font-black text-slate-600 mb-2">Customer Name *</label>
-            <CustomerDropdown
-              customers={customers}
-              value={customerName}
-              onSelect={(cust) => {
-                setSelectedCustomerId(cust.id);
-                setCustomerName(cust.name || cust.company);
-                setCustomerGst(cust.gst_number || '');
-              }}
-            />
-          </div>
-          {/* GSTIN */}
-          <div>
-            <label className="block text-xs font-black text-slate-600 mb-2">Customer GSTIN</label>
-            <input
-              type="text"
-              value={customerGst}
-              onChange={(e) => setCustomerGst(e.target.value.toUpperCase())}
-              placeholder="Auto-filled from customer record"
-              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-bold text-sm text-slate-700 uppercase bg-slate-50 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:normal-case placeholder:font-normal placeholder:text-slate-400"
-            />
-          </div>
-
-          {/* Security Paper No */}
-          <div>
-            <label className="block text-xs font-black text-slate-600 mb-2">Security Paper No.</label>
-            <input
-              type="text"
-              value={securityPaperNo}
-              onChange={(e) => setSecurityPaperNo(e.target.value)}
-              placeholder="Enter security paper number"
-              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-semibold text-sm text-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+            <div className="relative flex-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('Customer Name *')}</label>
+              <CustomerDropdown
+                customers={customers}
+                value={customerName}
+                onSelect={(cust) => {
+                  setSelectedCustomerId(cust.id);
+                  setCustomerName(cust.name || cust.company);
+                  setCustomerGst(cust.gst_number || '');
+                }}
+              />
+            </div>
+            <div className="relative flex-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('Customer GSTIN')}</label>
+              <input
+                type="text"
+                value={customerGst}
+                onChange={(e) => setCustomerGst(e.target.value.toUpperCase())}
+                placeholder="Auto-filled from customer record"
+                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-bold text-sm text-slate-700 uppercase bg-slate-50 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:normal-case placeholder:font-normal placeholder:text-slate-400"
+              />
+            </div>
           </div>
 
-          {/* Bulk Permit No */}
-          <div>
-            <label className="block text-xs font-black text-slate-600 mb-2">Bulk Permit No.</label>
-            <input
-              type="text"
-              value={bulkPermitNo}
-              onChange={(e) => setBulkPermitNo(e.target.value)}
-              placeholder="Enter bulk permit number"
-              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-semibold text-sm text-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="relative">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('Security Paper No.')}</label>
+              <input
+                type="text"
+                value={securityPaperNo}
+                onChange={(e) => setSecurityPaperNo(e.target.value)}
+                placeholder="Enter security paper number"
+                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-semibold text-sm text-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+              />
+            </div>
+            <div className="relative">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('Bulk Permit No.')}</label>
+              <input
+                type="text"
+                value={bulkPermitNo}
+                onChange={(e) => setBulkPermitNo(e.target.value)}
+                placeholder="Enter bulk permit number"
+                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-semibold text-sm text-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+              />
+            </div>
+            <div className="relative">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('Vehicle No.')}</label>
+              <input
+                type="text"
+                value={vehicleNo}
+                onChange={(e) => setVehicleNo(e.target.value.toUpperCase())}
+                placeholder="e.g. TN 33 AB 1234"
+                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-bold text-sm text-slate-700 uppercase focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:normal-case placeholder:font-normal placeholder:text-slate-400"
+              />
+            </div>
           </div>
-
-          {/* Vehicle No */}
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-black text-slate-600 mb-2">Vehicle No.</label>
-            <input
-              type="text"
-              value={vehicleNo}
-              onChange={(e) => setVehicleNo(e.target.value.toUpperCase())}
-              placeholder="e.g. TN 33 AB 1234"
-              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-bold text-sm text-slate-700 uppercase focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:normal-case placeholder:font-normal placeholder:text-slate-400"
-            />
-          </div>
-        </div>
       </div>
 
       {/* ── 4. Line Items ── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {/* Table Header Bar */}
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Items
-          </h3>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+            {t('Items')}
+          </span>
           <button
             type="button"
             onClick={addItem}
@@ -1380,34 +1587,27 @@ function GstInvoiceCreator({
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50">
-                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-8 text-center">#</th>
-                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[160px]">Item</th>
-                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24">HSN</th>
-                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-28">Qty (MTON)</th>
-                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-32">Price / MT <span className="text-indigo-400 normal-case">(Incl. GST)</span></th>
-                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-52">
-                  Discount (₹ / %)
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">{t('Item')}</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t('HSN')}</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t('Qty (MTON)')}</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t('Price / MT')}</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+                  {t('Discount (₹ / %)')}
                 </th>
-                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-16 text-center">Tax</th>
-                <th className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-32 text-right">Amount (₹)</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{t('Tax')}</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t('Amount (₹)')}</th>
                 <th className="px-4 py-3 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {lineItems.map((item, idx) => {
+              {lineItems.map((item) => {
                 const c = calcItem(item);
                 return (
                   <tr
                     key={item.id}
                     className="hover:bg-indigo-50/20 transition-colors"
                   >
-                    <td className="px-4 py-3.5 text-center">
-                      <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black flex items-center justify-center mx-auto">
-                        {idx + 1}
-                      </span>
-                    </td>
-
                     {/* Item select */}
                     <td className="px-4 py-3.5">
                       <MaterialDropdown
@@ -1533,42 +1733,26 @@ function GstInvoiceCreator({
         </div>
 
         {/* ── Totals Summary ── */}
-        <div className="px-6 py-5 border-t border-slate-100 bg-gradient-to-br from-slate-50 to-indigo-50/30">
-          <div className="flex justify-end">
-            <div className="w-full max-w-xs space-y-2.5">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500 font-bold">Taxable Amount</span>
-                <span className="font-black text-slate-800">
-                  ₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-              {totals.totalDiscount > 0 && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-amber-600 font-bold">Total Discount</span>
-                  <span className="font-black text-amber-600">
-                    −₹{totals.totalDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-indigo-500 font-bold">CGST @ 2.5%</span>
-                <span className="font-black text-indigo-700">
-                  ₹{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-indigo-500 font-bold">SGST @ 2.5%</span>
-                <span className="font-black text-indigo-700">
-                  ₹{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="border-t-2 border-indigo-200 pt-3 flex justify-between items-center">
-                <span className="text-slate-900 font-black text-base">Grand Total</span>
-                <span className="text-xl font-black text-indigo-900">
-                  ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 border-t border-slate-100 bg-slate-50/50">
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('Taxable Amount')}</span>
+            <span className="text-sm font-bold text-slate-800">Rs. {totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('Total Discount')}</span>
+            <span className="text-sm font-bold text-rose-500">- Rs. {totals.totalDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('CGST @ 2.5%')}</span>
+            <span className="text-sm font-bold text-slate-700">Rs. {totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('SGST @ 2.5%')}</span>
+            <span className="text-sm font-bold text-slate-700">Rs. {totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div className="bg-gradient-to-r from-indigo-900 to-indigo-800 text-white p-6 rounded-2xl flex justify-between items-center shadow-md">
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-indigo-200">{t('Grand Total')}</span>
+            <span className="text-xl font-black text-white">Rs. {totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
           </div>
         </div>
       </div>
@@ -1581,7 +1765,7 @@ function GstInvoiceCreator({
             onClick={onCancel}
             className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black text-sm uppercase tracking-widest rounded-2xl transition-all"
           >
-            Cancel Edit
+            {t('Cancel Edit')}
           </button>
         )}
         <button
@@ -1703,7 +1887,7 @@ function CustomerDropdown({
               ))
             ) : (
               <div className="px-4 py-8 text-center">
-                <p className="text-sm font-bold text-slate-400">No customers found</p>
+                <li className="px-4 py-3 text-xs font-bold text-slate-400 italic text-center">{t('No customers found')}</li>
               </div>
             )}
           </div>
@@ -1796,7 +1980,7 @@ function MaterialDropdown({
               ))
             ) : (
               <div className="px-3 py-6 text-center">
-                <p className="text-xs font-bold text-slate-400">No items found</p>
+                <li className="px-4 py-3 text-xs font-bold text-slate-400 italic text-center">{t('No items found')}</li>
               </div>
             )}
           </div>
@@ -1807,7 +1991,7 @@ function MaterialDropdown({
 }
 
 // ─── Report Viewer (existing functionality preserved) ─────────────────────────
-function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
+function GstReportViewer({ onEdit, onPrintRequest }: { onEdit: (inv: Invoice) => void; onPrintRequest?: (inv: Invoice) => void }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -1841,7 +2025,18 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setInvoices(data || []);
+
+      // Filter to ONLY include official GST invoices created by GstSalesModule
+      const gstInvoices = (data || []).filter((inv) => {
+        try {
+          const parsed = JSON.parse(inv.notes || '{}');
+          return parsed && parsed.invoice_type === 'gst_invoice';
+        } catch {
+          return false;
+        }
+      });
+
+      setInvoices(gstInvoices);
     } catch (err) {
       console.error('Error fetching GST invoices:', err);
     } finally {
@@ -1894,7 +2089,9 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
           .map((i: any) => `${i.material || i.material_name || ''} (${(i.quantity || 0).toFixed(2)} MT)`)
           .join(', ');
       }
-    } catch (e) {}
+    } catch {
+      // Ignore parsing error and fallback
+    }
     return '-';
   };
 
@@ -1966,8 +2163,8 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
     doc.setFontSize(11);
     doc.setFont('Helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text('GST Sales Report', 14, 21);
-    doc.text(`Period: ${format(parseISO(startDate), 'dd-MM-yyyy')} to ${format(parseISO(endDate), 'dd-MM-yyyy')}`, 14, 26);
+    doc.text(t('GST Sales Ledger'), 14, 21);
+    doc.text(t('Comprehensive 5% GST billing insights'), 14, 26);
     const tableRows = filteredInvoices.map((inv, index) => [
       index + 1, inv.invoice_number, format(parseISO(inv.invoice_date), 'dd-MM-yyyy'),
       inv.customer_name, inv.vehicle_no || '-', getMaterialDetails(inv.items),
@@ -2015,8 +2212,8 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
             <Award className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-xl md:text-2xl font-black tracking-tight">GST Sales Ledger</h2>
-            <p className="text-xs text-indigo-300 font-bold uppercase tracking-wider">Comprehensive 5% GST billing insights</p>
+            <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">{t('GST Sales Ledger')}</h3>
+            <p className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">{t('Comprehensive 5% GST billing insights')}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -2064,7 +2261,7 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
                 <p className="text-[10px] font-black uppercase tracking-wider">{label}</p>
               </div>
               <p className={`text-xl font-black leading-none text-${color === 'blue' || color === 'teal' ? 'slate' : color}-${color === 'blue' || color === 'teal' ? '900' : '600'}`}>
-                Rs. {value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {t('Rs.')} {value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className={`mt-4 pt-3 border-t border-slate-100 text-[10px] font-bold text-${color}-${color === 'blue' || color === 'teal' ? '400' : '500'} uppercase tracking-wider`}>
@@ -2084,10 +2281,10 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
           className="px-4 py-2 bg-slate-50 border-none focus:ring-2 focus:ring-indigo-500 rounded-xl text-sm font-bold text-slate-600 outline-none">
-          <option value="all">All Payment Status</option>
-          <option value="unpaid">Unpaid Only</option>
-          <option value="partial">Partially Paid Only</option>
-          <option value="paid">Fully Paid Only</option>
+          <option value="all">{t('All Payment Status')}</option>
+          <option value="unpaid">{t('Unpaid Only')}</option>
+          <option value="partial">{t('Partially Paid Only')}</option>
+          <option value="paid">{t('Fully Paid Only')}</option>
         </select>
       </div>
 
@@ -2096,13 +2293,13 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
         {loading ? (
           <div className="py-24 text-center">
             <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-sm font-bold text-slate-400">Fetching GST records...</p>
+             <p className="text-sm font-bold text-slate-400">{t('Fetching GST records...')}</p>
           </div>
         ) : filteredInvoices.length === 0 ? (
           <div className="py-24 text-center">
             <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <p className="text-base font-black text-slate-800">No GST Invoices Found</p>
-            <p className="text-xs text-slate-400 mt-1">Adjust dates or try searching different keywords</p>
+             <p className="text-base font-black text-slate-800">{t('No GST Invoices Found')}</p>
+             <p className="text-xs text-slate-400 mt-1">{t('Adjust dates or try searching different keywords')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -2110,7 +2307,7 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   {['Sl', 'Invoice Details', 'Customer & Routing', 'Vehicle & Materials', 'Subtotal', 'GST (5%)', 'Gross Total', 'Paid', 'Due', 'Status', 'Actions'].map((h, i) => (
-                    <th key={h} className={`px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest ${i > 3 && i < 9 ? 'text-right' : ''} ${i === 0 || i === 9 || i === 10 ? 'text-center' : ''}`}>{h}</th>
+                    <th key={h} className={`px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest ${i > 3 && i < 9 ? 'text-right' : ''} ${i === 0 || i === 9 || i === 10 ? 'text-center' : ''}`}>{t(h)}</th>
                   ))}
                 </tr>
               </thead>
@@ -2127,20 +2324,20 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
                     <td className="px-4 py-4">
                       <p className="font-bold text-slate-800 leading-tight">{inv.customer_name}</p>
                       {inv.delivery_location && (
-                        <p className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[160px]">Dest: {inv.delivery_location}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[160px]">{t('Dest:')} {inv.delivery_location}</p>
                       )}
                     </td>
                     <td className="px-4 py-4">
                       <p className="text-slate-800 text-xs font-bold leading-tight truncate max-w-[200px]" title={getMaterialDetails(inv.items)}>
                         {getMaterialDetails(inv.items)}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-black tracking-widest uppercase mt-0.5">VEHICLE: {inv.vehicle_no || '-'}</p>
+                      <p className="text-[10px] text-slate-400 font-black tracking-widest uppercase mt-0.5">{t('VEHICLE:')} {inv.vehicle_no || '-'}</p>
                     </td>
-                    <td className="px-4 py-4 text-right text-xs">Rs. {inv.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-4 text-right text-xs text-indigo-600 font-bold">Rs. {inv.tax_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-4 text-right text-xs text-slate-900 font-bold">Rs. {inv.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-4 text-right text-xs text-emerald-600">Rs. {inv.amount_paid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-4 text-right text-xs text-rose-600 font-bold">Rs. {(inv.total_amount - inv.amount_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-4 text-right text-xs">{t('Rs.')} {inv.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-4 text-right text-xs text-indigo-600 font-bold">{t('Rs.')} {inv.tax_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-4 text-right text-xs text-slate-900 font-bold">{t('Rs.')} {inv.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-4 text-right text-xs text-emerald-600">{t('Rs.')} {inv.amount_paid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-4 text-right text-xs text-rose-600 font-bold">{t('Rs.')} {(inv.total_amount - inv.amount_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="px-4 py-4 text-center">
                       <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusColor(inv.status)}`}>
                         {inv.status}
@@ -2149,7 +2346,7 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
-                          onClick={() => printGstInvoice(inv)}
+                          onClick={() => onPrintRequest ? onPrintRequest(inv) : printGstInvoice(inv)}
                           title="Print GST Invoice"
                           className="p-2 hover:bg-slate-100 text-slate-500 hover:text-slate-900 rounded-xl transition-all border border-transparent hover:border-slate-200 inline-flex items-center justify-center"
                         >
@@ -2178,12 +2375,12 @@ function GstReportViewer({ onEdit }: { onEdit: (inv: Invoice) => void }) {
               </tbody>
               <tfoot className="bg-slate-50 font-black text-slate-900 border-t-2 border-slate-200 text-sm">
                 <tr>
-                  <td colSpan={4} className="px-4 py-4 text-xs uppercase tracking-widest text-slate-500">Totals</td>
-                  <td className="px-4 py-4 text-right text-xs">Rs. {stats.totalSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-4 text-right text-xs text-indigo-600">Rs. {stats.totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-4 text-right text-xs text-slate-900">Rs. {stats.totalGross.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-4 text-right text-xs text-emerald-600">Rs. {stats.totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-4 text-right text-xs text-rose-600">Rs. {stats.totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                  <td colSpan={4} className="px-4 py-4 text-xs uppercase tracking-widest text-slate-500">{t('Totals')}</td>
+                  <td className="px-4 py-4 text-right text-xs">{t('Rs.')} {stats.totalSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-4 text-right text-xs text-indigo-600">{t('Rs.')} {stats.totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-4 text-right text-xs text-slate-900">{t('Rs.')} {stats.totalGross.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-4 text-right text-xs text-emerald-600">{t('Rs.')} {stats.totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-4 text-right text-xs text-rose-600">{t('Rs.')} {stats.totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   <td></td>
                   <td></td>
                 </tr>

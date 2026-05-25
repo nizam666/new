@@ -21,6 +21,7 @@ import {
     Calculator,
     Database,
     RotateCcw,
+    Scale,
     LucideIcon
 } from 'lucide-react';
 
@@ -118,6 +119,9 @@ export const DIRECTOR_NAV: MenuItem[] = [
             { name: 'Crusher Contractor Report', icon: ClipboardCheck, href: '#crusher-contractor-report' },
             { name: 'Quarry & Crusher Costing Details', icon: BarChart3, href: '#quarry-crusher-costing' },
             { name: 'Quarry Detail Cost Report', icon: Calculator, href: '#quarry-detail-cost' },
+            { name: 'Balance Sheet Report', icon: Scale, href: '#balance-sheet' },
+            { name: 'GSTR-1 (Sales)', icon: FileText, href: '#gstr1-sales' },
+            { name: 'Profit And Loss Report', icon: TrendingUp, href: '#profit-and-loss' },
         ]
     },
 ];
@@ -165,6 +169,9 @@ export const MANAGER_NAV: MenuItem[] = [
             { name: 'Crusher Contractor Report', icon: ClipboardCheck, href: '#crusher-contractor-report' },
             { name: 'Quarry & Crusher Costing Details', icon: BarChart3, href: '#quarry-crusher-costing' },
             { name: 'Quarry Detail Cost Report', icon: Calculator, href: '#quarry-detail-cost' },
+            { name: 'Balance Sheet Report', icon: Scale, href: '#balance-sheet' },
+            { name: 'GSTR-1 (Sales)', icon: FileText, href: '#gstr1-sales' },
+            { name: 'Profit And Loss Report', icon: TrendingUp, href: '#profit-and-loss' },
         ]
     },
 ];
@@ -190,6 +197,9 @@ export const CHAIRMEN_NAV: MenuItem[] = [
             { name: 'Crusher Contractor Report', icon: ClipboardCheck, href: '#crusher-contractor-report' },
             { name: 'Quarry & Crusher Costing Details', icon: BarChart3, href: '#quarry-crusher-costing' },
             { name: 'Quarry Detail Cost Report', icon: Calculator, href: '#quarry-detail-cost' },
+            { name: 'Balance Sheet Report', icon: Scale, href: '#balance-sheet' },
+            { name: 'GSTR-1 (Sales)', icon: FileText, href: '#gstr1-sales' },
+            { name: 'Profit And Loss Report', icon: TrendingUp, href: '#profit-and-loss' },
         ]
     },
 ];

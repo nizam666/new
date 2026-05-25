@@ -11,6 +11,8 @@ import { AccountsDetails } from './AccountsDetails';
 import { AccountingReportModule } from '../Reports/AccountingReportModule';
 import { FundInflowEntry } from './FundAccounts';
 
+const t = (text: string): string => text;
+
 type ViewType = 'ledger' | 'inflow' | 'add' | 'report';
 
 export function AccountsModule() {
@@ -55,7 +57,7 @@ export function AccountsModule() {
     return (
       <div className="flex flex-col items-center justify-center py-24 bg-white rounded-[40px] border border-slate-100 shadow-sm animate-pulse">
         <div className="w-16 h-16 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin mb-6" />
-        <p className="text-slate-400 font-black text-xs uppercase tracking-[0.3em]">Synchronizing Ledger...</p>
+        <p className="text-slate-400 font-black text-xs uppercase tracking-[0.3em]">{t('Synchronizing Ledger...')}</p>
       </div>
     );
   }
@@ -66,18 +68,18 @@ export function AccountsModule() {
       {/* ── Header Section ── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Financial Hub</h2>
+          <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">{t('Financial Hub')}</h2>
           <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[10px] mt-1 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-            Live Accounting System
+            {t('Live Accounting System')}
           </p>
         </div>
 
         <div className="flex bg-white/50 backdrop-blur-md p-1.5 rounded-[22px] border border-slate-100 shadow-sm overflow-x-auto gap-1">
-          <NavItem id="ledger" label="Ledger" icon={History} />
-          <NavItem id="inflow" label="Inflow" icon={TrendingUp} />
-          <NavItem id="add" label="Outflow" icon={TrendingDown} />
-          <NavItem id="report" label="Reports" icon={PieChart} />
+          <NavItem id="ledger" label={t('Ledger')} icon={History} />
+          <NavItem id="inflow" label={t('Inflow')} icon={TrendingUp} />
+          <NavItem id="add" label={t('Outflow')} icon={TrendingDown} />
+          <NavItem id="report" label={t('Reports')} icon={PieChart} />
         </div>
       </div>
 
