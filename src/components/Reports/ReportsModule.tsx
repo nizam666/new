@@ -8,7 +8,8 @@ import { AttendanceReportModule } from './AttendanceReportModule';
 import { QuarryProductionCostReportModule } from './QuarryProductionCostReportModule';
 import { ContractorMasterReport } from './ContractorMasterReport';
 import { CrusherContractorReport } from './CrusherContractorReport';
-import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock, Calculator, ClipboardCheck } from 'lucide-react';
+import { StaffSalesSummaryReport } from './StaffSalesSummaryReport';
+import { Factory, Drill, ShoppingCart, Wallet, ClipboardList, Clock, Calculator, ClipboardCheck, Users } from 'lucide-react';
 
 export function ReportsModule() {
   const [activeReport, setActiveReport] = useState<string>('production');
@@ -76,6 +77,13 @@ export function ReportsModule() {
       description: 'Crusher Payment History & Balance',
       icon: ClipboardCheck,
       color: 'blue'
+    },
+    {
+      id: 'staff_sales_summary',
+      name: 'Sales Summary – Staff Wise',
+      description: 'Invoice totals grouped by sales staff',
+      icon: Users,
+      color: 'purple'
     }
   ];
 
@@ -161,6 +169,8 @@ export function ReportsModule() {
         return <ContractorMasterReport />;
       case 'crusher_contractor_report':
         return <CrusherContractorReport />;
+      case 'staff_sales_summary':
+        return <StaffSalesSummaryReport />;
       default:
         return <MaterialBalanceReportModule />;
     }
