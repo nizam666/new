@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import {
   Download, RefreshCw, Calendar, Search,
   Receipt, AlertCircle, BarChart3,
-  ChevronDown, Printer, Mail
+  ChevronDown, Printer, Mail, Building2, CheckCircle2
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import ExcelJS from 'exceljs';
@@ -12,13 +12,27 @@ import autoTable from 'jspdf-autotable';
 
 const t = (text: string): string => text;
 
-// ── Company Info ────────────────────────────────────────────────────────────
-const COMPANY = {
-  name: 'SRI BABA BLUE METALS PRIVATE LIMITED',
-  gstin: '33AAKCS1538C1ZO',
-  address: 'Halekundani Village, Krishnagiri Dt, Tamil Nadu – 635121',
-  pan: 'AAKCS1538C',
-};
+// ── Companies Master ────────────────────────────────────────────────────────
+const COMPANIES = {
+  kvs: {
+    id: 'kvs',
+    prefix: 'KVS',
+    name: 'K V S SUBRAHMANYAM',
+    gstin: '33BZMPS0103A1Z0',
+    address: '20/1A, Halekundani Village, Krishnagiri Tk and Dt, Tamil Nadu – 635121',
+    pan: 'BZMPS0103A',
+  },
+  sbbm: {
+    id: 'sbbm',
+    prefix: 'SBBM',
+    name: 'SRI BABA BLUE METALS PRIVATE LIMITED',
+    gstin: '33AAKCS1538C1ZO',
+    address: 'Halekundani Village, Krishnagiri Dt, Tamil Nadu – 635121',
+    pan: 'AAKCS1538C',
+  },
+} as const;
+
+type CompanyId = keyof typeof COMPANIES;
 
 // ── Place of Supply Mapping ──────────────────────────────────────────────────
 const GST_STATES: Record<string, string> = {
@@ -190,7 +204,8 @@ const MOCK_DEBIT_NOTES: GstNote[] = [];
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export function GstrSalesReport() {
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('prev_month');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('this_month');
+  const [selectedCompany, setSelectedCompany] = useState<CompanyId>('sbbm');
   const [invoices, setInvoices] = useState<GstInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -202,6 +217,9 @@ export function GstrSalesReport() {
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
+
+  // Active company details – explicit safe lookup instead of bracket notation
+  const activeCompany = selectedCompany === 'kvs' ? COMPANIES.kvs : COMPANIES.sbbm;
 
   // Close dropdowns on window click
   useEffect(() => {
@@ -251,11 +269,20 @@ export function GstrSalesReport() {
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
-  // Derived filtered list based on search term
-  const filteredSales = invoices.filter((inv) =>
-    inv.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inv.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Derived filtered list: company prefix + search term
+  const filteredSales = invoices.filter((inv) => {
+    // Match company by invoice prefix or notes.company_id
+    let companyId = inv.invoice_number.startsWith('KVS') ? 'kvs' : 'sbbm';
+    try {
+      const n = JSON.parse(inv.notes || '{}');
+      if (n.company_id) companyId = n.company_id;
+    } catch { /* ignore */ }
+    if (companyId !== selectedCompany) return false;
+    return (
+      inv.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inv.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   const filteredCreditNotes = MOCK_CREDIT_NOTES.filter((note) =>
     note.note_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -321,10 +348,99 @@ export function GstrSalesReport() {
 
   // ── Exports & Actions ──────────────────────────────────────────────────────────
   const exportJson = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(invoices, null, 2));
+    let records: object[] = [];
+
+    if (activeTab === 'sales') {
+      records = filteredSales.map((inv) => {
+        let custGst = '';
+        try { const n = JSON.parse(inv.notes || '{}'); custGst = n.customer_gstin || ''; } catch { /* ignore */ }
+        const pos = getPlaceOfSupply(custGst);
+        const isInterState = pos.code !== '33';
+        const taxable = inv.subtotal || 0;
+        const taxAmt = inv.tax_amount || 0;
+        const cgst = isInterState ? 0 : taxAmt / 2;
+        const sgst = isInterState ? 0 : taxAmt / 2;
+        const igst = isInterState ? taxAmt : 0;
+
+        return {
+          gstin: custGst || 'Unregistered',
+          customer_name: inv.customer_name,
+          place_of_supply_code: pos.code,
+          place_of_supply_name: pos.name,
+          invoice_number: inv.invoice_number,
+          invoice_date: fmtDate(inv.invoice_date),
+          invoice_value: inv.total_amount,
+          tax_rate_percent: inv.tax_rate,
+          taxable_value: taxable,
+          cgst: cgst,
+          sgst_utgst: sgst,
+          igst: igst,
+          cess: 0,
+          total_tax: taxAmt,
+        };
+      });
+    } else {
+      const activeList = activeTab === 'sales_return' ? filteredCreditNotes : filteredDebitNotes;
+      records = activeList.map((note) => {
+        const pos = getPlaceOfSupply(note.customer_gstin);
+        const isInterState = pos.code !== '33';
+        const taxable = note.subtotal || 0;
+        const taxAmt = note.tax_amount || 0;
+        const cgst = isInterState ? 0 : taxAmt / 2;
+        const sgst = isInterState ? 0 : taxAmt / 2;
+        const igst = isInterState ? taxAmt : 0;
+
+        return {
+          gstin: note.customer_gstin || 'Unregistered',
+          customer_name: note.customer_name,
+          place_of_supply_code: pos.code,
+          place_of_supply_name: pos.name,
+          note_number: note.note_number,
+          original_invoice_number: note.original_invoice_number,
+          note_date: fmtDate(note.note_date),
+          note_value: note.total_amount,
+          tax_rate_percent: note.tax_rate,
+          taxable_value: taxable,
+          cgst: cgst,
+          sgst_utgst: sgst,
+          igst: igst,
+          cess: 0,
+          total_tax: taxAmt,
+        };
+      });
+    }
+
+    const tabLabel =
+      activeTab === 'sales' ? 'Outward_Sales' :
+      activeTab === 'sales_return' ? 'Sales_Return_Credit_Notes' :
+      'Purchase_Return_Debit_Notes';
+
+    const payload = {
+      report: 'GSTR-1',
+      section: tabLabel.replace(/_/g, ' '),
+      company: activeCompany.name,
+      gstin: activeCompany.gstin,
+      period: periodInfo.label,
+      period_from: startDate,
+      period_to: endDate,
+      generated_at: new Date().toISOString(),
+      total_records: records.length,
+      totals: {
+        taxable_value: totals.taxable,
+        cgst: totals.cgst,
+        sgst_utgst: totals.sgst,
+        igst: totals.igst,
+        cess: 0,
+        total_tax: totals.tax,
+        gross_value: totals.gross,
+      },
+      invoices: records,
+    };
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload, null, 2));
     const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `GSTR1_${periodInfo.label.replace(/\s+/g, '_')}.json`);
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `GSTR1_${tabLabel}_${periodInfo.label.replace(/\s+/g, '_')}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -339,8 +455,8 @@ export function GstrSalesReport() {
     const sheetName = activeTab === 'sales' ? 'Outward Sales' : activeTab === 'sales_return' ? 'Credit Notes' : 'Debit Notes';
     const ws = wb.addWorksheet(sheetName);
 
-    ws.addRow([COMPANY.name]).font = { size: 14, bold: true };
-    ws.addRow([`GSTIN: ${COMPANY.gstin}`]).font = { size: 10 };
+    ws.addRow([activeCompany.name]).font = { size: 14, bold: true };
+    ws.addRow([`GSTIN: ${activeCompany.gstin}`]).font = { size: 10 };
     ws.addRow([`${sheetName} – ${periodInfo.label}`]).font = { size: 12, bold: true };
     ws.addRow([]);
 
@@ -435,10 +551,10 @@ export function GstrSalesReport() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text(COMPANY.name, 14, 14);
+    doc.text(activeCompany.name, 14, 14);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`GSTIN: ${COMPANY.gstin}  |  ${COMPANY.address}`, 14, 20);
+    doc.text(`GSTIN: ${activeCompany.gstin}  |  ${activeCompany.address}`, 14, 20);
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     const title = activeTab === 'sales' ? 'GSTR-1 Outward Supplies (Sales)' : activeTab === 'sales_return' ? 'Sales Return / Credit Notes' : 'Purchase Return / Debit Notes';
@@ -509,6 +625,47 @@ export function GstrSalesReport() {
 
   return (
     <div className="space-y-6">
+
+      {/* ── Company Selector ─────────────────────────────────────────────────────── */}
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
+          {t('Select Company')}
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {(Object.values(COMPANIES) as typeof COMPANIES[CompanyId][]).map((co) => {
+            const isSelected = selectedCompany === co.id;
+            return (
+              <button
+                key={co.id}
+                onClick={() => setSelectedCompany(co.id as CompanyId)}
+                className={`relative flex items-start gap-4 p-4 rounded-2xl border-2 text-left transition-all duration-200 ${
+                  isSelected
+                    ? 'border-indigo-500 bg-indigo-50/60 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/20'
+                }`}
+              >
+                <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
+                  isSelected ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'
+                }`}>
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`font-black text-sm leading-tight ${
+                    isSelected ? 'text-indigo-900' : 'text-slate-700'
+                  }`}>{co.name}</p>
+                  <p className={`font-mono text-xs mt-1 ${
+                    isSelected ? 'text-indigo-600' : 'text-slate-400'
+                  }`}>{t('GSTIN')}: {co.gstin}</p>
+                </div>
+                {isSelected && (
+                  <CheckCircle2 className="absolute top-3 right-3 w-5 h-5 text-indigo-500 flex-shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ── Custom Toolbar Panel (Image 1 Style) ────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3 bg-white p-4 border border-slate-200 rounded-2xl shadow-sm">
         {/* Period Selector Dropdown */}
