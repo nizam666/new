@@ -60,6 +60,7 @@ import { QuarryDetailCostReport } from './components/Reports/QuarryDetailCostRep
 import { BalanceSheetReport } from './components/Reports/BalanceSheetReport';
 import { GstrSalesReport } from './components/Reports/GstrSalesReport';
 import { ProfitAndLossReport } from './components/Reports/ProfitAndLossReport';
+import { StaffSalesSummaryReport } from './components/Reports/StaffSalesSummaryReport';
 
 const t = (text: string): string => text;
 
@@ -476,6 +477,17 @@ function AppContent() {
               <p className="text-slate-600 mt-1">{t('Material dispatch and customer sales')}</p>
             </div>
             <SalesReportModule />
+          </div>
+        );
+
+      case 'staff-sales-summary':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">{t('Sales Summary – Staff Wise')}</h2>
+              <p className="text-slate-600 mt-1">{t('Invoice totals grouped by sales staff member')}</p>
+            </div>
+            <StaffSalesSummaryReport />
           </div>
         );
 
