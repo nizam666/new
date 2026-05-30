@@ -12,7 +12,7 @@ const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return 'Invalid Date';
     return format(d, formatStr);
-  } catch (e) {
+  } catch {
     return 'Error';
   }
 };
@@ -251,12 +251,18 @@ export function LoadingForm({ onSuccess }: { onSuccess?: () => void }) {
       fetchStock(); // Refresh stock level
       fetchMonthlyStats(); // Refresh stats
       if (onSuccess) onSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Loading record submission error:', error);
-      const detail = error.message || error.details || 'Check internet/permissions';
-      const hint = error.hint ? ` (Hint: ${error.hint})` : '';
-      const code = error.code ? ` [${error.code}]` : '';
-      toast.error(`Save Failed: ${detail}${hint}${code}`, { 
+      let detail = 'Check internet/permissions';
+      let hint = '';
+      let code = '';
+      if (error && typeof error === 'object') {
+        const e = error as Record<string, unknown>;
+        detail = (e.message as string) || (e.details as string) || detail;
+        hint = e.hint ? ` (Hint: ${e.hint})` : '';
+        code = e.code ? ` [${e.code}]` : '';
+      }
+      toast.error(`Save Failed: ${detail}${hint}${code}`, {
         position: 'top-right',
         autoClose: 10000 // Show longer so user can read it
       });

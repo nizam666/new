@@ -28,6 +28,23 @@ const PROJECT_ITEMS = [
   'Contractor Payment', 'Contractor Advance', 'Opening Balance', 'Miscellaneous', 'Other'
 ];
 
+interface ContractorUser {
+  id: string;
+  full_name: string;
+  employee_id: string | null;
+}
+
+interface OverheadUser {
+  id: string;
+  full_name: string;
+  employee_id: string | null;
+  role: string;
+  salary: number | null;
+  salary_department: string | null;
+  amount: number;
+  department: string;
+}
+
 export function AccountsForm({ onSuccess }: AccountsFormProps) {
   const [loading, setLoading] = useState(false);
   const [vendors, setVendors] = useState<string[]>([]);
@@ -37,10 +54,10 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
   const [vendorBalance, setVendorBalance] = useState<number | null>(null);
   const [fundBalances, setFundBalances] = useState<Map<string, number>>(new Map());
   const [paymentSplits, setPaymentSplits] = useState<Map<string, string>>(new Map());
-  
+
   const [outflowType, setOutflowType] = useState<'overheads' | 'contractors' | 'suppliers'>('suppliers');
-  const [contractorsList, setContractorsList] = useState<any[]>([]);
-  const [overheadList, setOverheadList] = useState<any[]>([]);
+  const [contractorsList, setContractorsList] = useState<ContractorUser[]>([]);
+  const [overheadList, setOverheadList] = useState<OverheadUser[]>([]);
 
   const [formData, setFormData] = useState({
     transaction_type: 'expense',
@@ -197,7 +214,7 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const update = (key: string, value: any) => setFormData(prev => ({ ...prev, [key]: value }));
+  const update = (key: string, value: string | number | boolean) => setFormData(prev => ({ ...prev, [key]: value }));
 
   const filteredVendors = vendors.filter(v =>
     v.toLowerCase().includes(vendorSearch.toLowerCase())
@@ -311,8 +328,13 @@ export function AccountsForm({ onSuccess }: AccountsFormProps) {
       setPaymentSplits(new Map());
       setVendorSearch('');
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to save transaction');
+    } catch (error: unknown) {
+      let message = 'Failed to save transaction';
+      if (error && typeof error === 'object') {
+        const e = error as Record<string, unknown>;
+        message = (e.message as string) || (e.details as string) || message;
+      }
+      toast.error(message);
     } finally {
       setLoading(false);
     }

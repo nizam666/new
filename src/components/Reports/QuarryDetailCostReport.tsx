@@ -15,6 +15,24 @@ interface CostSummary {
   uom: string;
 }
 
+interface InvoiceItem {
+  material?: string;
+  material_name?: string;
+  quantity?: number;
+  gross_weight?: number;
+  empty_weight?: number;
+}
+
+interface InventoryItem {
+  item_name: string;
+}
+
+interface PurchaseTransaction {
+  notes: string;
+  date: string;
+  inventory_items: InventoryItem | InventoryItem[] | null;
+}
+
 export function QuarryDetailCostReport() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -58,9 +76,9 @@ export function QuarryDetailCostReport() {
         let items = [];
         try {
           items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items;
-        } catch (e) {}
+        } catch { /* parse error */ }
         if (Array.isArray(items)) {
-          items.forEach((item: any) => {
+          items.forEach((item: InvoiceItem) => {
             const matName = (item.material || item.material_name || '').toLowerCase();
             if (matName.includes('q-boulder') || matName.includes('q-bolders')) {
               qSalesQty += parseFloat(item.quantity) || (parseFloat(item.gross_weight) - parseFloat(item.empty_weight)) || 0;
@@ -98,7 +116,7 @@ export function QuarryDetailCostReport() {
         DIESEL: { total: 0, count: 0 }
       };
 
-      purchaseTransactions?.forEach((t: any) => {
+      purchaseTransactions?.forEach((t: PurchaseTransaction) => {
         const itemObj = Array.isArray(t.inventory_items) ? t.inventory_items[0] : t.inventory_items;
         const name = (itemObj?.item_name || '').toUpperCase();
         const match = (t.notes || '').match(/Rate:\s*([\d.]+)/);

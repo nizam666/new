@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Banknote, CreditCard, Building2, TrendingUp, TrendingDown,
@@ -13,7 +13,7 @@ const t = (text: string): string => text;
 export interface FundSource {
   id: string;
   label: string;
-  icon: any;
+  icon: React.ElementType;
   color: string;
   bg: string;
 }
@@ -118,8 +118,13 @@ export function FundInflowEntry({ onSuccess }: { onSuccess: () => void }) {
       setAmount(''); setNote('');
       refresh();
       onSuccess();
-    } catch (err: any) {
-      toast.error(t('Failed: ') + err.message);
+    } catch (err: unknown) {
+      let message = 'An unexpected error occurred';
+      if (err && typeof err === 'object') {
+        const e = err as Record<string, unknown>;
+        message = (e.message as string) || (e.details as string) || message;
+      }
+      toast.error(t('Failed: ') + message);
     } finally {
       setSaving(false);
     }

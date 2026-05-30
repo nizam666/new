@@ -12,6 +12,12 @@ interface BouldersSale {
   quantity: number;
 }
 
+interface InvoiceItem {
+  material?: string;
+  material_name?: string;
+  quantity?: number;
+}
+
 export function BouldersSaleReport() {
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<BouldersSale[]>([]);
@@ -44,12 +50,12 @@ export function BouldersSaleReport() {
         let items = [];
         try {
           items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items;
-        } catch (e) {
+        } catch {
           console.error('Error parsing items for invoice:', inv.invoice_number);
         }
 
         if (Array.isArray(items)) {
-          items.forEach((item: any) => {
+          items.forEach((item: InvoiceItem) => {
             const matName = item.material || item.material_name || '';
             if (matName === 'Q-Boulders') {
               filteredSales.push({

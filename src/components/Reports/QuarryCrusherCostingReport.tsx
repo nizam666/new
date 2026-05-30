@@ -16,6 +16,23 @@ interface CostRow {
   costPerUnit: number;
 }
 
+interface InvoiceItem {
+  material?: string;
+  material_name?: string;
+  quantity?: number;
+  gross_weight?: number;
+  empty_weight?: number;
+}
+
+interface InventoryItem {
+  item_name: string;
+}
+
+interface TransportRecord {
+  number_of_trips: number;
+  [key: string]: any;
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
@@ -138,10 +155,10 @@ export function QuarryCrusherCostingReport() {
       const SALE_RATE = 138;
       let salesQty = 0;
       invoices?.forEach(inv => {
-        let items: any[] = [];
-        try { items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items; } catch {}
+        let items: InvoiceItem[] = [];
+        try { items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items; } catch { /* parse error */ }
         if (Array.isArray(items)) {
-          items.forEach((item: any) => {
+          items.forEach((item: InvoiceItem) => {
             const mat = (item.material || item.material_name || '').toLowerCase();
             if (mat.includes('q-boulder') || mat.includes('q-bolders')) {
               salesQty += parseFloat(item.quantity) || (parseFloat(item.gross_weight) - parseFloat(item.empty_weight)) || 0;
@@ -196,7 +213,7 @@ export function QuarryCrusherCostingReport() {
       // Helper: get purchase price for explosive type at a given date
       const getPriceAtDate = (type: 'PG'|'ED'|'EDET'|'N3'|'N4', date: string) => {
         const found = purchaseTx?.find(t => {
-          const name = ((t.inventory_items as any)?.item_name || '').toUpperCase().trim();
+          const name = ((t.inventory_items as InventoryItem | undefined)?.item_name || '').toUpperCase().trim();
           if (t.date > date) return false;
           if (type === 'PG') return name === 'PG' || name.includes('POWERGEL') || name.includes('POWER GEL');
           if (type === 'EDET') return name === 'EDET' || name.startsWith('E DET') || name.startsWith('E-DET') || name.includes('ELECTRONIC DET');
@@ -220,7 +237,7 @@ export function QuarryCrusherCostingReport() {
       const TIPPER_RATE = 200;
       const tipperTrips = transport
         ?.filter(r => ['Soil','Weather Rocks'].includes(r.material_transported))
-        .reduce((s, r) => s + ((r as any).number_of_trips || 0), 0) ?? 0;
+        .reduce((s, r) => s + ((r as TransportRecord).number_of_trips || 0), 0) ?? 0;
       const tipperAmt = tipperTrips * TIPPER_RATE;
 
       // B3: Drilling feet (WR/Soil)
@@ -644,10 +661,10 @@ export function QuarryCrusherCostingReport() {
       // Calculate total value of non-quarry items
       let productsValue = 0;
       invoices?.forEach(inv => {
-        let items: any[] = [];
-        try { items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items; } catch {}
+        let items: InvoiceItem[] = [];
+        try { items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items; } catch { /* parse error */ }
         if (Array.isArray(items)) {
-          items.forEach((item: any) => {
+          items.forEach((item: InvoiceItem) => {
             const mat = (item.material || item.material_name || '').toLowerCase();
             if (!mat.includes('q-boulder') && !mat.includes('q-bolders')) {
               const qty = parseFloat(item.quantity) || (parseFloat(item.gross_weight) - parseFloat(item.empty_weight)) || 0;

@@ -24,40 +24,52 @@ interface BillItem {
   group: 'A' | 'B' | 'C' | 'D' | 'E';
 }
 
-const getRodMeasurementSet1 = (obj: any, step: number): number => {
+interface RodMeasurements {
+  rod10?: string | number;
+  rod9?: string | number;
+  rod8?: string | number;
+  rod7?: string | number;
+  rod6?: string | number;
+  rod5?: string | number;
+  rod4?: string | number;
+  rod3?: string | number;
+  rod2?: string | number;
+  rod1?: string | number;
+  rod0_5?: string | number;
+}
+
+interface RecentBill {
+  id: string;
+  reason: string;
+  transaction_date: string;
+  amount: string | number;
+  notes: string;
+}
+
+interface InvoiceItem {
+  material?: string;
+  material_name?: string;
+  quantity?: number;
+}
+
+const getRodMeasurementSet1 = (obj: RodMeasurements | null | undefined, step: number): number => {
   if (!obj) return 0;
-  switch (step) {
-    case 10: return Number(obj.rod10) || 0;
-    case 9: return Number(obj.rod9) || 0;
-    case 8: return Number(obj.rod8) || 0;
-    case 7: return Number(obj.rod7) || 0;
-    case 6: return Number(obj.rod6) || 0;
-    case 5: return Number(obj.rod5) || 0;
-    case 4: return Number(obj.rod4) || 0;
-    case 3: return Number(obj.rod3) || 0;
-    case 2: return Number(obj.rod2) || 0;
-    case 1: return Number(obj.rod1) || 0;
-    case 0.5: return Number(obj.rod0_5) || 0;
-    default: return 0;
-  }
+  const keyMap: Record<number, keyof RodMeasurements> = {
+    10: 'rod10', 9: 'rod9', 8: 'rod8', 7: 'rod7', 6: 'rod6',
+    5: 'rod5', 4: 'rod4', 3: 'rod3', 2: 'rod2', 1: 'rod1', 0.5: 'rod0_5'
+  };
+  const key = keyMap[step];
+  return key ? Number(obj[key]) || 0 : 0;
 };
 
-const getRodMeasurementSet2 = (obj: any, step: number): number => {
+const getRodMeasurementSet2 = (obj: RodMeasurements | null | undefined, step: number): number => {
   if (!obj) return 0;
-  switch (step) {
-    case 10: return Number(obj.rod10_set2) || 0;
-    case 9: return Number(obj.rod9_set2) || 0;
-    case 8: return Number(obj.rod8_set2) || 0;
-    case 7: return Number(obj.rod7_set2) || 0;
-    case 6: return Number(obj.rod6_set2) || 0;
-    case 5: return Number(obj.rod5_set2) || 0;
-    case 4: return Number(obj.rod4_set2) || 0;
-    case 3: return Number(obj.rod3_set2) || 0;
-    case 2: return Number(obj.rod2_set2) || 0;
-    case 1: return Number(obj.rod1_set2) || 0;
-    case 0.5: return Number(obj.rod0_5_set2) || 0;
-    default: return 0;
-  }
+  const keyMap: Record<number, string> = {
+    10: 'rod10_set2', 9: 'rod9_set2', 8: 'rod8_set2', 7: 'rod7_set2', 6: 'rod6_set2',
+    5: 'rod5_set2', 4: 'rod4_set2', 3: 'rod3_set2', 2: 'rod2_set2', 1: 'rod1_set2', 0.5: 'rod0_5_set2'
+  };
+  const key = keyMap[step];
+  return key ? Number((obj as any)[key]) || 0 : 0;
 };
 
 // Lightweight internationalization helper
@@ -315,7 +327,7 @@ export function ContractorCalculator() {
         let items = [];
         try {
           items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items;
-        } catch (e) {}
+        } catch { /* parse error */ }
         if (Array.isArray(items)) {
           items.forEach((item: any) => {
             const matName = item.material || item.material_name || '';
@@ -543,7 +555,7 @@ export function ContractorCalculator() {
         if (isStartOfMonth && isEndOfMonth && isPastMonthEnd) {
           saveCalculation(true);
         }
-      } catch (err) {
+      } catch {
         // Date parsing error, ignore
       }
     }

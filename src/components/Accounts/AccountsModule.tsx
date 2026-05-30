@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   History,
   PieChart,
@@ -40,7 +40,7 @@ export function AccountsModule() {
     }
   };
 
-  const NavItem = ({ id, label, icon: Icon }: { id: ViewType, label: string, icon: any }) => (
+  const NavItem = ({ id, label, icon: Icon }: { id: ViewType, label: string, icon: React.ElementType }) => (
     <button
       onClick={() => setActiveView(id)}
       className={`flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2.5 md:py-4 rounded-xl md:rounded-2xl text-[10px] md:text-sm font-black uppercase tracking-[0.12em] transition-all duration-300 whitespace-nowrap ${activeView === id

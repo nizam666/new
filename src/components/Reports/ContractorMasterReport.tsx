@@ -61,7 +61,7 @@ export function ContractorMasterReport() {
     if (!dateStr) return '';
     try {
       return format(parseISO(dateStr), 'dd-MM-yyyy');
-    } catch (e) {
+    } catch {
       return dateStr;
     }
   };
@@ -131,7 +131,7 @@ export function ContractorMasterReport() {
         let qSales = 0;
         invoiceData?.filter(inv => inv.invoice_date === dateStr).forEach(inv => {
           let items = [];
-          try { items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items; } catch (e) {}
+          try { items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items; } catch { /* parse error */ }
           if (Array.isArray(items)) {
             items.forEach((item: any) => {
               const matName = (item.material || item.material_name || '').toLowerCase();
@@ -197,7 +197,7 @@ export function ContractorMasterReport() {
 
 
       // Deductions Aggregation
-      let advLogs: any[] = [];
+      const advLogs: any[] = [];
       let totalAdv = 0;
       accountsData?.forEach((rec: any) => {
         if (rec.transaction_type !== 'expense' || !(rec.amount_given > 0)) return;
@@ -212,7 +212,7 @@ export function ContractorMasterReport() {
       });
 
       // Explosives & Diesel Categorization
-      let diesel: any[] = [];
+      const diesel: any[] = [];
       let totalPG = 0, totalED = 0, totalEDET = 0, totalN3 = 0, totalN4 = 0;
       let pgP = 0, pgC = 0, edP = 0, edC = 0, edetP = 0, edetC = 0, n3P = 0, n3C = 0, n4P = 0, n4C = 0;
 

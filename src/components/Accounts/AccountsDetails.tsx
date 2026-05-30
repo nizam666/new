@@ -36,33 +36,33 @@ export function AccountsDetails() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
   useEffect(() => {
+    const fetchAccounts = async () => {
+      if (!user) return;
+      try {
+        // Director sees all transactions; all other roles see only their own
+        const isDirector = user.role === 'director';
+
+        let query = supabase
+          .from('accounts')
+          .select('*')
+          .order('transaction_date', { ascending: false });
+
+        if (!isDirector) {
+          query = query.eq('created_by', user.id);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        setAccounts(data || []);
+      } catch (error) {
+        console.error('Error fetching accounts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchAccounts();
   }, [user]);
-
-  const fetchAccounts = async () => {
-    if (!user) return;
-    try {
-      // Director sees all transactions; all other roles see only their own
-      const isDirector = (user as any).role === 'director';
-
-      let query = supabase
-        .from('accounts')
-        .select('*')
-        .order('transaction_date', { ascending: false });
-
-      if (!isDirector) {
-        query = query.eq('created_by', user.id);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setAccounts(data || []);
-    } catch (error) {
-      console.error('Error fetching accounts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
 
   const parseNotes = (notes: string) => {

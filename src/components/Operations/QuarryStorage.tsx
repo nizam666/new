@@ -150,9 +150,9 @@ export function QuarryStorage() {
         else if (name.includes('nonel') && (name.includes('3m') || name.includes('3 m') || name.includes('3mtr') || name.includes('3 mtr'))) { used_history = usedHistoryMap.nonel_3m; }
         else if (name.includes('nonel') && (name.includes('4m') || name.includes('4 m') || name.includes('4mtr') || name.includes('4 mtr'))) { used_history = usedHistoryMap.nonel_4m; }
 
-        let totalBoxes = item.usages.reduce((sum, u) => sum + u.quantity, 0);
+        const totalBoxes = item.usages.reduce((sum, u) => sum + u.quantity, 0);
 
-        let consumedBoxes = used_history.reduce((sum, h) => sum + h.quantity, 0);
+        const consumedBoxes = used_history.reduce((sum, h) => sum + h.quantity, 0);
 
         return {
           ...item,

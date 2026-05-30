@@ -22,6 +22,14 @@ interface DailyBalanceItem {
   cumulativeCrusherBal: number;
 }
 
+interface InvoiceItem {
+  material?: string;
+  material_name?: string;
+  quantity?: number;
+  gross_weight?: number;
+  empty_weight?: number;
+}
+
 export function MaterialBalanceReportModule() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -32,7 +40,7 @@ export function MaterialBalanceReportModule() {
     if (!dateStr) return '';
     try {
       return format(parseISO(dateStr), 'dd-MM-yyyy');
-    } catch (e) {
+    } catch {
       return dateStr;
     }
   };
@@ -89,10 +97,10 @@ export function MaterialBalanceReportModule() {
           let items = [];
           try {
             items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items;
-          } catch (e) {}
-          
+          } catch { /* parse error */ }
+
           if (Array.isArray(items)) {
-            items.forEach((item: any) => {
+            items.forEach((item: InvoiceItem) => {
               const matName = (item.material || item.material_name || '').toLowerCase();
               const qty = parseFloat(item.quantity) || (parseFloat(item.gross_weight) - parseFloat(item.empty_weight)) || 0;
               

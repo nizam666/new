@@ -112,8 +112,8 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
     if (err instanceof Error) return err.message;
     if (typeof err === 'string') return err;
     if (typeof err === 'object' && err !== null) {
-      const e = err as any;
-      return e.message || e.error_description || e.error || e.details || e.hint || e.msg || JSON.stringify(err);
+      const e = err as Record<string, unknown>;
+      return (e.message as string) || (e.error_description as string) || (e.error as string) || (e.details as string) || (e.hint as string) || (e.msg as string) || JSON.stringify(err);
     }
     return String(err);
   };
@@ -494,9 +494,17 @@ export function SelfServiceAttendance({ workArea = 'general' }: SelfServiceAtten
       setRequestReason('');
       setPendingRequestPhotoPath(null);
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error requesting permission:", err);
-      const errorMsg = err.message || err.details || (typeof err === 'string' ? err : "Connect error");
+      let errorMsg = "Connect error";
+      if (err instanceof Error) {
+        errorMsg = err.message;
+      } else if (typeof err === 'string') {
+        errorMsg = err;
+      } else if (err && typeof err === 'object') {
+        const e = err as Record<string, unknown>;
+        errorMsg = (e.message as string) || (e.details as string) || errorMsg;
+      }
       alert("Failed to submit request: " + errorMsg);
     } finally {
       setIsSubmittingRequest(false);

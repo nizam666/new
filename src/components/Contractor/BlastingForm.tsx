@@ -34,10 +34,21 @@ const safeFormat = (dateStr: string | null | undefined, formatStr: string) => {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return 'Invalid Date';
     return format(d, formatStr);
-  } catch (e) {
+  } catch {
     return 'Error';
   }
 };
+
+interface QuarryBalance {
+  remaining: number;
+}
+interface QuarryBalances {
+  pg?: QuarryBalance;
+  ed?: QuarryBalance;
+  edet?: QuarryBalance;
+  nonel_3m?: QuarryBalance;
+  nonel_4m?: QuarryBalance;
+}
 
 export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
@@ -55,7 +66,7 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
     material_type: '',
     notes: ''
   });
-  const [quarryBalances, setQuarryBalances] = useState<any>(null);
+  const [quarryBalances, setQuarryBalances] = useState<QuarryBalances | null>(null);
 
   const [monthlyStats, setMonthlyStats] = useState<{
     date: string;
@@ -107,7 +118,16 @@ export function BlastingForm({ onSuccess }: { onSuccess?: () => void }) {
 
       // Group by date + material
       type Key = string; // date_material
-      const statsMap = new Map<Key, any>();
+      interface BlastingStat {
+        date: string;
+        material_type: string;
+        ed: number;
+        edet: number;
+        nonel_3m: number;
+        nonel_4m: number;
+        pg: number;
+      }
+      const statsMap = new Map<Key, BlastingStat>();
 
       data?.forEach(record => {
         const key = `${record.date}_${record.material_type}`;
