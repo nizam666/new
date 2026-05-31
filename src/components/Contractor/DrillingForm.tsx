@@ -8,18 +8,25 @@ import { fetchQuarryBalances } from '../../utils/quarryStock';
 
 const LOCATIONS = ['Site 1', 'Storage Bay'];
 const MATERIAL_TYPES = ['Good Boulders', 'Weathered Rocks', 'Soil'];
-const MATERIAL_TYPES_TAMIL = {
-  'Good Boulders': 'பாறை',
-  'Weathered Rocks': 'மதுரை கல்',
-  'Soil': 'மண்'
+const getTamilMaterialName = (type: string): string => {
+  if (type === 'Good Boulders') return 'பாறை';
+  if (type === 'Weathered Rocks') return 'மதுரை கல்';
+  if (type === 'Soil') return 'மண்';
+  return '';
 };
 const EQUIPMENT_OPTIONS = ['Tractor', 'Bore'];
 const ROD_STEPS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0.5];
 
 const INITIAL_ROD_STATE = ROD_STEPS.reduce((acc, step) => {
   const key = step.toString().replace('.', '_');
-  acc[`rod${key}`] = 0;
-  acc[`rod${key}_set2`] = 0;
+  const k1 = `rod${key}`;
+  const k2 = `rod${key}_set2`;
+  if (!['__proto__', 'constructor', 'prototype'].includes(k1)) {
+    acc[k1] = 0;
+  }
+  if (!['__proto__', 'constructor', 'prototype'].includes(k2)) {
+    acc[k2] = 0;
+  }
   return acc;
 }, {} as Record<string, number>);
 
@@ -46,10 +53,11 @@ function ToggleGroup({
   color?: 'blue' | 'emerald' | 'orange';
 }) {
   const base = 'px-3 py-2 rounded-lg text-sm font-medium border transition-all cursor-pointer';
-  const activeClass: Record<string, string> = {
-    blue: 'bg-blue-600 text-white border-blue-600 shadow-sm',
-    emerald: 'bg-emerald-600 text-white border-emerald-600 shadow-sm',
-    orange: 'bg-orange-500 text-white border-orange-500 shadow-sm',
+  const getActiveClass = (col: string): string => {
+    if (col === 'blue') return 'bg-blue-600 text-white border-blue-600 shadow-sm';
+    if (col === 'emerald') return 'bg-emerald-600 text-white border-emerald-600 shadow-sm';
+    if (col === 'orange') return 'bg-orange-500 text-white border-orange-500 shadow-sm';
+    return '';
   };
   const inactiveClass = 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-slate-400';
 
@@ -60,7 +68,7 @@ function ToggleGroup({
           key={opt}
           type="button"
           onClick={() => onChange(opt === value ? '' : opt)}
-          className={`${base} ${value === opt ? activeClass[color] : inactiveClass}`}
+          className={`${base} ${value === opt ? getActiveClass(color) : inactiveClass}`}
         >
           {opt}
         </button>
@@ -68,6 +76,8 @@ function ToggleGroup({
     </div>
   );
 }
+
+const t = (text: string): string => text;
 
 export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
@@ -110,10 +120,38 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
     return true;
   };
 
-  const calcHoles1 = () => ROD_STEPS.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}`] || 0), 0);
-  const calcFeet1 = () => ROD_STEPS.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}`] || 0) * step, 0);
-  const calcHoles2 = () => ROD_STEPS.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}_set2`] || 0), 0);
-  const calcFeet2 = () => ROD_STEPS.reduce((s, step) => s + (rodMeasurements[`rod${step.toString().replace('.', '_')}_set2`] || 0) * step, 0);
+  const getRodVal = (key: string): number => {
+    const o = rodMeasurements as any;
+    switch (key) {
+      case 'rod10': return o.rod10 || 0;
+      case 'rod9': return o.rod9 || 0;
+      case 'rod8': return o.rod8 || 0;
+      case 'rod7': return o.rod7 || 0;
+      case 'rod6': return o.rod6 || 0;
+      case 'rod5': return o.rod5 || 0;
+      case 'rod4': return o.rod4 || 0;
+      case 'rod3': return o.rod3 || 0;
+      case 'rod2': return o.rod2 || 0;
+      case 'rod1': return o.rod1 || 0;
+      case 'rod0_5': return o.rod0_5 || 0;
+      case 'rod10_set2': return o.rod10_set2 || 0;
+      case 'rod9_set2': return o.rod9_set2 || 0;
+      case 'rod8_set2': return o.rod8_set2 || 0;
+      case 'rod7_set2': return o.rod7_set2 || 0;
+      case 'rod6_set2': return o.rod6_set2 || 0;
+      case 'rod5_set2': return o.rod5_set2 || 0;
+      case 'rod4_set2': return o.rod4_set2 || 0;
+      case 'rod3_set2': return o.rod3_set2 || 0;
+      case 'rod2_set2': return o.rod2_set2 || 0;
+      case 'rod1_set2': return o.rod1_set2 || 0;
+      case 'rod0_5_set2': return o.rod0_5_set2 || 0;
+      default: return 0;
+    }
+  };
+  const calcHoles1 = () => ROD_STEPS.reduce((s, step) => s + getRodVal(`rod${step.toString().replace('.', '_')}`), 0);
+  const calcFeet1 = () => ROD_STEPS.reduce((s, step) => s + getRodVal(`rod${step.toString().replace('.', '_')}`) * step, 0);
+  const calcHoles2 = () => ROD_STEPS.reduce((s, step) => s + getRodVal(`rod${step.toString().replace('.', '_')}_set2`), 0);
+  const calcFeet2 = () => ROD_STEPS.reduce((s, step) => s + getRodVal(`rod${step.toString().replace('.', '_')}_set2`) * step, 0);
   const totalHoles = () => calcHoles1() + calcHoles2();
   const totalFeet = () => calcFeet1() + calcFeet2();
 
@@ -148,8 +186,14 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
         ROD_STEPS.forEach(step => {
           const key = step.toString().replace('.', '_');
-          dailySum += (set1[`rod${key}`] || 0) * step;
-          dailySum += (set2[`rod${key}_set2`] || 0) * step;
+          const k1 = `rod${key}`;
+          const k2 = `rod${key}_set2`;
+          if (set1 && !['__proto__', 'constructor', 'prototype'].includes(k1) && Object.prototype.hasOwnProperty.call(set1, k1)) {
+            dailySum += (set1[k1] || 0) * step;
+          }
+          if (set2 && !['__proto__', 'constructor', 'prototype'].includes(k2) && Object.prototype.hasOwnProperty.call(set2, k2)) {
+            dailySum += (set2[k2] || 0) * step;
+          }
         });
 
         const mType = record.material_type || 'Unknown';
@@ -206,15 +250,25 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
       if (requested > available) {
         setLoading(false);
         setError(`Insufficient Diesel stock. Available: ${available.toFixed(1)} L, Requested: ${requested} L`);
-        toast.error('Stock validation failed: Diesel not available in Quarry Store.');
+        setError(t('Insufficient Diesel stock. Available:') + ` ${available.toFixed(1)} L, ` + t('Requested:') + ` ${requested} L`);
+        toast.error(t('Stock validation failed: Diesel not available in Quarry Store.'));
         return;
       }
       const set1Data: Record<string, number> = {};
       const set2Data: Record<string, number> = {};
+      const validKeys = [
+        'rod10', 'rod9', 'rod8', 'rod7', 'rod6', 'rod5', 'rod4', 'rod3', 'rod2', 'rod1', 'rod0_5',
+        'rod10_set2', 'rod9_set2', 'rod8_set2', 'rod7_set2', 'rod6_set2', 'rod5_set2', 'rod4_set2', 'rod3_set2', 'rod2_set2', 'rod1_set2', 'rod0_5_set2'
+      ];
 
       Object.keys(rodMeasurements).forEach(key => {
-        if (key.endsWith('_set2')) set2Data[key] = rodMeasurements[key];
-        else set1Data[key] = rodMeasurements[key];
+        if (!validKeys.includes(key)) return;
+        const val = getRodVal(key);
+        if (key.endsWith('_set2')) {
+          Object.defineProperty(set2Data, key, { value: val, enumerable: true, writable: true, configurable: true });
+        } else {
+          Object.defineProperty(set1Data, key, { value: val, enumerable: true, writable: true, configurable: true });
+        }
       });
 
       const { error } = await supabase.from('drilling_records').insert([{
@@ -268,8 +322,8 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
           <Drill className="w-4 sm:w-5 h-4 sm:h-5 text-blue-600" />
         </div>
         <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">New Drilling Record</h3>
-          <p className="text-xs sm:text-sm text-slate-500 truncate">Fill details below and enter rod counts</p>
+          <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">{t('New Drilling Record')}</h3>
+          <p className="text-xs sm:text-sm text-slate-500 truncate">{t('Fill details below and enter rod counts')}</p>
         </div>
       </div>
 
@@ -288,7 +342,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
         {/* Date + Diesel on one row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Date</label>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">{t('Date')}</label>
             <input
               type="date"
               value={formData.date}
@@ -300,10 +354,10 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
           <div>
             <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 flex items-center justify-between">
-              <span>Diesel Consumed (L)</span>
+              <span>{t('Diesel Consumed (L)')}</span>
               {dieselStock !== null && (
                 <span className={`text-[10px] font-black px-2 py-0.5 rounded ${dieselStock <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                  Available: {dieselStock.toFixed(1)} L
+                  {t('Available:')} {dieselStock.toFixed(1)} L
                 </span>
               )}
             </label>
@@ -324,7 +378,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
         {/* Location toggle buttons */}
         <div>
           <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
-            Location <span className="text-red-500">*</span>
+            {t('Location')} <span className="text-red-500">*</span>
           </label>
           <ToggleGroup options={LOCATIONS} value={formData.location} onChange={(v) => setFormData({ ...formData, location: v })} color="blue" />
         </div>
@@ -332,7 +386,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
         {/* Material Type */}
         <div className="bg-slate-50 p-3 sm:p-4 rounded-lg sm:rounded-2xl border border-slate-100">
           <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3">
-            Material Type <span className="text-red-500">*</span>
+            {t('Material Type')} <span className="text-red-500">*</span>
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
             {MATERIAL_TYPES.map((type) => (
@@ -347,7 +401,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                 }`}
               >
                 <div className="text-xs sm:text-sm font-semibold">{type}</div>
-                <div className="text-[10px] sm:text-xs mt-1 opacity-75">{MATERIAL_TYPES_TAMIL[type as keyof typeof MATERIAL_TYPES_TAMIL] || ''}</div>
+                <div className="text-[10px] sm:text-xs mt-1 opacity-75">{getTamilMaterialName(type)}</div>
               </button>
             ))}
           </div>
@@ -356,7 +410,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
         {/* Equipment toggle buttons */}
         <div>
           <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
-            Equipment Used <span className="text-red-500">*</span>
+            {t('Equipment Used')} <span className="text-red-500">*</span>
           </label>
           <ToggleGroup options={EQUIPMENT_OPTIONS} value={formData.equipment_used} onChange={(v) => setFormData({ ...formData, equipment_used: v })} color="emerald" />
         </div>
@@ -365,14 +419,14 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             ROD MEASUREMENTS  (moved here)
         ══════════════════════════════════════ */}
         <div className="pt-2">
-          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3">Rod Measurements (Size)</label>
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2 sm:mb-3">{t('Rod Measurements (Size)')}</label>
           <div className="bg-slate-50 border border-slate-200 rounded-lg sm:rounded-2xl overflow-hidden mb-4 sm:mb-6">
 
             {/* Table header */}
             <div className="grid grid-cols-[auto_1fr_1fr] items-center bg-slate-100 border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider w-12 sm:w-20">Size</span>
-              <span className="text-[10px] sm:text-xs font-bold text-blue-600 uppercase tracking-wider text-center">Set 1</span>
-              <span className="text-[10px] sm:text-xs font-bold text-emerald-600 uppercase tracking-wider text-center">Set 2</span>
+              <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider w-12 sm:w-20">{t('Size')}</span>
+              <span className="text-[10px] sm:text-xs font-bold text-blue-600 uppercase tracking-wider text-center">{t('Set 1')}</span>
+              <span className="text-[10px] sm:text-xs font-bold text-emerald-600 uppercase tracking-wider text-center">{t('Set 2')}</span>
             </div>
 
             {/* Rows */}
@@ -432,7 +486,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
             {/* Totals row */}
             <div className="grid grid-cols-[auto_1fr_1fr] items-center bg-slate-100 border-t-2 border-slate-300 px-3 sm:px-4 py-2 sm:py-3 gap-2 sm:gap-3">
               <div className="w-12 sm:w-20">
-                <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Holes</span>
+                <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">{t('Holes')}</span>
               </div>
               <div className="text-center space-y-0.5">
                 <div className="text-sm sm:text-lg font-bold text-blue-700">{calcHoles1()}</div>
@@ -448,22 +502,22 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
           {/* Combined summary */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-8">
             <div className="bg-slate-800 text-white rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
-              <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider mb-1">Total Holes</div>
+              <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider mb-1">{t('Total Holes')}</div>
               <div className="text-sm sm:text-xl font-bold">{totalHoles()}</div>
             </div>
             
             <div className={`rounded-lg sm:rounded-xl p-2 sm:p-4 text-center transition-colors ${formData.material_type === 'Good Boulders' ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
-              <div className="text-[10px] sm:text-xs uppercase tracking-wider mb-1">Boulders (ft)</div>
+              <div className="text-[10px] sm:text-xs uppercase tracking-wider mb-1">{t('Boulders (ft)')}</div>
               <div className="text-sm sm:text-xl font-bold">{formData.material_type === 'Good Boulders' ? totalFeet().toFixed(0) : '0'}</div>
             </div>
 
             <div className={`rounded-lg sm:rounded-xl p-2 sm:p-4 text-center transition-colors ${formData.material_type === 'Weathered Rocks' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
-              <div className="text-[10px] sm:text-xs uppercase tracking-wider mb-1">Rocks (ft)</div>
+              <div className="text-[10px] sm:text-xs uppercase tracking-wider mb-1">{t('Rocks (ft)')}</div>
               <div className="text-sm sm:text-xl font-bold">{formData.material_type === 'Weathered Rocks' ? totalFeet().toFixed(0) : '0'}</div>
             </div>
 
             <div className="bg-emerald-700 text-white rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
-              <div className="text-[10px] sm:text-xs text-emerald-300 uppercase tracking-wider mb-1 font-semibold">Production</div>
+              <div className="text-[10px] sm:text-xs text-emerald-300 uppercase tracking-wider mb-1 font-semibold">{t('Production')}</div>
               <div className="text-sm sm:text-xl font-bold">{drillingProduction.toFixed(1)}<span className="text-[10px] sm:text-xs text-emerald-300 ml-1">t</span></div>
             </div>
           </div>
@@ -471,7 +525,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
         {/* Notes */}
         <div className="pt-2 border-t border-slate-200">
-          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Notes</label>
+          <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">{t('Notes')}</label>
           <textarea
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -501,7 +555,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
               <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
                 <Calendar className="w-4 h-4 text-slate-600" />
               </div>
-              <h4 className="text-sm font-bold text-slate-900">Monthly Summary</h4>
+              <h4 className="text-sm font-bold text-slate-900">{t('Monthly Summary')}</h4>
             </div>
             <input 
               type="month" 
@@ -513,19 +567,19 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
 
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden text-[10px] sm:text-xs">
             <div className="grid grid-cols-4 bg-slate-50 border-b border-slate-200 px-2 sm:px-4 py-2 font-bold text-slate-500 uppercase tracking-wider text-center">
-              <span className="text-left">Date</span>
-              <span>Boulders</span>
-              <span>Rock</span>
-              <span className="text-right">Diesel</span>
+              <span className="text-left">{t('Date')}</span>
+              <span>{t('Boulders')}</span>
+              <span>{t('Rock')}</span>
+              <span className="text-right">{t('Diesel')}</span>
             </div>
 
             <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
               {statsLoading ? (
-                <div className="p-4 text-center text-slate-500">Loading summary...</div>
+                <div className="p-4 text-center text-slate-500">{t('Loading summary...')}</div>
               ) : statsError ? (
                 <div className="p-4 text-center text-red-500">{statsError}</div>
               ) : monthlyStats.length === 0 ? (
-                <div className="p-4 text-center text-slate-500 italic">No records for {safeFormat(selectedMonth + '-01', 'MMMM yyyy')}</div>
+                <div className="p-4 text-center text-slate-500 italic">{t('No records for ')}{safeFormat(selectedMonth + '-01', 'MMMM yyyy')}</div>
               ) : (
                 monthlyStats.map((stat) => (
                   <div key={stat.date} className="grid grid-cols-4 px-2 sm:px-4 py-3 items-center hover:bg-slate-50/50 transition-colors text-center text-xs">
@@ -552,7 +606,13 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
               <div className="bg-slate-900 px-4 py-4 text-white">
                 <div className="grid grid-cols-3 gap-4">
                   {['Good Boulders', 'Weathered Rocks'].map(type => {
-                    const typeTotal = monthlyStats.reduce((acc, curr) => acc + (curr.breakdown?.[type] || 0), 0);
+                    const typeTotal = monthlyStats.reduce((acc, curr) => {
+                      if (!curr.breakdown) return acc;
+                      let val = 0;
+                      if (type === 'Good Boulders') val = curr.breakdown['Good Boulders'] || 0;
+                      else if (type === 'Weathered Rocks') val = curr.breakdown['Weathered Rocks'] || 0;
+                      return acc + val;
+                    }, 0);
                     const isBoulders = type === 'Good Boulders';
                     return (
                       <div key={type} className={`p-3 rounded-lg border flex flex-col items-center ${
@@ -570,7 +630,7 @@ export function DrillingForm({ onSuccess }: { onSuccess?: () => void }) {
                   })}
                   <div className="p-3 rounded-lg border bg-blue-600/20 border-blue-600/30 flex flex-col items-center">
                     <span className="text-[8px] sm:text-[10px] font-semibold uppercase tracking-widest opacity-70 mb-1 text-center">
-                      Total Diesel
+                      {t('Total Diesel')}
                     </span>
                     <span className="text-sm sm:text-lg font-black text-blue-400">
                       {monthlyStats.reduce((acc, curr) => acc + curr.totalDiesel, 0).toFixed(1)}

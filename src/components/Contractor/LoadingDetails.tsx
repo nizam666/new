@@ -34,6 +34,8 @@ interface LoadingStats {
   uniqueVehicleTypes: number;
 }
 
+const t = (text: string): string => text;
+
 export function LoadingDetails() {
   const { user } = useAuth();
   const [records, setRecords] = useState<LoadingRecord[]>([]);
@@ -90,21 +92,21 @@ export function LoadingDetails() {
         return (
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
             <CheckCircle className="w-3 h-3" />
-            Approved
+            {t('Approved')}
           </span>
         );
       case 'rejected':
         return (
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
             <XCircle className="w-3 h-3" />
-            Rejected
+            {t('Rejected')}
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
             <Clock className="w-3 h-3" />
-            Pending
+            {t('Pending')}
           </span>
         );
     }
@@ -113,7 +115,7 @@ export function LoadingDetails() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-600">Loading breaking/loading details...</div>
+        <div className="text-slate-600">{t('Loading breaking/loading details...')}</div>
       </div>
     );
   }
@@ -128,8 +130,8 @@ export function LoadingDetails() {
             </div>
             <BarChart3 className="w-4 h-4 text-slate-400" />
           </div>
-          <p className="text-2xl font-bold text-slate-900">{stats.totalHoursWork.toFixed(1)} hrs</p>
-          <p className="text-sm text-slate-600">Total Hours Work</p>
+          <p className="text-2xl font-bold text-slate-900">{stats.totalHoursWork.toFixed(1)} {t('hrs')}</p>
+          <p className="text-sm text-slate-600">{t('Total Hours Work')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -140,7 +142,7 @@ export function LoadingDetails() {
             <TrendingUp className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.uniqueVehicleTypes}</p>
-          <p className="text-sm text-slate-600">Vehicle Types Used</p>
+          <p className="text-sm text-slate-600">{t('Vehicle Types Used')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -151,19 +153,19 @@ export function LoadingDetails() {
             <BarChart3 className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.uniqueOwners}</p>
-          <p className="text-sm text-slate-600">Unique Vehicle Owners</p>
+          <p className="text-sm text-slate-600">{t('Unique Vehicle Owners')}</p>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="px-6 py-4 border-b border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900">Breaking/Loading Records</h3>
-          <p className="text-sm text-slate-600">Click on a record to view details</p>
+          <h3 className="text-lg font-semibold text-slate-900">{t('Breaking/Loading Records')}</h3>
+          <p className="text-sm text-slate-600">{t('Click on a record to view details')}</p>
         </div>
 
         {records.length === 0 ? (
           <div className="p-8 text-center text-slate-600">
-            No breaking/loading records found. Create your first record to get started.
+            {t('No breaking/loading records found. Create your first record to get started.')}
           </div>
         ) : (
           <div className="divide-y divide-slate-200">
@@ -200,23 +202,23 @@ export function LoadingDetails() {
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Package className="w-4 h-4 text-green-600" />
-                      <span className="text-xs font-medium text-slate-600">Vehicle Used</span>
+                      <span className="text-xs font-medium text-slate-600">{t('Vehicle Used')}</span>
                     </div>
-                    <p className="text-lg font-bold text-slate-900">{record.vehicle_used || 'N/A'}</p>
+                    <p className="text-lg font-bold text-slate-900">{record.vehicle_used || t('N/A')}</p>
                   </div>
 
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Truck className="w-4 h-4 text-blue-600" />
-                      <span className="text-xs font-medium text-slate-600">Owner</span>
+                      <span className="text-xs font-medium text-slate-600">{t('Owner')}</span>
                     </div>
-                    <p className="text-lg font-bold text-slate-900">{record.vehicle_owner_name || 'N/A'}</p>
+                    <p className="text-lg font-bold text-slate-900">{record.vehicle_owner_name || t('N/A')}</p>
                   </div>
 
                   <div className="bg-slate-50 rounded-lg p-3 md:col-span-1 col-span-2">
                     <div className="flex items-center gap-2 mb-1">
                       <Navigation className="w-4 h-4 text-violet-600" />
-                      <span className="text-xs font-medium text-slate-600">Destination</span>
+                      <span className="text-xs font-medium text-slate-600">{t('Destination')}</span>
                     </div>
                     <p className="text-lg font-bold text-slate-900 truncate">{record.destination}</p>
                   </div>
@@ -227,7 +229,7 @@ export function LoadingDetails() {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <Navigation className="w-4 h-4 text-slate-600" />
-                        <span className="text-sm font-medium text-slate-700">Full Destination</span>
+                        <span className="text-sm font-medium text-slate-700">{t('Full Destination')}</span>
                       </div>
                       <p className="text-sm text-slate-600 ml-6">{record.destination}</p>
                     </div>
@@ -236,7 +238,7 @@ export function LoadingDetails() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <Package className="w-4 h-4 text-slate-600" />
-                          <span className="text-sm font-medium text-slate-700">Breaker/Bucket</span>
+                          <span className="text-sm font-medium text-slate-700">{t('Breaker/Bucket')}</span>
                         </div>
                         <p className="text-sm text-slate-600 ml-6">
                           {record.breaker_bucket}
@@ -248,20 +250,20 @@ export function LoadingDetails() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <Clock className="w-4 h-4 text-slate-600" />
-                          <span className="text-sm font-medium text-slate-700">Starting Hours</span>
+                          <span className="text-sm font-medium text-slate-700">{t('Starting Hours')}</span>
                         </div>
                         <p className="text-sm text-slate-600 ml-6">
-                          {record.starting_hours || 0} hrs
+                          {record.starting_hours || 0} {t('hrs')}
                         </p>
                       </div>
 
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <Clock className="w-4 h-4 text-slate-600" />
-                          <span className="text-sm font-medium text-slate-700">Ending Hours</span>
+                          <span className="text-sm font-medium text-slate-700">{t('Ending Hours')}</span>
                         </div>
                         <p className="text-sm text-slate-600 ml-6">
-                          {record.ending_hours || 0} hrs
+                          {record.ending_hours || 0} {t('hrs')}
                         </p>
                       </div>
                     </div>
@@ -269,7 +271,7 @@ export function LoadingDetails() {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <Calendar className="w-4 h-4 text-slate-600" />
-                        <span className="text-sm font-medium text-slate-700">Submitted</span>
+                        <span className="text-sm font-medium text-slate-700">{t('Submitted')}</span>
                       </div>
                       <p className="text-sm text-slate-600 ml-6">
                         {new Date(record.created_at).toLocaleString()}

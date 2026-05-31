@@ -1,0 +1,18 @@
+# Ignore build outputs
+dist/
+build/
+out/
+
+# Ignore dependency directories
+node_modules/
+.npm/
+
+# Ignore scratch files and local configurations
+scratch/
+.env
+.env.*
+.DS_Store
+
+# Ignore test coverage reports
+coverage/
+htmlcov/

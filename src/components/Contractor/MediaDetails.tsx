@@ -31,6 +31,8 @@ interface MediaStats {
   thisMonth: number;
 }
 
+const t = (text: string): string => text;
+
 function MediaLoadFallback({ mediaUrl, message }: { mediaUrl: string; message: string }) {
   return (
     <div className="p-4 text-center text-slate-600">
@@ -42,7 +44,7 @@ function MediaLoadFallback({ mediaUrl, message }: { mediaUrl: string; message: s
         onClick={(event) => event.stopPropagation()}
         className="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block"
       >
-        Try opening in new tab →
+        {t('Try opening in new tab →')}
       </a>
     </div>
   );
@@ -120,16 +122,14 @@ export function MediaDetails() {
   });
 
   const getCategoryBadge = (category: string) => {
-    const colors: { [key: string]: string } = {
-      drilling: 'bg-blue-100 text-blue-700',
-      blasting: 'bg-orange-100 text-orange-700',
-      loading: 'bg-green-100 text-green-700',
-      transport: 'bg-purple-100 text-purple-700',
-      general: 'bg-slate-100 text-slate-700'
-    };
+    let colorClass = 'bg-slate-100 text-slate-700'; // default general
+    if (category === 'drilling') colorClass = 'bg-blue-100 text-blue-700';
+    else if (category === 'blasting') colorClass = 'bg-orange-100 text-orange-700';
+    else if (category === 'loading') colorClass = 'bg-green-100 text-green-700';
+    else if (category === 'transport') colorClass = 'bg-purple-100 text-purple-700';
 
     return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${colors[category] || colors.general}`}>
+      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${colorClass}`}>
         {category.charAt(0).toUpperCase() + category.slice(1)}
       </span>
     );
@@ -138,7 +138,7 @@ export function MediaDetails() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-600">Loading media...</div>
+        <div className="text-slate-600">{t('Loading media...')}</div>
       </div>
     );
   }
@@ -154,7 +154,7 @@ export function MediaDetails() {
             <TrendingUp className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.totalPhotos}</p>
-          <p className="text-sm text-slate-600">Total Photos</p>
+          <p className="text-sm text-slate-600">{t('Total Photos')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -165,7 +165,7 @@ export function MediaDetails() {
             <BarChart3 className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.totalVideos}</p>
-          <p className="text-sm text-slate-600">Total Videos</p>
+          <p className="text-sm text-slate-600">{t('Total Videos')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -176,7 +176,7 @@ export function MediaDetails() {
             <TrendingUp className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.totalMedia}</p>
-          <p className="text-sm text-slate-600">Total Media</p>
+          <p className="text-sm text-slate-600">{t('Total Media')}</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -187,7 +187,7 @@ export function MediaDetails() {
             <BarChart3 className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-bold text-slate-900">{stats.thisMonth}</p>
-          <p className="text-sm text-slate-600">This Month</p>
+          <p className="text-sm text-slate-600">{t('This Month')}</p>
         </div>
       </div>
 
@@ -195,8 +195,8 @@ export function MediaDetails() {
         <div className="px-6 py-4 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">Photos & Videos</h3>
-              <p className="text-sm text-slate-600">Click on an item to view details</p>
+              <h3 className="text-lg font-semibold text-slate-900">{t('Photos & Videos')}</h3>
+              <p className="text-sm text-slate-600">{t('Click on an item to view details')}</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -206,7 +206,7 @@ export function MediaDetails() {
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
               >
-                All
+                {t('All')}
               </button>
               <button
                 onClick={() => setFilter('photo')}
@@ -215,7 +215,7 @@ export function MediaDetails() {
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
               >
-                Photos
+                {t('Photos')}
               </button>
               <button
                 onClick={() => setFilter('video')}
@@ -224,7 +224,7 @@ export function MediaDetails() {
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
               >
-                Videos
+                {t('Videos')}
               </button>
             </div>
           </div>
@@ -232,7 +232,7 @@ export function MediaDetails() {
 
         {filteredRecords.length === 0 ? (
           <div className="p-8 text-center text-slate-600">
-            No media records found. Upload your first photo or video to get started.
+            {t('No media records found. Upload your first photo or video to get started.')}
           </div>
         ) : (
           <div className="divide-y divide-slate-200">
@@ -319,7 +319,7 @@ export function MediaDetails() {
                               className="w-full h-auto max-h-96"
                               onError={() => markMediaFailed(record.id)}
                             >
-                              Your browser does not support the video tag.
+                              {t('Your browser does not support the video tag.')}
                             </video>
                           )}
                         </div>
@@ -333,7 +333,7 @@ export function MediaDetails() {
                           onClick={(event) => event.stopPropagation()}
                           className="text-sm text-blue-600 hover:text-blue-700 break-all"
                         >
-                          Open in new tab →
+                          {t('Open in new tab →')}
                         </a>
                       </div>
                     </div>

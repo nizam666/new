@@ -38,38 +38,42 @@ interface RodMeasurements {
   rod0_5?: string | number;
 }
 
-interface RecentBill {
-  id: string;
-  reason: string;
-  transaction_date: string;
-  amount: string | number;
-  notes: string;
-}
-
-interface InvoiceItem {
-  material?: string;
-  material_name?: string;
-  quantity?: number;
-}
 
 const getRodMeasurementSet1 = (obj: RodMeasurements | null | undefined, step: number): number => {
   if (!obj) return 0;
-  const keyMap: Record<number, keyof RodMeasurements> = {
-    10: 'rod10', 9: 'rod9', 8: 'rod8', 7: 'rod7', 6: 'rod6',
-    5: 'rod5', 4: 'rod4', 3: 'rod3', 2: 'rod2', 1: 'rod1', 0.5: 'rod0_5'
-  };
-  const key = keyMap[step];
-  return key ? Number(obj[key]) || 0 : 0;
+  switch (step) {
+    case 10: return Number(obj.rod10) || 0;
+    case 9: return Number(obj.rod9) || 0;
+    case 8: return Number(obj.rod8) || 0;
+    case 7: return Number(obj.rod7) || 0;
+    case 6: return Number(obj.rod6) || 0;
+    case 5: return Number(obj.rod5) || 0;
+    case 4: return Number(obj.rod4) || 0;
+    case 3: return Number(obj.rod3) || 0;
+    case 2: return Number(obj.rod2) || 0;
+    case 1: return Number(obj.rod1) || 0;
+    case 0.5: return Number(obj.rod0_5) || 0;
+    default: return 0;
+  }
 };
 
 const getRodMeasurementSet2 = (obj: RodMeasurements | null | undefined, step: number): number => {
   if (!obj) return 0;
-  const keyMap: Record<number, string> = {
-    10: 'rod10_set2', 9: 'rod9_set2', 8: 'rod8_set2', 7: 'rod7_set2', 6: 'rod6_set2',
-    5: 'rod5_set2', 4: 'rod4_set2', 3: 'rod3_set2', 2: 'rod2_set2', 1: 'rod1_set2', 0.5: 'rod0_5_set2'
-  };
-  const key = keyMap[step];
-  return key ? Number((obj as any)[key]) || 0 : 0;
+  const o = obj as any;
+  switch (step) {
+    case 10: return Number(o.rod10_set2) || 0;
+    case 9: return Number(o.rod9_set2) || 0;
+    case 8: return Number(o.rod8_set2) || 0;
+    case 7: return Number(o.rod7_set2) || 0;
+    case 6: return Number(o.rod6_set2) || 0;
+    case 5: return Number(o.rod5_set2) || 0;
+    case 4: return Number(o.rod4_set2) || 0;
+    case 3: return Number(o.rod3_set2) || 0;
+    case 2: return Number(o.rod2_set2) || 0;
+    case 1: return Number(o.rod1_set2) || 0;
+    case 0.5: return Number(o.rod0_5_set2) || 0;
+    default: return 0;
+  }
 };
 
 // Lightweight internationalization helper

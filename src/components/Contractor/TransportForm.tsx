@@ -72,6 +72,8 @@ const getPlainCellValue = (value: unknown): unknown => {
   return value;
 };
 
+const t = (key: string): string => key;
+
 const parseCsvRows = (text: string): SpreadsheetRow[] => {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -79,8 +81,8 @@ const parseCsvRows = (text: string): SpreadsheetRow[] => {
   let inQuotes = false;
 
   for (let index = 0; index < text.length; index++) {
-    const char = text[index];
-    const nextChar = text[index + 1];
+    const char = text.charAt(index);
+    const nextChar = text.charAt(index + 1);
 
     if (char === '"' && inQuotes && nextChar === '"') {
       cell += '"';
@@ -110,7 +112,15 @@ const parseCsvRows = (text: string): SpreadsheetRow[] => {
     .map((cells) => {
       const parsed: SpreadsheetRow = {};
       headers.forEach((header, index) => {
-        if (header) parsed[header] = cells[index] ?? '';
+        if (header && !['__proto__', 'constructor', 'prototype'].includes(header)) {
+          const val = cells.slice(index, index + 1).pop();
+          Object.defineProperty(parsed, header, {
+            value: val ?? '',
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+        }
       });
       return parsed;
     });
@@ -129,7 +139,11 @@ const parseSpreadsheetRows = async (file: File): Promise<SpreadsheetRow[]> => {
   const headerRow = worksheet.getRow(1);
   const headers: string[] = [];
   headerRow.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
-    headers[columnNumber - 1] = String(getPlainCellValue(cell.value) || '').trim();
+    const val = String(getPlainCellValue(cell.value) || '').trim();
+    while (headers.length < columnNumber) {
+      headers.push('');
+    }
+    headers.splice(columnNumber - 1, 1, val);
   });
 
   const rows: SpreadsheetRow[] = [];
@@ -139,9 +153,14 @@ const parseSpreadsheetRows = async (file: File): Promise<SpreadsheetRow[]> => {
     const parsed: SpreadsheetRow = {};
     let hasValue = false;
     headers.forEach((header, index) => {
-      if (!header) return;
+      if (!header || ['__proto__', 'constructor', 'prototype'].includes(header)) return;
       const value = getPlainCellValue(row.getCell(index + 1).value);
-      parsed[header] = value;
+      Object.defineProperty(parsed, header, {
+        value: value,
+        writable: true,
+        enumerable: true,
+        configurable: true
+      });
       if (value !== null && value !== undefined && String(value).trim() !== '') {
         hasValue = true;
       }
@@ -207,8 +226,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const fetchStock = async () => {
     const balances = await fetchQuarryBalances();
-    if (balances['diesel']) {
-      setDieselStock(balances['diesel'].remaining);
+    if (balances.diesel) {
+      setDieselStock(balances.diesel.remaining);
     }
   };
 
@@ -242,7 +261,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     try {
       // 🚨 Strict Stock Validation 🚨
       const balances = await fetchQuarryBalances();
-      const available = balances['diesel']?.remaining || 0;
+      const available = balances.diesel?.remaining || 0;
       const requested = parseFloat(dieselForm.diesel) || 0;
 
       if (requested > available) {
@@ -354,8 +373,15 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
       if (data) {
         const unique: Record<string, string> = {};
         data.forEach(item => {
-          if (item.vehicle_number && !unique[item.vehicle_number]) {
-            unique[item.vehicle_number] = item.vehicle_type;
+          if (item.vehicle_number && !['__proto__', 'constructor', 'prototype'].includes(item.vehicle_number)) {
+            if (!Object.prototype.hasOwnProperty.call(unique, item.vehicle_number)) {
+              Object.defineProperty(unique, item.vehicle_number, {
+                value: item.vehicle_type,
+                writable: true,
+                enumerable: true,
+                configurable: true
+              });
+            }
           }
         });
         const top20 = Object.entries(unique)
@@ -399,7 +425,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         let totalQCQty = 0, totalQSQty = 0;
         let totalSoil = 0, totalWR = 0, totalAR = 0;
 
-        const grouped: Record<string, any> = {};
+        const grouped = new Map<string, any>();
  
         const processed = data.map(row => {
           const f = parseFloat(row.fuel_consumed) || 0;
@@ -415,40 +441,41 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           totalEmpty += e;
 
           // Aggregation logic
-          if (!grouped[row.date]) {
-            grouped[row.date] = { 
+          if (!grouped.has(row.date)) {
+            grouped.set(row.date, { 
               date: row.date, fuel: 0, qty: 0, trips: 0,
               qc: 0, qs: 0, sc: 0, soil: 0, wr: 0, ar: 0,
               qc_qty: 0, qs_qty: 0
-            };
+            });
           }
-          grouped[row.date].fuel += f;
-          grouped[row.date].qty += q;
-          grouped[row.date].trips += t;
+          const dayGroup = grouped.get(row.date);
+          dayGroup.fuel += f;
+          dayGroup.qty += q;
+          dayGroup.trips += t;
 
           if (row.from_location === 'Quarry' && row.to_location === 'Crusher') {
-            grouped[row.date].qc += t;
-            grouped[row.date].qc_qty += q;
+            dayGroup.qc += t;
+            dayGroup.qc_qty += q;
             totalQC += t;
             totalQCQty += q;
           } else if (row.from_location === 'Quarry' && row.to_location === 'Stockyard') {
-            grouped[row.date].qs += t;
-            grouped[row.date].qs_qty += q;
+            dayGroup.qs += t;
+            dayGroup.qs_qty += q;
             totalQS += t;
             totalQSQty += q;
           } else if (row.from_location === 'Stockyard' && row.to_location === 'Crusher') {
-            grouped[row.date].sc += t;
+            dayGroup.sc += t;
             totalSC += t;
           }
 
           if (row.material_transported === 'Soil') {
-            grouped[row.date].soil += t;
+            dayGroup.soil += t;
             totalSoil += t;
           } else if (row.material_transported === 'Weather Rocks') {
-            grouped[row.date].wr += t;
+            dayGroup.wr += t;
             totalWR += t;
           } else if (row.material_transported === "Aggregate's Rehandling") {
-            grouped[row.date].ar += t;
+            dayGroup.ar += t;
             totalAR += t;
           }
 
@@ -467,7 +494,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         });
  
         setSummaryRows(processed);
-        setDailySummaryRows(Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)));
+        setDailySummaryRows(Array.from(grouped.values()).sort((a, b) => a.date.localeCompare(b.date)));
         setSummaryTotals({ 
           fuel: totalFuel, quantity: totalQty, trips: totalTrips,
           gross: totalGross, empty: totalEmpty,
@@ -712,7 +739,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
     try {
       // 🚨 Stock Validation 🚨
       const balances = await fetchQuarryBalances();
-      const available = balances['diesel']?.remaining || 0;
+      const available = balances.diesel?.remaining || 0;
       const requested = parseFloat(formData.fuel_consumed) || 0;
 
       if (requested > available) {
@@ -794,17 +821,17 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
               <div className="p-2 bg-indigo-600 rounded-lg shadow-lg">
                 <FileUp className="w-5 h-5 text-white" />
               </div>
-              Bulk Excel Entry
+              {t('Bulk Excel Entry')}
             </h3>
             <p className="text-indigo-600/70 font-bold uppercase tracking-widest text-[10px]">
-              Sri Baba Blue Metals Format • KVSS Q TO C Only
+              {t('Sri Baba Blue Metals Format • KVSS Q TO C Only')}
             </p>
           </div>
 
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all cursor-pointer shadow-lg shadow-indigo-200 active:scale-95 group">
               <Download className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
-              <span>Select Excel File</span>
+              <span>{t('Select Excel File')}</span>
               <input
                 type="file"
                 accept=".xlsx,.csv"
@@ -820,12 +847,12 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-bold text-indigo-900">Automatic Processing Insight:</p>
+              <p className="text-xs font-bold text-indigo-900">{t('Automatic Processing Insight:')}</p>
               <ul className="text-[11px] text-indigo-600/80 font-medium space-y-1">
-                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Auto-converts Kilograms to Tons (e.g., 35310 → 35.31)</li>
-                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Enforces "KVSS Q TO C" Party Name strict filter</li>
-                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Sequences sequential Trip IDs from latest record</li>
-                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> Preserves Excel S.No and System sequence in records</li>
+                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> {t('Auto-converts Kilograms to Tons (e.g., 35310 → 35.31)')}</li>
+                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> {t('Enforces "KVSS Q TO C" Party Name strict filter')}</li>
+                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> {t('Sequences sequential Trip IDs from latest record')}</li>
+                <li className="flex items-center gap-1.5"><div className="w-1 h-1 bg-indigo-400 rounded-full" /> {t('Preserves Excel S.No and System sequence in records')}</li>
               </ul>
             </div>
           </div>
@@ -838,8 +865,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           <Truck className="w-5 h-5 text-purple-600" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">New Transport Record</h3>
-          <p className="text-sm text-slate-600">Track vehicle and material transport</p>
+          <h3 className="text-lg font-semibold text-slate-900">{t('New Transport Record')}</h3>
+          <p className="text-sm text-slate-600">{t('Track vehicle and material transport')}</p>
         </div>
       </div>
 
@@ -848,21 +875,21 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           <div className="flex items-center justify-between">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Trip Reference Number
+                {t('Trip Reference Number')}
               </label>
               <div className="text-xl font-mono font-bold text-purple-700">
                 {formData.trip_ref}
               </div>
             </div>
             <div className="text-right text-xs text-slate-400 font-medium">
-              Automatically Generated
+              {t('Automatically Generated')}
             </div>
           </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Date
+            {t('Date')}
           </label>
           <input
             type="date"
@@ -875,7 +902,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Vehicle Type *
+            {t('Vehicle Type *')}
           </label>
           <div className="grid grid-cols-2 gap-2">
             {vehicleTypes.map((type) => (
@@ -889,7 +916,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                     : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:bg-purple-50'
                 }`}
               >
-                {type}
+                {t(type)}
               </button>
             ))}
           </div>
@@ -897,7 +924,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Vehicle Number *
+            {t('Vehicle Number *')}
           </label>
           <div className="relative">
             <input
@@ -911,7 +938,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               required
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent uppercase"
-              placeholder="Search or enter number"
+              placeholder={t('Search or enter number')}
             />
             {showSuggestions && formData.vehicle_number && (
               <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
@@ -928,7 +955,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                       }}
                     >
                       <span className="font-bold text-slate-900">{v.number}</span>
-                      <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase">{v.type}</span>
+                      <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase">{t(v.type)}</span>
                     </button>
                   ))}
               </div>
@@ -938,7 +965,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           {recentVehicles.length > 0 && (
             <div className="mt-3">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                <Clock className="w-3 h-3" /> Recent Vehicles
+                <Clock className="w-3 h-3" /> {t('Recent Vehicles')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {recentVehicles.slice(0, 5).map((v: {number: string, type: string}) => (
@@ -959,10 +986,10 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center justify-between">
-            <span>Diesel (L)</span>
+            <span>{t('Diesel (L)')}</span>
             {dieselStock !== null && (
               <span className={`text-[10px] font-black px-2 py-0.5 rounded ${dieselStock <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                Available: {dieselStock.toFixed(1)} L
+                {t('Available: ')}{dieselStock.toFixed(1)} L
               </span>
             )}
           </label>
@@ -981,7 +1008,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Material Transported *
+            {t('Material Transported *')}
           </label>
           <div className="grid grid-cols-2 gap-2">
             {materialTypes.map((type) => (
@@ -995,7 +1022,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                     : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:bg-purple-50'
                 }`}
               >
-                {type}
+                {t(type)}
               </button>
             ))}
           </div>
@@ -1003,7 +1030,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            From Location *
+            {t('From Location *')}
           </label>
           <div className="grid grid-cols-3 gap-2">
             {fromLocationTypes.map((location) => (
@@ -1020,7 +1047,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                     : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:bg-purple-50'
                 }`}
               >
-                {location}
+                {t(location)}
               </button>
             ))}
           </div>
@@ -1028,19 +1055,19 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            To Location *
+            {t('To Location *')}
           </label>
           {formData.material_transported === "Aggregate's Rehandling" ? (
             <div className="px-3 py-3 rounded-lg border-2 bg-gray-100 text-gray-600 border-gray-200 text-sm">
-              Crusher to Crusher (auto-set)
+              {t('Crusher to Crusher (auto-set)')}
             </div>
           ) : formData.material_transported === "Soil" || formData.material_transported === "Weather Rocks" ? (
             <div className="px-3 py-3 rounded-lg border-2 bg-gray-100 text-gray-600 border-gray-200 text-sm">
-              Soil dumping yard (auto-set)
+              {t('Soil dumping yard (auto-set)')}
             </div>
           ) : !formData.from_location ? (
             <div className="px-3 py-3 rounded-lg border-2 bg-gray-50 text-gray-400 border-gray-200 text-sm">
-              Select source location first
+              {t('Select source location first')}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
@@ -1055,18 +1082,16 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                       : 'bg-white text-slate-700 border-slate-300 hover:border-purple-400 hover:bg-purple-50'
                   }`}
                 >
-                  {location}
+                  {t(location)}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-
-
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Number of Trips
+            {t('Number of Trips')}
           </label>
           <input
             type="number"
@@ -1085,7 +1110,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
               <>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Empty Vehicle (tons)
+                    {t('Empty Vehicle (tons)')}
                   </label>
                   <input
                     type="number"
@@ -1100,7 +1125,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Gross Weight (tons)
+                    {t('Gross Weight (tons)')}
                   </label>
                   <input
                     type="number"
@@ -1118,7 +1143,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             {formData.from_location === 'Stockyard' && formData.to_location === 'Crusher' && (
               <div className="md:col-span-2 bg-purple-50 p-4 rounded-xl border border-purple-100">
                 <div className="flex items-center justify-between mb-4">
-                  <label className="text-sm font-bold text-purple-900">Calculation Mode</label>
+                  <label className="text-sm font-bold text-purple-900">{t('Calculation Mode')}</label>
                   <div className="flex bg-white p-1 rounded-lg border border-purple-200">
                     <button
                       type="button"
@@ -1129,7 +1154,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                           : 'text-slate-400 hover:text-slate-600'
                       }`}
                     >
-                      Average Weight
+                      {t('Average Weight')}
                     </button>
                     <button
                       type="button"
@@ -1140,7 +1165,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                           : 'text-slate-400 hover:text-slate-600'
                       }`}
                     >
-                      Weight Bridge
+                      {t('Weight Bridge')}
                     </button>
                   </div>
                 </div>
@@ -1148,7 +1173,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 {(formData as any).use_avg_weight ? (
                   <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                     <label className="block text-sm font-bold text-purple-900 mb-2">
-                      Avg Weight (tons)
+                      {t('Avg Weight (tons)')}
                     </label>
                     <input
                       type="number"
@@ -1161,17 +1186,17 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                       placeholder="0.00"
                     />
                     <p className="text-[10px] text-purple-600 font-medium mt-1 uppercase tracking-wider">
-                      * Quantity will be automatically calculated: Avg WT × Trips
+                      {t('* Quantity will be automatically calculated: Avg WT × Trips')}
                     </p>
                   </div>
                 ) : (
                   <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-4">
                     <p className="text-[10px] text-purple-600 font-black uppercase tracking-widest border-b border-purple-100 pb-2">
-                      Weight Bridge Mode (Enter individual trip weights)
+                      {t('Weight Bridge Mode (Enter individual trip weights)')}
                     </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Load WT</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{t('Load WT')}</label>
                         <input
                           type="number"
                           step="0.01"
@@ -1182,7 +1207,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Empty WT</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{t('Empty WT')}</label>
                         <input
                           type="number"
                           step="0.01"
@@ -1194,7 +1219,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                       </div>
                     </div>
                     <p className="text-[10px] text-slate-400 font-medium">
-                      * Quantity: (Load - Empty) × Trips
+                      {t('* Quantity: (Load - Empty) × Trips')}
                     </p>
                   </div>
                 )}
@@ -1206,7 +1231,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         {!['Weather Rocks', 'Soil', "Aggregate's Rehandling"].includes(formData.material_transported) && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Quantity (tons) {formData.material_transported === 'Good Boulders' && '(Computed)'}
+              {t('Quantity (tons) ')}{formData.material_transported === 'Good Boulders' && t('(Computed)')}
             </label>
             <input
               type="number"
@@ -1225,14 +1250,14 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Notes
+            {t('Notes')}
           </label>
           <textarea
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             rows={3}
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            placeholder="Trip details, route conditions, etc..."
+            placeholder={t('Trip details, route conditions, etc...')}
           />
         </div>
       </div>
@@ -1243,7 +1268,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
-          {loading ? 'Saving...' : 'Save Record'}
+          {loading ? t('Saving...') : t('Save Record')}
         </button>
       </form>
 
@@ -1254,8 +1279,8 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 22h18M4 9h1m5 0h1m5 0h1M4 5h16a1 1 0 0 1 1 1v3H3V6a1 1 0 0 1 1-1ZM9 22V9m6 13V9"/><path d="m14 6-2-3-2 3"/></svg>
           </div>
           <div>
-            <h3 className="text-base font-semibold text-slate-900">Diesel Record</h3>
-            <p className="text-xs text-slate-500">Log diesel filled per vehicle trip</p>
+            <h3 className="text-base font-semibold text-slate-900">{t('Diesel Record')}</h3>
+            <p className="text-xs text-slate-500">{t('Log diesel filled per vehicle trip')}</p>
           </div>
         </div>
 
@@ -1263,7 +1288,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
           <form onSubmit={handleSaveDiesel} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
             {/* Date */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Date</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('Date')}</label>
               <input
                 type="date"
                 value={dieselForm.date}
@@ -1276,7 +1301,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
 
             {/* Vehicle No */}
             <div className="relative">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Vehicle No</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('Vehicle No')}</label>
               <div className="relative">
                 <input
                   type="text"
@@ -1285,7 +1310,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                   onFocus={() => setShowDieselSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowDieselSuggestions(false), 200)}
                   required
-                  placeholder="TN00AB0000"
+                  placeholder={t('TN00AB0000')}
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-bold uppercase"
                 />
                 {showDieselSuggestions && recentVehicles.length > 0 && (
@@ -1303,7 +1328,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                           }}
                         >
                           <span className="font-bold text-slate-900">{v.number}</span>
-                          <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase">{v.type}</span>
+                          <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase">{t(v.type)}</span>
                         </button>
                       ))}
                   </div>
@@ -1332,10 +1357,10 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             {/* Diesel */}
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
-                <span>Diesel (L)</span>
+                <span>{t('Diesel (L)')}</span>
                 {dieselStock !== null && (
                   <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${dieselStock <= 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                    Avail: {dieselStock.toFixed(1)} L
+                    {t('Avail: ')}{dieselStock.toFixed(1)} L
                   </span>
                 )}
               </label>
@@ -1364,7 +1389,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 font-bold text-sm shadow-sm shadow-red-200"
               >
                 <Save className="w-4 h-4" />
-                {dieselLoading ? 'Saving...' : 'Save Diesel'}
+                {dieselLoading ? t('Saving...') : t('Save Diesel')}
               </button>
             </div>
           </form>
@@ -1376,19 +1401,19 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 <div className="px-4 py-3 bg-slate-100/50 border-b border-slate-200 flex items-center justify-between">
                   <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    Last 10 Usage Logs
+                    {t('Last 10 Usage Logs')}
                   </h4>
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 capitalize">Quarry Store Balance:</span>
+                    <span className="text-[10px] font-bold text-slate-400 capitalize">{t('Quarry Store Balance:')}</span>
                     <span className={`text-[11px] font-black px-2 py-0.5 rounded ${dieselStock !== null && dieselStock < 100 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
                       {dieselStock !== null ? dieselStock.toFixed(1) : '---'} L
                     </span>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 bg-slate-50/80 px-4 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                  <span>Date</span>
-                  <span>Vehicle No</span>
-                  <span className="text-right">Quantity</span>
+                  <span>{t('Date')}</span>
+                  <span>{t('Vehicle No')}</span>
+                  <span className="text-right">{t('Quantity')}</span>
                 </div>
                 <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
                   {recentDieselRecords.map((rec, i) => (
@@ -1410,7 +1435,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             
             {recentDieselRecords.length === 0 && (
               <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No diesel logs found for your account</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t('No diesel logs found for your account')}</p>
               </div>
             )}
           </div>
@@ -1422,7 +1447,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-slate-500" />
-            <h3 className="text-base font-semibold text-slate-900">Monthly Transport Report</h3>
+            <h3 className="text-base font-semibold text-slate-900">{t('Monthly Transport Report')}</h3>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
@@ -1431,7 +1456,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 onChange={e => setSummaryMonth(Number(e.target.value))}
                 className="appearance-none pl-4 pr-10 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
               >
-                {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                {MONTHS.map((m, i) => <option key={m} value={i}>{t(m)}</option>)}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
@@ -1451,34 +1476,34 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
         {summaryLoading ? (
           <div className="py-12 text-center text-slate-500">
             <Truck className="w-8 h-8 mx-auto mb-2 text-slate-300 animate-pulse" />
-            <p>Loading summary…</p>
+            <p>{t('Loading summary…')}</p>
           </div>
         ) : summaryRows.length === 0 ? (
           <div className="py-12 text-center text-slate-500">
             <Truck className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-            <p className="font-medium">No records found for this month</p>
+            <p className="font-medium">{t('No records found for this month')}</p>
           </div>
         ) : (
           <div className="space-y-12">
             {/* 1. Daily Trip Summary (Restored Aggregated View) */}
             <div className="overflow-x-auto">
               <div className="px-3 py-2 bg-slate-50 border-y border-slate-200">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">1. Daily Trip Summary (Aggregated)</h4>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('1. Daily Trip Summary (Aggregated)')}</h4>
               </div>
               <table className="min-w-full">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-3 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                    <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">Q➔C</th>
-                    <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">Q➔S</th>
-                    <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">S➔C</th>
-                    <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider border-l border-slate-200">Soil</th>
-                    <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">W.Rock</th>
-                    <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">Agg.Reh</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">QC Qty</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-600 uppercase tracking-wider">QS Qty</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Qty (T)</th>
-                    <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Diesel</th>
+                    <th className="px-3 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('Date')}</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">{t('Q➔C')}</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">{t('Q➔S')}</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-purple-600 uppercase tracking-wider">{t('S➔C')}</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider border-l border-slate-200">{t('Soil')}</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">{t('W.Rock')}</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider">{t('Agg.Reh')}</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">{t('QC Qty')}</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-600 uppercase tracking-wider">{t('QS Qty')}</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">{t('Qty (T)')}</th>
+                    <th className="px-3 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">{t('Diesel')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1502,7 +1527,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 </tbody>
                 <tfoot>
                   <tr className="bg-purple-50 border-t-2 border-purple-200">
-                    <td className="px-3 py-3 text-[10px] font-black text-purple-900 uppercase">TOTALS</td>
+                    <td className="px-3 py-3 text-[10px] font-black text-purple-900 uppercase">{t('TOTALS')}</td>
                     <td className="px-2 py-3 text-center text-xs font-bold text-purple-900 border-l border-purple-100">{summaryTotals.qc}</td>
                     <td className="px-2 py-3 text-center text-xs font-bold text-purple-900">{summaryTotals.qs}</td>
                     <td className="px-2 py-3 text-center text-xs font-bold text-purple-900">{summaryTotals.sc}</td>
@@ -1521,19 +1546,19 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
             {/* 2. Detailed Transport Ledger (Granular Weights) */}
             <div className="overflow-x-auto">
               <div className="px-3 py-2 bg-slate-50 border-y border-slate-200">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">2. Detailed Transport Ledger (Record Level)</h4>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('2. Detailed Transport Ledger (Record Level)')}</h4>
               </div>
               <table className="min-w-full">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-3 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gross Date</th>
-                    <th className="px-2 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Ref No.</th>
-                    <th className="px-2 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Excel S.No</th>
-                    <th className="px-2 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Vehicle No</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Load WT</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">Empty WT</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-bold text-amber-600 uppercase tracking-wider border-l border-slate-200">Avg WT</th>
-                    <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">Net WT</th>
+                    <th className="px-3 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('Gross Date')}</th>
+                    <th className="px-2 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">{t('Ref No.')}</th>
+                    <th className="px-2 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('Excel S.No')}</th>
+                    <th className="px-2 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">{t('Vehicle No')}</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">{t('Load WT')}</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200">{t('Empty WT')}</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-amber-600 uppercase tracking-wider border-l border-slate-200">{t('Avg WT')}</th>
+                    <th className="px-2 py-3 text-right text-[10px] font-bold text-purple-600 uppercase tracking-wider border-l border-slate-200">{t('Net WT')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1555,7 +1580,7 @@ export function TransportForm({ onSuccess }: { onSuccess?: () => void }) {
                 <tfoot>
                   <tr className="bg-purple-50 border-t-2 border-purple-200">
                     <td colSpan={3} className="px-3 py-4 text-xs font-black text-purple-900 uppercase">
-                      Monthly Weight Totals
+                      {t('Monthly Weight Totals')}
                     </td>
                     <td className="border-l border-purple-100"></td>
                     <td className="px-2 py-4 text-right text-xs font-bold text-slate-700 border-l border-purple-100">{summaryTotals.gross.toFixed(2)}</td>
