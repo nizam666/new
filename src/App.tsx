@@ -22,6 +22,7 @@ import { SalesModule } from './components/Sales/SalesModule';
 import { ApprovalsModule } from './components/Manager/ApprovalsModule';
 import { PermitForm } from './components/Permit/PermitForm';
 import { PermitReport } from './components/Permit/PermitReport';
+import { SecurityPapersForm } from './components/Permit/SecurityPapersForm';
 import { AccountsModule } from './components/Accounts/AccountsModule';
 import { GstSalesModule } from './components/Sales/GstSalesModule';
 import { DispatchForm } from './components/Resources/DispatchForm';
@@ -61,6 +62,7 @@ import { BalanceSheetReport } from './components/Reports/BalanceSheetReport';
 import { GstrSalesReport } from './components/Reports/GstrSalesReport';
 import { ProfitAndLossReport } from './components/Reports/ProfitAndLossReport';
 import { StaffSalesSummaryReport } from './components/Reports/StaffSalesSummaryReport';
+import { DmsDashboard } from './components/DMS/DmsDashboard';
 
 const t = (text: string): string => text;
 
@@ -104,6 +106,9 @@ function AppContent() {
     console.log('Rendering content for hash:', hash);
 
     switch (hash) {
+      case 'dms-dashboard':
+        return <DmsDashboard />;
+
       case 'selfie':
         return <SelfServiceAttendance />;
 
@@ -523,6 +528,9 @@ function AppContent() {
             <PermitForm onSuccess={() => window.location.reload()} />
           </div>
         );
+
+      case 'security-papers':
+        return <SecurityPapersForm />;
 
       case 'permit-report':
         return (
