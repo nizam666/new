@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "jetro": {
+      "command": "/Users/nizamuddeenmohammed/.jetro/runtime/node-darwin-arm64",
+      "args": [
+        "/Users/nizamuddeenmohammed/.jetro/mcp-server/index.js"
+      ],
+      "env": {
+        "JET_WORKSPACE": "/Users/nizamuddeenmohammed/Downloads/project",
+        "JET_API_URL": "https://api.jetro.ai",
+        "JET_JWT": "eyJhbGciOiJSUzI1NiIsImtpZCI6Ijc5OTRiNGYzMTU2MzJiMjk3NzAwNmQ5M2U5NGIyYWNiZTMwNWZlNDYiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vamV0cm8tY2RhZWYiLCJhdWQiOiJqZXRyby1jZGFlZiIsImF1dGhfdGltZSI6MTc4MTM1MTc0OSwidXNlcl9pZCI6Im1xaVhYOVhQTlJmZ0J0MjZ0NHNSa01XdXkxcTIiLCJzdWIiOiJtcWlYWDlYUE5SZmdCdDI2dDRzUmtNV3V5MXEyIiwiaWF0IjoxNzgxMzUxNzQ5LCJleHAiOjE3ODEzNTUzNDksImVtYWlsIjoibml6YW11ZGRlZW43QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7ImVtYWlsIjpbIm5pemFtdWRkZWVuN0BnbWFpbC5jb20iXX0sInNpZ25faW5fcHJvdmlkZXIiOiJwYXNzd29yZCJ9fQ.XoV83ef1YFACoWum42A8h5A6P4R0yTi15AuAgWTK3O6eSLV5AdHu6zAjhgQUzeW_eqdoAP1sDY6n-88OD8vQ4xuFw6GRP4IZ7DHC8irgqCBmRZcexxebmSkuSuliaHwi5pHB201HoLoj4y5rGL0oSk5SJEdwoclIaLvtnEpSoXhFc3JE0xtY9MCM2RwApQcKQFcN5gqCYWNLjajqCHgvpIn5HeBd7zpuh0tIurA5ww4oFBe6-Oqmkxs8OAAbPNEaIMk4oV0NSIdalyqBtrSG7rCB2j8xCAtjP-yjikuFxNoCB1e7s1xH7qftxjc6ozu-b2n_VGa2K3hF2iGapzxvqw",
+        "PATH": "/Users/nizamuddeenmohammed/.jetro/runtime:/Users/nizamuddeenmohammed/.local/bin:/Users/nizamuddeenmohammed/.antigravity-ide/antigravity-ide/bin:/Users/nizamuddeenmohammed/.local/bin:/Library/Frameworks/Python.framework/Versions/3.9/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/opt/homebrew/bin:/Applications/nmap.app/Contents/Resources/bin:/Applications/ncat.app/Contents/Resources/bin:/Applications/nping.app/Contents/Resources/bin:/Applications/zenmap.app/Contents/Resources/bin:/Users/nizamuddeenmohammed/.lmstudio/bin"
+      }
+    }
+  }
+}
