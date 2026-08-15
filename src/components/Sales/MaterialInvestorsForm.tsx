@@ -16,8 +16,7 @@ const PRODUCT_TYPES = [
   'All mix',
   'Wet mix',
   'Q-Boulders',
-  'S-boulders',
-  'Rough Stones/Boulders-400mm'
+  'S-boulders'
 ];
 
 const GST_OPTIONS = [

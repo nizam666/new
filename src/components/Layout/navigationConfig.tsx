@@ -22,7 +22,6 @@ import {
     Database,
     RotateCcw,
     Scale,
-    Map,
     LucideIcon
 } from 'lucide-react';
 
@@ -98,15 +97,7 @@ export const DIRECTOR_NAV: MenuItem[] = [
         ]
     },
     { name: 'GST- Sale', icon: FileText, href: '#gst-sales' },
-    {
-        name: 'Permits',
-        icon: FileText,
-        children: [
-            { name: 'New Permit', icon: FileText, href: '#new-permit' },
-            { name: 'Security Papers', icon: Shield, href: '#security-papers' },
-        ]
-    },
-    { name: 'Distribution Management', icon: Map, href: '#dms-dashboard' },
+    { name: 'Permits', icon: FileText, href: '#new-permit' },
     { name: 'Accounts', icon: Wallet, href: '#accounts' },
 
     { name: 'User Management', icon: Users, href: '#user-management' },
@@ -161,7 +152,6 @@ export const MANAGER_NAV: MenuItem[] = [
     { name: 'Sales', icon: ShoppingCart, href: '#sales', roles: ['sales', 'manager'] },
     { name: 'GST- Sale', icon: FileText, href: '#gst-sales', roles: ['sales', 'manager'] },
     { name: 'Customers', icon: Users, href: '#customers', roles: ['sales', 'manager'] },
-    { name: 'Distribution Management', icon: Map, href: '#dms-dashboard', roles: ['manager', 'sales', 'contractor'] },
     { name: 'Approvals', icon: ClipboardCheck, href: '#approvals', roles: ['manager'] },
     {
         name: 'Reports',

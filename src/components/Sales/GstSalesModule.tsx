@@ -1399,34 +1399,6 @@ function GstInvoiceCreator({
       const { error } = await query;
       if (error) throw error;
 
-      // ── Auto-register vehicle in customer_vehicles table ──────────────────
-      if (vehicleNo && vehicleNo.trim()) {
-        const normalizedVehicle = vehicleNo.trim().toUpperCase();
-        try {
-          // Check if this vehicle already exists
-          const { data: existingVehicle } = await supabase
-            .from('customer_vehicles')
-            .select('id')
-            .eq('vehicle_number', normalizedVehicle)
-            .maybeSingle();
-
-          if (!existingVehicle) {
-            // Insert as a new vehicle linked to the customer
-            await supabase
-              .from('customer_vehicles')
-              .insert([{
-                vehicle_number: normalizedVehicle,
-                owner_name: customerName || 'Unknown',
-                vehicle_type: '10 wheeler tipper',
-                updated_at: new Date().toISOString(),
-              }]);
-          }
-        } catch (vehicleErr) {
-          // Non-blocking: don't fail the invoice save if vehicle registration fails
-          console.warn('Auto-register vehicle warning:', vehicleErr);
-        }
-      }
-
       toast.success(`GST Invoice ${invoiceNumber} ${initialData ? 'updated' : 'saved'} successfully!`);
 
       if (shouldPrint) {
@@ -1500,21 +1472,16 @@ function GstInvoiceCreator({
               {t('Invoice Number')}
             </label>
             <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 ${
-              generatingNumber ? 'border-slate-100 bg-slate-50' : 'border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10'
-            } transition-all`}>
+              generatingNumber ? 'border-slate-100 bg-slate-50' : 'border-slate-200 bg-slate-50'
+            }`}>
               {generatingNumber ? (
                 <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin shrink-0" />
               ) : (
                 <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
               )}
-              <input
-                type="text"
-                value={generatingNumber ? 'Generating...' : invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-                disabled={generatingNumber}
-                className="flex-1 font-black text-slate-700 text-sm tracking-wide bg-transparent outline-none disabled:text-slate-400"
-                placeholder="Invoice Number"
-              />
+              <span className="font-black text-slate-700 text-sm tracking-wide">
+                {generatingNumber ? t('Generating...') : invoiceNumber}
+              </span>
             </div>
           </div>
           <div>
@@ -1526,6 +1493,7 @@ function GstInvoiceCreator({
               <input
                 type="date"
                 value={invoiceDate}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setInvoiceDate(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border-2 border-slate-200 rounded-xl font-semibold text-sm text-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
               />
